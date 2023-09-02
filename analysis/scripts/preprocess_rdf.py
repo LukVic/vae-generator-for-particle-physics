@@ -4,8 +4,7 @@ import os
 import csv
 import numpy as np
 import pandas as pd
-import uproot
-import awkward as ak
+# import uproot
 
 def find_directories_with_file(start_path, file_name):
     result = []
@@ -30,17 +29,20 @@ def define_variables(df, cols, passing):
     """
     Define the variables which shall be used for training
     """
-    data = pd.read_csv('new_vars.csv')
+    data = pd.read_csv('vars_final.csv')
     array_data = list(data.values.squeeze())
-    
-    print(array_data)
-    
-    df = rdf.AsNumpy(columns = array_data)
-    
-    return df
+    print(len(array_data))
+    array_data = array_data + ['row_number']
+    numpy_data = rdf.AsNumpy(columns = array_data)
+    return pd.DataFrame(numpy_data)
+
 
 if __name__ == "__main__":
     
+    PREPROCESS = 0
+
+    classes = ['tth','ttw','ttz','tt','vv','other']
+
     tth = ['346343.root', '346344.root', '346345.root']
     ttw = ['700168.root', '700205.root']
     ttz = ['700309.root']
@@ -51,60 +53,50 @@ if __name__ == "__main__":
 '364246.root', '364247.root', '364248.root', '410080.root', '410081.root', '410397.root', '410398.root',
 '410399.root', '410408.root', '410560.root']
     
+    bad_features = ['dilep_type', 'lep_isolationLoose_VarRad_0', 'lep_isolationLoose_VarRad_1', 'taus_JetRNNSigTight_0', 'taus_fromPV_0', 'taus_numTrack_0', 'total_charge']
+
     passing_events = 0
     
-    data = pd.read_csv('new_vars.csv')
+    data = pd.read_csv('vars_final.csv')
     array_data = list(data.values.squeeze())
     
-    rdf_combined = pd.DataFrame(columns=array_data)
-#     df = pd.DataFrame(columns=columns)
-#     print("here")
+    df_combined = pd.DataFrame(columns=array_data)
+
     
     for year in ['mc16a', 'mc16d', 'mc16e']:
         cls = tt
         PATH = '/eos/atlas/atlascerngroupdisk/phys-higgs/HSG8/multilepton_ttWttH/v08/v0801_2l1tau/2l1au/nominal/' + year
-        
-        
+        PATH_DATA = 'data/'
         for ntuple in cls: 
             directories = find_directories_with_file(PATH, ntuple)
             for directory in directories:
-                print(directory +"/"+ ntuple)
-        
                 filepath = directory  + '/' + ntuple
-
+                
                 myFile = TFile(filepath)
-                print(myFile)
-                exit()
                 tree = myFile.Get("nominal")
                 branch_list = tree.GetListOfBranches()
                 rdf = ROOT.RDataFrame("nominal", filepath)
                 
+                rdf = rdf.Define("row_number", "rdfentry_")
+
                 # filtering events and printing the info
-                rdf = filter_events(rdf, year, ntuple)
+                if PREPROCESS == 1:
+                    rdf = filter_events(rdf, year, ntuple)
                 passing_events += rdf.Count().GetValue()
                 report = rdf.Report()        
                 report.Print()
                 
                 column_names = rdf.GetColumnNames()
-                #print(column_names)
-
-                #rdf.Show()
 
                 col_exclude = []
                 for name in column_names:
                     column_type = rdf.GetColumnType(name)
-                    if column_type == 'ROOT::VecOps::RVec<float>' or column_type == 'ROOT::VecOps::RVec<char>':
-                        print(name)
-
-
                 df_cut = define_variables(rdf, col_exclude, passing_events)
-                
-                if rdf_combined is None:
-                    rdf_combined = rdf
+                if df_combined is None:
+                    df_combined = df_cut
                 else:
-                    rdf_combined = pd.concat([rdf_combined, rdf])
-                #convert to pandas DataFrame
-                #nldf = rdf.AsNumpy()
-    #print(rdf_combined['jets_eta'].head())
-    #rdf_combined.to_csv('tt.json', index=False)      
+                    df_combined = pd.concat([df_combined, df_cut])
+
+        
     print("SUM OF THE EVENTS: {0}".format(passing_events))
+    df_combined.to_csv(PATH_DATA + 'df_'+classes[3]+'_no_vec_features.csv', index=False)
