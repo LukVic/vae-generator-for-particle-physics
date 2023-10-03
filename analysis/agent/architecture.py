@@ -4,27 +4,45 @@ from torch.distributions.normal import Normal
 import optuna
 
 class Encoder(nn.Module):
-    def __init__(self, zdim, input_size):
+    def __init__(self, zdim, input_size, config:dict):
         super(Encoder, self).__init__()
         self.zdim = zdim
-        drop_val = 0.1
+        self.input_size = input_size
+        self.config = config
         
-        self.body = nn.Sequential(
-            nn.Linear(input_size, 128),
-            nn.BatchNorm1d(num_features=128),
-            nn.ReLU(),
-            nn.Dropout(drop_val),
-            nn.Linear(128, 1024),
-            nn.BatchNorm1d(num_features=1024),
-            nn.ReLU(),
-            nn.Dropout(drop_val),
-            nn.Linear(1024, 1024),
-            nn.BatchNorm1d(num_features=1024),
-            nn.ReLU(),
-            nn.Linear(1024, self.zdim * 2)
-
-            # nn.Linear(56, self.zdim*2)
-        )
+        layer_num = config["encoder"]["layer_num"]
+        arch = config["encoder"]["architecture"]
+        bNorm = config["encoder"]["batchNorm"]
+        relu = config["encoder"]["relu"]
+        drop = config["encoder"]["dropout"]
+        
+        layers = []
+        for idx in range(layer_num):
+            if idx == 0: layers.append(nn.Linear(self.input_size, arch[idx][0]))
+            elif idx == layer_num - 1: layers.append(nn.Linear(arch[idx][0], self.zdim*2))
+            else: layers.append(nn.Linear(arch[idx][0],arch[idx][1]))
+            
+            if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            if relu[idx] != 0: layers.append(nn.ReLU())
+            if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
+        
+        self.body = nn.Sequential(*layers)
+        
+        # self.body = nn.Sequential(
+        #     nn.Linear(input_size, 128),
+        #     nn.BatchNorm1d(num_features=128),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.1),
+        #     nn.Linear(128, 1024),
+        #     nn.BatchNorm1d(num_features=1024),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.1),
+        #     nn.Linear(1024, 1024),
+        #     nn.BatchNorm1d(num_features=1024),
+        #     nn.ReLU(),
+        #     nn.Linear(1024, self.zdim * 2)
+        #     #nn.Linear(56, self.zdim*2)
+        #)
 
     def forward(self, x):
         scores = self.body(x)
@@ -34,39 +52,63 @@ class Encoder(nn.Module):
         return mu, sigma
 
 class Decoder(nn.Module):
-    def __init__(self, zdim, input_size):
+    def __init__(self, zdim, input_size, config:dict):
         super(Decoder, self).__init__()
         self.zdim = zdim
-
-        self.body = nn.Sequential(
-            nn.Linear(self.zdim, 128),
-            nn.ReLU(),
-            nn.Linear(128, 1024),
-            nn.BatchNorm1d(num_features=1024),
-            nn.ReLU(),
-            nn.Linear(1024, 128),
-            nn.BatchNorm1d(num_features=128),
-            nn.ReLU(),
-            nn.Linear(128,input_size),
-            nn.BatchNorm1d(num_features=input_size),
+        self.input_size = input_size
+        self.config = config
+        
+        layer_num = config["decoder"]["layer_num"]
+        arch = config["decoder"]["architecture"]
+        bNorm = config["decoder"]["batchNorm"]
+        relu = config["decoder"]["relu"]
+        drop = config["decoder"]["dropout"]
+        
+        layers = []
+        for idx in range(layer_num):
+            if idx == 0: layers.append(nn.Linear(self.zdim, arch[idx][0]))
+            elif idx == layer_num - 1: layers.append(nn.Linear(arch[idx][0], self.input_size))
+            else: layers.append(nn.Linear(arch[idx][0],arch[idx][1]))
+            
+            if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            if relu[idx] != 0: layers.append(nn.ReLU())
+            if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
+        
+        self.body = nn.Sequential(*layers)
+        
+        
+        
+        # self.body = nn.Sequential(
+        #     nn.Linear(self.zdim, 128),
+        #     nn.ReLU(),
+        #     nn.Linear(128, 1024),
+        #     nn.BatchNorm1d(num_features=1024),
+        #     nn.ReLU(),
+        #     nn.Linear(1024, 128),
+        #     nn.BatchNorm1d(num_features=128),
+        #     nn.ReLU(),
+        #     nn.Linear(128,input_size),
+        #     nn.BatchNorm1d(num_features=input_size),
             #nn.Sigmoid()
 
             # nn.Linear(self.zdim,56),
             # nn.Sigmoid()
-        )
+        # )
 
     def forward(self, z):
         xhat = self.body(z)
         return xhat
 
 class VAE(nn.Module):
-    def __init__(self, zdim, device, input_size):
+    def __init__(self, zdim, device, input_size, config:dict):
         super(VAE, self).__init__()
         self.device = device
         self.zdim = zdim
         self.input_size = input_size
-        self.encoder = Encoder(zdim, self.input_size).to(self.device)
-        self.decoder = Decoder(zdim, self.input_size).to(self.device)
+        self.config = config
+        
+        self.encoder = Encoder(self.zdim, self.input_size, self.config).to(self.device)
+        self.decoder = Decoder(self.zdim, self.input_size, self.config).to(self.device)
 
     def forward(self, x):
         x = x.to(self.device)
@@ -100,7 +142,6 @@ class VAE(nn.Module):
         #BCE = nn.functional.binary_cross_entropy(x_hat, x.view(-1,56), reduction='sum')
         #BCE = -torch.sum(x * torch.log(x_hat + eps) + (1 - x) * torch.log(1 - x_hat + eps))
         
-        ELBO = REC
         #KLD = torch.distributions.kl_divergence(qz, pz).sum()
         KLD = torch.distributions.kl_divergence(qz, pz).sum(dim=1)
         
@@ -114,5 +155,5 @@ class VAE(nn.Module):
 
         beta = 0.1
 
-        return torch.mean(ELBO + beta*KLD)
+        return torch.mean(REC + beta*KLD)
     

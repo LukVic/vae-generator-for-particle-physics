@@ -1,0 +1,22 @@
+{
+    "general" :{
+        "batch_size": 8196,
+        "latent_size": 50,
+        "lr": 0.0003,
+        "num_epochs": 50
+    },
+    "encoder":{
+        "layer_num": 4,
+        "architecture": [[128], [128, 1024], [1024, 1024], [1024]],
+        "batchNorm": [128, 1024, 1024, 0],
+        "relu":[1, 1, 1, 0],
+        "dropout": [0.1, 0.1, 0, 0]
+    },
+    "decoder":{
+        "layer_num": 4,
+        "architecture": [[128], [128, 1024], [1024, 128], [128]],
+        "batchNorm": [128, 1024, 128, 0],
+        "relu":[1, 1, 1, 0],
+        "dropout": [0, 0, 0, 0]
+    }
+}

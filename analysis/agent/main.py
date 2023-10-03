@@ -5,11 +5,14 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from tqdm.auto import tqdm
+import json
 
 from architecture import VAE
 
 
 def main():
+    OPTIMIZE = False
+    PATH_JSON = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/config/'
     PATH_RESULTS = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/'
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/'
     
@@ -18,15 +21,6 @@ def main():
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}')
     train_dataset = torch.tensor(df.values, dtype=torch.float32)
     
-    # Define hyperparameters
-    batch_size = 8196
-    latent_size = 50
-    lr = 0.0003
-    num_epochs = 50
-    
-    input_size = train_dataset.shape[1]
-    elbo_history = []
-    
     if torch.cuda.is_available():
         print("CUDA (GPU) is available.")
         device = 'cuda'
@@ -34,13 +28,30 @@ def main():
         print("CUDA (GPU) is not available.")
         device = 'cpu'
     
+    with open(f"{PATH_JSON}hyperparams.json", 'r') as json_file:
+        conf_dict = json.load(json_file)
+    
+    print(conf_dict)
+    # Define hyperparameters
+    batch_size = 8196
+    latent_size = 50
+    lr = 0.0003
+    num_epochs = 50
+    
+    if OPTIMIZE:
+        #! HERE IS PERFORMED THE OPTIMIZATION
+        pass
+    
+    input_size = train_dataset.shape[1]
+    elbo_history = []
+        
     scaler = StandardScaler()
     train_dataset_norm = scaler.fit_transform(train_dataset)
     train_dataloader = DataLoader(train_dataset_norm, batch_size=batch_size, shuffle=True)
     
 
     # Create model and optimizer
-    model = VAE(latent_size, device, input_size)
+    model = VAE(latent_size, device, input_size, conf_dict)
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     # Train the model
@@ -59,6 +70,7 @@ def main():
             progress_bar.update(1)
         progress_bar.close()     
 
+    
     # Generate some samples and their reconstructions
     model.eval()
     with torch.no_grad():
