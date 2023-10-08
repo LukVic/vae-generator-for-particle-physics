@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.distributions.normal import Normal
+import torch.nn.init as init
 import optuna
 
 class Encoder(nn.Module):
@@ -18,9 +19,15 @@ class Encoder(nn.Module):
         
         layers = []
         for idx in range(layer_num):
-            if idx == 0: layers.append(nn.Linear(self.input_size, arch[idx][0]))
-            elif idx == layer_num - 1: layers.append(nn.Linear(arch[idx][0], self.zdim*2))
-            else: layers.append(nn.Linear(arch[idx][0],arch[idx][1]))
+            if idx == 0: 
+                layers.append(nn.Linear(self.input_size, arch[idx][0]))
+                #init.xavier_uniform_(layers[-1].weight)
+            elif idx == layer_num - 1: 
+                layers.append(nn.Linear(arch[idx][0], self.zdim*2))
+                #init.xavier_uniform_(layers[-1].weight)
+            else: 
+                layers.append(nn.Linear(arch[idx][0],arch[idx][1]))
+                #init.xavier_uniform_(layers[-1].weight)
             
             if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
@@ -66,9 +73,15 @@ class Decoder(nn.Module):
         
         layers = []
         for idx in range(layer_num):
-            if idx == 0: layers.append(nn.Linear(self.zdim, arch[idx][0]))
-            elif idx == layer_num - 1: layers.append(nn.Linear(arch[idx][0], self.input_size))
-            else: layers.append(nn.Linear(arch[idx][0],arch[idx][1]))
+            if idx == 0: 
+                layers.append(nn.Linear(self.zdim, arch[idx][0]))
+                #init.xavier_uniform_(layers[-1].weight)
+            elif idx == layer_num - 1: 
+                layers.append(nn.Linear(arch[idx][0], self.input_size))
+                #init.xavier_uniform_(layers[-1].weight)
+            else: 
+                layers.append(nn.Linear(arch[idx][0],arch[idx][1]))
+                #init.xavier_uniform_(layers[-1].weight)
             
             if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
