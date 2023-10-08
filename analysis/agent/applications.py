@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import torch
-from sklearn.preprocessing import StandardScaler
 import json
 
 PATH_RESULTS = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/'
@@ -11,6 +10,7 @@ def event_regen(input_size, scaler, train_dataloader, PATH_MODEL):
     model.eval()
     with torch.no_grad():
         x_sample = next(iter(train_dataloader))
+        
         x_sample = x_sample.view(-1, input_size)
         x_hat, _, _ = model(x_sample.float())
     

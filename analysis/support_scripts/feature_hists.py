@@ -4,7 +4,7 @@ import pandas as pd
 def main():
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/'
     PATH_OUT = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/hists/'
-    DATA_FILE = 'df_low'
+    DATA_FILE = 'df_low_regen'
     
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
     for column_name in df.columns:
@@ -28,7 +28,7 @@ def main():
         canvas = ROOT.TCanvas("canvas", "Histogram Canvas", 800, 600)
         histogram.Draw()
         
-        output_file = ROOT.TFile(f"{PATH_OUT}{DATA_FILE}/{column_name}.root", "RECREATE")
+        output_file = ROOT.TFile(f"{PATH_OUT}{DATA_FILE}/{column_name}_regen.root", "RECREATE")
         histogram.Write()
         output_file.Close()
         

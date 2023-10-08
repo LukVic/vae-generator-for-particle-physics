@@ -1,22 +1,22 @@
 {
     "general" :{
-        "batch_size": 8196,
-        "latent_size": 50,
-        "lr": 0.0003,
-        "num_epochs": 50
+        "batch_size": 2048,
+        "latent_size": 20,
+        "lr": 0.00005,
+        "num_epochs": 20
     },
     "encoder":{
-        "layer_num": 4,
-        "architecture": [[128], [128, 1024], [1024, 1024], [1024]],
-        "batchNorm": [128, 1024, 1024, 0],
-        "relu":[1, 1, 1, 0],
-        "dropout": [0.1, 0.1, 0, 0]
+        "layer_num": 5,
+        "architecture": [[512], [512, 1024], [1024, 2048], [2048, 2048], [2048]],
+        "batchNorm": [512, 1024, 2048, 2048, 0],
+        "relu":[1, 1, 1, 1, 0],
+        "dropout": [0.0, 0.0, 0.0,0, 0]
     },
     "decoder":{
-        "layer_num": 4,
-        "architecture": [[128], [128, 1024], [1024, 128], [128]],
-        "batchNorm": [128, 1024, 128, 0],
-        "relu":[1, 1, 1, 0],
-        "dropout": [0, 0, 0, 0]
+        "layer_num": 5,
+        "architecture": [[2048], [2048, 2048], [2048, 1024], [1024, 512], [512]],
+        "batchNorm": [2048, 2048, 1024, 512, 0],
+        "relu":[1, 1, 1, 1, 0],
+        "dropout": [0, 0, 0, 0, 0]
     }
 }
