@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -7,6 +8,7 @@ from sklearn.preprocessing import StandardScaler
 from tqdm.auto import tqdm
 import json
 
+#from architecture import VAE
 from architecture import VAE
 from applications import *
 
@@ -43,7 +45,11 @@ def main():
     scaler = StandardScaler()
     train_dataset_norm = scaler.fit_transform(train_dataset)
     train_dataloader = DataLoader(train_dataset_norm, batch_size=gen_params["batch_size"], shuffle=True)
-    
+    train_dataset_norm[:,7] = np.round(train_dataset_norm[:,7]).astype(int)
+    #train_dataset_norm[train_dataset_norm == -1] = 0.1
+    #train_dataset_norm[train_dataset_norm == 1] = 0.9
+    print(train_dataset_norm[train_dataset_norm == 1].shape)
+    #exit()
 
     # Create model and optimizer
     model = VAE(gen_params["latent_size"], device, input_size, conf_dict)
@@ -65,11 +71,11 @@ def main():
             progress_bar.update(1)
         progress_bar.close()     
 
-    torch.save(model, f'{PATH_MODEL}{DATA_FILE}.pth')
+    torch.save(model, f'{PATH_MODEL}{DATA_FILE}_disc_{gen_params["num_epochs"]}.pth')
     
-    event_regen(input_size, scaler, train_dataloader, f'{PATH_MODEL}{DATA_FILE}.pth')
-    pos_collapse(train_dataloader, f'{PATH_MODEL}{DATA_FILE}.pth', f'{PATH_JSON}hyperparams.json')
-    elbo_plot(elbo_history,f'{PATH_MODEL}{DATA_FILE}.pth')
+    #event_regen(input_size, scaler, train_dataloader, f'{PATH_MODEL}{DATA_FILE}_{gen_params["num_epochs"]}.pth')
+    #pos_collapse(train_dataloader, f'{PATH_MODEL}{DATA_FILE}_{gen_params["num_epochs"]}.pth', f'{PATH_JSON}hyperparams.json')
+    #elbo_plot(elbo_history,f'{PATH_MODEL}{DATA_FILE}_{gen_params["num_epochs"]}.pth')
     
 if __name__ == "__main__":
     main()
