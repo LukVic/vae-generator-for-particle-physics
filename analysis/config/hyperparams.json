@@ -2,7 +2,7 @@
     "general" :{
         "batch_size": 2048,
         "latent_size": 20,
-        "lr": 0.00005,
+        "lr": 0.00001,
         "num_epochs": 100
     },
     "encoder":{

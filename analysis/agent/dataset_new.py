@@ -15,18 +15,22 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     train_dataset_norm = scaler.fit_transform(train_dataset)
     
     model.eval()
-    latent_dimension = 21
+    latent_dimension = 20
     
     data_array = np.empty((0, input_size), dtype=np.float32)
 
     with torch.no_grad():
         latent_samples = torch.randn(train_dataset.shape[0], latent_dimension)
-        x_hats = model.decoder(latent_samples.to('cuda'))
-        print(x_hats[:,7])
+        xhats_mu_gauss, xhats_sigma_gauss, xhats_bernoulli = model.decoder(latent_samples.to('cuda'))
+        #print(x_hats[:,7])
         #! MAP [0, 1] -> [-1, 1]
-        thresholded_eighth_column = torch.where(x_hats[:,7] < 0.5, -1, 1)
-        x_hats[:, 7] = thresholded_eighth_column
-        x_hats_denorm = scaler.inverse_transform(x_hats.cpu().numpy())
+        #thresholded_eighth_column = torch.where(x_hats[:,7] < 0.5, -1, 1)
+        #x_hats[:, 7] = thresholded_eighth_column
+        px_gauss = torch.distributions.Normal(xhats_mu_gauss, torch.exp(xhats_sigma_gauss))
+        xhat_gauss = px_gauss.sample()
+        xhat_bernoulli = torch.bernoulli(xhats_bernoulli)
+        xhats = torch.cat((xhat_gauss, xhat_bernoulli.view(-1,1)), dim=1)
+        x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
         data_array = np.vstack((data_array, x_hats_denorm))
 
     # Create a DataFrame from the NumPy array

@@ -112,6 +112,7 @@ def find_overlap(PATH_DATA):
 
         # Calculate the absolute differences between point1 and all points in points_latent
         differences = np.abs(points_latent - point1)
+        #differences = (points_latent - point1)**2
 
         # Calculate the Manhattan distances (sum of absolute differences)
         distances = np.sum(differences, axis=1)
@@ -131,13 +132,10 @@ def find_overlap(PATH_DATA):
         if tuple(point1) in points_data_set:
             points_data_set.remove(tuple(point1))
 
-        # Calculate the absolute differences between point1 and all points in points_latent
         differences = np.abs(points_decoded - point1)
 
-        # Calculate the Manhattan distances (sum of absolute differences)
         distances = np.sum(differences, axis=1)
 
-        # Find the indices of points in points_decoded within the threshold
         overlapping_indices = np.where(distances < TH)[0]
 
         if len(overlapping_indices) > 0:
