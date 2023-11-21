@@ -84,11 +84,6 @@ class Decoder(nn.Module):
         xhat_bernoulli = torch.sigmoid(xhat_bernoulli)
         return xhat_gauss_mu, xhat_gauss_sigma, xhat_bernoulli
         
-        #xhat[:,-1] = torch.bernoulli(torch.sigmoid(xhat[:,-1]))
-        
-        #return xhat
-        # return xhat_gauss, xhat_bernoulli
-
 
 class VAE(nn.Module):
     def __init__(self, zdim, device, input_size, config:dict):
@@ -101,59 +96,73 @@ class VAE(nn.Module):
         self.encoder = Encoder(self.zdim, self.input_size, self.config).to(self.device)
         self.decoder = Decoder(self.zdim, self.input_size, self.config).to(self.device)
 
-    def forward(self, x):
-        #! ENCODER
-        x = x.to(self.device)
-        mu, sigma = self.encoder(x.view(-1, self.input_size))
-        std = torch.exp(sigma)  
-        qz_gauss = torch.distributions.Normal(mu, std)
-        z = qz_gauss.rsample()
-        pz_gauss = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(sigma))
-        #! DECODER
+    def forward(self, sample, step):
+        if step == 1:
+            #! THE FIRST STEP
+            x = sample.to(self.device)
+            mu, sigma = self.encoder(x.view(-1, self.input_size))
+            std = torch.exp(sigma)  
+            qzx_gauss = torch.distributions.Normal(mu, std)
+            z = qzx_gauss.sample()
+            decoder_out = self.decoder(z)
+            return decoder_out
+            
         
-        mu_gauss, sigma_gauss, p_bernoulli = self.decoder(z)
+        elif step == 2:
+            #! THE SECOND STEP
+            z = sample.to(self.device)
+            mu_gauss, sigma_gauss, p_bernoulli = self.decoder(z)
+            std = torch.exp(sigma_gauss)
+            # pxz_gauss = Normal(mu_gauss, torch.ones_like(std))
+            pxz_gauss = Normal(mu_gauss, std)
+            x_gauss = pxz_gauss.sample()
+            x_bernoulli = torch.bernoulli(p_bernoulli)
+            x = torch.cat((x_gauss, x_bernoulli.view(-1,1)), dim=1)
+            encoder_out = self.encoder(x.view(-1, self.input_size))
+            return encoder_out
 
-        xhat_gauss = torch.cat((mu_gauss, sigma_gauss), dim=1)
-        xhat = torch.cat((xhat_gauss, p_bernoulli.view(-1,1)), dim=1)
-        return xhat, pz_gauss, qz_gauss
 
-    def count_params(self):
-        return sum(p.numel() for p in self.encoder.parameters() if p.requires_grad)
-
-
-    # Computes reconstruction loss
-    def recon(self, x_hat, x):
+    def loss_function(self, x, distr_out, step):
+        if step == 1:
+            
+            #! DECODER OUTPUT
+            mu = distr_out[0]
+            sigma = distr_out[1]
+            p = distr_out[2]
+            
+            #! CONTINUOUS AND DISCRETE SEPARATION
+            x_gauss = x[:, :-1]
+            x_bernoulli = x[:, -1].to(torch.float32).to(self.device)
+            
+            #! P(X|Z) CONSTRUCTION
+            std = torch.exp(sigma)
+            #pxz = Normal(mu, torch.ones_like(std))
+            pxz = Normal(mu, std)
+            E_log_pxz = -pxz.log_prob(x_gauss.to(self.device)).sum(dim=1)
+            
+            #! DISCRETE PART
+            x_bernoulli = torch.sigmoid(x_bernoulli)
+            
+            #! COMPUTE THE LOSS
+            LOSS_G = E_log_pxz
+            LOSS_B = F.binary_cross_entropy(x_bernoulli, p, reduction="sum")
+            
+            return torch.mean(LOSS_G + 0.1*LOSS_B) 
         
-        xhat_gauss_mu, xhat_gauss_sigma = torch.split(x_hat, x.shape[1], dim=1) 
-        std = torch.exp(xhat_gauss_sigma)
-        #exit()
-        pxz = Normal(xhat_gauss_mu, torch.ones_like(std))
-        #pxz = Normal(xhat_gauss_mu, std)
-        E_log_pxz = -pxz.log_prob(x.to(self.device)).sum(dim=1)
-
-        return E_log_pxz
-
-    def loss_function(self, x, x_hat, pz, qz):
-        pz_gauss = pz
+        elif step == 2:
+            
+            #! ENCODER OUTPUT
+            mu = distr_out[0]
+            sigma = distr_out[1]
+            
+            #! Q(Z|X) CONSTRUCTION
+            std = torch.exp(sigma)
+            qzx = Normal(mu, std)
+            E_log_qzx = -qzx.log_prob(x.to(self.device)).sum(dim=1)
+            
+            #! COMPUTE THE LOSS
+            LOSS = E_log_qzx
+            
+            return torch.mean(LOSS)
         
-        qz_gauss = qz
         
-        x_gauss = x[:, :-1]
-        x_bernoulli = x[:, -1].to(torch.float32).to(self.device)
-        
-        x_hat_gauss = x_hat[:, :-1]
-        x_hat_bernoulli = x_hat[:, -1].to(torch.float32).to(self.device)
-        
-        x_bernoulli = torch.sigmoid(x_bernoulli)
-        
-        # print(x_hat_gauss.shape)
-        # print(x_gauss.shape)
-        REC_G = self.recon(x_hat_gauss, x_gauss)
-        KLD_G = torch.distributions.kl_divergence(qz_gauss, pz_gauss).sum(dim=1)
-        BCE_B = F.binary_cross_entropy(x_bernoulli, x_hat_bernoulli, reduction='sum')
-        
-        beta = 0.1
-
-        return torch.mean(REC_G + 0.1*BCE_B + beta*KLD_G) 
-        #return torch.mean(REC_G + beta*(BCE_B + KLD_G))
-    

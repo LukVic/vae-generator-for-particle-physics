@@ -19,7 +19,7 @@ import multiprocessing
 def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     
     print(f'{PATH_MODEL}{DATA_FILE}_{EPOCHS}.pth')
-    model = torch.load(f'{PATH_MODEL}{DATA_FILE}_disc_{EPOCHS}.pth')
+    model = torch.load(f'{PATH_MODEL}{DATA_FILE}_disc_{EPOCHS}_sym.pth')
     df_real = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
     
     train_dataset = torch.tensor(df_real.values, dtype=torch.float32)
@@ -27,7 +27,7 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     scaler = StandardScaler()
     train_dataset_norm = scaler.fit_transform(train_dataset)
     model.eval()
-    latent_dimension = 21
+    latent_dimension = 20
 
     data_arr = []
     
@@ -38,14 +38,10 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     for idx, data in enumerate(train_dataset):
         print(f"EVENT NUMBER: {idx}")
         #if idx == 5000: break
-        z_means, z_logvar, p = model.encoder(data.view(-1, 27).to('cuda'))
-        
-        #print(z_means)
-        #print(p)
-        combined_tensor = torch.cat((z_means, p), dim=1)
-        encoded_arr.extend(combined_tensor.detach().cpu())
-        #print(combined_tensor)
-        #exit()
+        z_means, z_sigmas = model.encoder(data.view(-1, 28).to('cuda'))
+
+        encoded_arr.extend(z_means.detach().cpu())
+
         data_arr.append(data)
     print("DATASET LOAD DONE")
     encoded_arr = np.array(encoded_arr)
@@ -54,11 +50,21 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     
     with torch.no_grad():
         latent_samples = torch.randn(train_dataset.shape[0], latent_dimension)
-        x_hats = model.decoder(latent_samples.to('cuda'))
-        x_hats_denorm = scaler.inverse_transform(x_hats.cpu().numpy())
+        image_samples = torch.randn(train_dataset.shape[0], 28)
         
-        decoded_arr.extend(x_hats_denorm.tolist())
-        latent_arr.extend(latent_samples.tolist())
+        encoder_mu, encoder_sigma = model.encoder(image_samples.to('cuda'))
+        qz = torch.distributions.Normal(encoder_mu, torch.exp(encoder_sigma))
+        encoder = qz.sample()
+        decoder_mu_gauss, decoder_sigma_gauss, decoder_bernoulli = model.decoder(latent_samples.to('cuda'))
+        #px_gauss = torch.distributions.Normal(decoder_mu_gauss, torch.ones_like(decoder_sigma_gauss))
+        px_gauss = torch.distributions.Normal(decoder_mu_gauss, torch.exp(decoder_sigma_gauss))
+        decoder_gauss = px_gauss.sample()
+        decoder_bernoulli = torch.bernoulli(decoder_bernoulli)
+        
+        decoder = torch.cat((decoder_gauss, decoder_bernoulli.view(-1,1)), dim=1)
+        decoder_denorm = scaler.inverse_transform(decoder.cpu().numpy())
+        decoded_arr.extend(decoder_denorm.tolist())
+        latent_arr.extend(encoder.tolist())
 
     latent_arr = np.array(latent_arr)[:, :10]
     #print(data_arr)
@@ -75,15 +81,14 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     print(type(trans_encoded))
     print(np.array(trans_encoded.embedding_))
     
-    np.savetxt(f'{PATH_DATA}points_encoded.csv',trans_encoded.embedding_, delimiter=',')
-    np.savetxt(f'{PATH_DATA}points_latent.csv',trans_latent.embedding_, delimiter=',')
-    np.savetxt(f'{PATH_DATA}points_data.csv',trans_data.embedding_, delimiter=',')
-    np.savetxt(f'{PATH_DATA}points_decoded.csv',trans_decoded.embedding_, delimiter=',')
-    exit()
+    np.savetxt(f'{PATH_DATA}points_encoded_sym.csv',trans_encoded.embedding_, delimiter=',')
+    np.savetxt(f'{PATH_DATA}points_latent_sym.csv',trans_latent.embedding_, delimiter=',')
+    np.savetxt(f'{PATH_DATA}points_data_sym.csv',trans_data.embedding_, delimiter=',')
+    np.savetxt(f'{PATH_DATA}points_decoded_sym.csv',trans_decoded.embedding_, delimiter=',')
     
 
 def find_overlap(PATH_DATA):
-    files = ['points_encoded.csv', 'points_latent.csv', 'points_data.csv', 'points_decoded.csv']
+    files = ['points_encoded_sym.csv', 'points_latent_sym.csv', 'points_data_sym.csv', 'points_decoded_sym.csv']
     points_encoded = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
     points_latent = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
     points_data = np.genfromtxt(f'{PATH_DATA}{files[2]}', delimiter=',')
@@ -204,7 +209,7 @@ def main():
     EPOCHS = 100
     
     
-    #dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS)
+    dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS)
     find_overlap(PATH_DATA)
     
 if __name__ == "__main__":

@@ -6,18 +6,21 @@ import numpy as np
 def pt_check(path):
     data_original = np.array([])
     data_ganerated = np.array([])
+    data_ganerated_sym = np.array([])
     etas = []
     
     df_original = pd.read_csv(f'{path}data/pt_sum.csv')
     df_generated = pd.read_csv(f'{path}data/pt_sum_gen.csv')
+    df_generated_sym = pd.read_csv(f'{path}data/pt_sum_gen_sym.csv')
     
     print(df_original.shape)
     print(df_generated.shape)
-    for (index_original, row_original), (index_generated, row_generated) in zip(df_original.iterrows(), df_generated.iterrows()):
+    for (index_original, row_original), (index_generated, row_generated), (index_generated_sym, row_generated_sym) in zip(df_original.iterrows(), df_generated.iterrows(), df_generated_sym.iterrows()):
         #print(f"Row {index_original}: Original = {row_original}, Generated = {row_generated}")
         etas.append([row_original['lep_Eta_0'], row_original['lep_Eta_1']])
         data_original = np.append(data_original, row_original['HT_lep'])
         data_ganerated = np.append(data_ganerated, row_generated['lep_Pt_0'] + row_generated['lep_Pt_1'])
+        data_ganerated_sym = np.append(data_ganerated_sym, row_generated_sym['lep_Pt_0'] + row_generated_sym['lep_Pt_1'])
         
     print(max(data_original))
     print(min(data_original))
@@ -25,14 +28,16 @@ def pt_check(path):
     # h_ht_lep_original = ROOT.TH1F("h_ht_lep_original",";ht_lep; events (normalized)", 200, 30297, 1354239)
     # h_ht_lep_generated = ROOT.TH1F("h_ht_lep_generated",";ht_lep; events (normalized)", 200, 30297, 1354239)
     
-    h_ht_lep_original = ROOT.TH1F("h_ht_lep_original",";ht_lep; events (normalized)", 100, 0, 400000)
-    h_ht_lep_generated = ROOT.TH1F("h_ht_lep_generated",";ht_lep; events (normalized)", 100, 0, 400000)
+    h_ht_lep_original = ROOT.TH1F("h_ht_lep_original",";ht_lep; events (normalized)", 100, -100000, 400000)
+    h_ht_lep_generated = ROOT.TH1F("h_ht_lep_generated",";ht_lep; events (normalized)", 100, -100000, 400000)
+    h_ht_lep_generated_sym = ROOT.TH1F("h_ht_lep_generated_sym",";ht_lep; events (normalized)", 100, -100000, 400000)
     
     #print(etas)
-    for event_o, event_g, eta in zip(data_original, data_ganerated, etas):
+    for event_o, event_g, event_g_s, eta in zip(data_original, data_ganerated, data_ganerated_sym, etas):
         if abs(eta[0]) < 2.4 and abs(eta[1]) < 2.4: 
             h_ht_lep_original.Fill(event_o)
             h_ht_lep_generated.Fill(event_g)
+            h_ht_lep_generated_sym.Fill(event_g_s)
     
      # Activate storage of sum of squares of weights for automatic error calculation
     #h_ht_lep_original.Sumw2()
@@ -40,18 +45,25 @@ def pt_check(path):
 
     
     # Set histogram style
-    h_ht_lep_original.SetLineColor(ROOT.kBlue)
+    h_ht_lep_original.SetLineColor(ROOT.kGreen)
     h_ht_lep_original.SetMarkerStyle(0)  # Adjust marker style for better visibility
 
     # Set histogram style
-    h_ht_lep_generated.SetLineColor(ROOT.kRed)
+    h_ht_lep_generated.SetLineColor(ROOT.kBlue)
     h_ht_lep_generated.SetMarkerStyle(1)
+    
+    # Set histogram style
+    h_ht_lep_generated_sym.SetLineColor(ROOT.kRed)
+    h_ht_lep_generated_sym.SetMarkerStyle(1)
     
     # Draw the histogram with error bars
     h_ht_lep_original.Draw("HIST")  # "E" specifies error bars
     
-        # Draw the histogram without error bars
+    # Draw the histogram without error bars
     h_ht_lep_generated.Draw("SAME E")  # "HIST" specifies histogram drawing style without error bars
+
+    # Draw the histogram without error bars
+    h_ht_lep_generated_sym.Draw("SAME E")  # "HIST" specifies histogram drawing style without error bars
 
     # Show the canvas
     ROOT.gPad.Update()

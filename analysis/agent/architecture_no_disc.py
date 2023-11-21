@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.distributions.normal import Normal
 import torch.nn.init as init
 import optuna
@@ -36,10 +35,27 @@ class Encoder(nn.Module):
         
         self.body = nn.Sequential(*layers)
         
+        # self.body = nn.Sequential(
+        #     nn.Linear(input_size, 128),
+        #     nn.BatchNorm1d(num_features=128),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.1),
+        #     nn.Linear(128, 1024),
+        #     nn.BatchNorm1d(num_features=1024),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.1),
+        #     nn.Linear(1024, 1024),
+        #     nn.BatchNorm1d(num_features=1024),
+        #     nn.ReLU(),
+        #     nn.Linear(1024, self.zdim * 2)
+        #     #nn.Linear(56, self.zdim*2)
+        #)
 
     def forward(self, x):
         scores = self.body(x)
+        #print(scores)
         mu, sigma = torch.split(scores, self.zdim, dim=1)
+        
         return mu, sigma
 
 class Decoder(nn.Module):
@@ -61,7 +77,7 @@ class Decoder(nn.Module):
                 layers.append(nn.Linear(self.zdim, arch[idx][0]))
                 #init.xavier_uniform_(layers[-1].weight)
             elif idx == layer_num - 1: 
-                layers.append(nn.Linear(arch[idx][0], self.input_size*2-1))
+                layers.append(nn.Linear(arch[idx][0], self.input_size))
                 #init.xavier_uniform_(layers[-1].weight)
             else: 
                 layers.append(nn.Linear(arch[idx][0],arch[idx][1]))
@@ -72,23 +88,29 @@ class Decoder(nn.Module):
             if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
         
         self.body = nn.Sequential(*layers)
+        
+        
+        
+        # self.body = nn.Sequential(
+        #     nn.Linear(self.zdim, 128),
+        #     nn.ReLU(),
+        #     nn.Linear(128, 1024),
+        #     nn.BatchNorm1d(num_features=1024),
+        #     nn.ReLU(),
+        #     nn.Linear(1024, 128),
+        #     nn.BatchNorm1d(num_features=128),
+        #     nn.ReLU(),
+        #     nn.Linear(128,input_size),
+        #     nn.BatchNorm1d(num_features=input_size),
+            #nn.Sigmoid()
 
+            # nn.Linear(self.zdim,56),
+            # nn.Sigmoid()
+        # )
 
     def forward(self, z):
         xhat = self.body(z)
-        xhat_gauss = xhat[:, :-1]
-        xhat_bernoulli = xhat[:,-1]
-        # print(xhat_gauss.shape)
-        # print(self.input_size-1)
-        xhat_gauss_mu, xhat_gauss_sigma = torch.split(xhat_gauss, self.input_size - 1, dim=1)
-        xhat_bernoulli = torch.sigmoid(xhat_bernoulli)
-        return xhat_gauss_mu, xhat_gauss_sigma, xhat_bernoulli
-        
-        #xhat[:,-1] = torch.bernoulli(torch.sigmoid(xhat[:,-1]))
-        
-        #return xhat
-        # return xhat_gauss, xhat_bernoulli
-
+        return xhat
 
 class VAE(nn.Module):
     def __init__(self, zdim, device, input_size, config:dict):
@@ -102,20 +124,18 @@ class VAE(nn.Module):
         self.decoder = Decoder(self.zdim, self.input_size, self.config).to(self.device)
 
     def forward(self, x):
-        #! ENCODER
         x = x.to(self.device)
         mu, sigma = self.encoder(x.view(-1, self.input_size))
         std = torch.exp(sigma)  
-        qz_gauss = torch.distributions.Normal(mu, std)
-        z = qz_gauss.rsample()
-        pz_gauss = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(sigma))
-        #! DECODER
         
-        mu_gauss, sigma_gauss, p_bernoulli = self.decoder(z)
+        qz = torch.distributions.Normal(mu, std)
+        pz = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(sigma))
+        
+        z = qz.rsample()
+        xhat = self.decoder(z)
+        #?logqz = qz.log_prob(z)
 
-        xhat_gauss = torch.cat((mu_gauss, sigma_gauss), dim=1)
-        xhat = torch.cat((xhat_gauss, p_bernoulli.view(-1,1)), dim=1)
-        return xhat, pz_gauss, qz_gauss
+        return xhat, pz, qz
 
     def count_params(self):
         return sum(p.numel() for p in self.encoder.parameters() if p.requires_grad)
@@ -124,36 +144,29 @@ class VAE(nn.Module):
     # Computes reconstruction loss
     def recon(self, x_hat, x):
         
-        xhat_gauss_mu, xhat_gauss_sigma = torch.split(x_hat, x.shape[1], dim=1) 
-        std = torch.exp(xhat_gauss_sigma)
-        #exit()
-        pxz = Normal(xhat_gauss_mu, torch.ones_like(std))
-        #pxz = Normal(xhat_gauss_mu, std)
+        pxz = Normal(x_hat, torch.ones_like(x_hat))
         E_log_pxz = -pxz.log_prob(x.to(self.device)).sum(dim=1)
 
         return E_log_pxz
 
     def loss_function(self, x, x_hat, pz, qz):
-        pz_gauss = pz
+        REC = self.recon(x_hat, x)
+        #eps = 0.00000001
+        #BCE = nn.functional.binary_cross_entropy(x_hat, x.view(-1,56), reduction='sum')
+        #BCE = -torch.sum(x * torch.log(x_hat + eps) + (1 - x) * torch.log(1 - x_hat + eps))
         
-        qz_gauss = qz
+        #KLD = torch.distributions.kl_divergence(qz, pz).sum()
+        KLD = torch.distributions.kl_divergence(qz, pz).sum(dim=1)
         
-        x_gauss = x[:, :-1]
-        x_bernoulli = x[:, -1].to(torch.float32).to(self.device)
-        
-        x_hat_gauss = x_hat[:, :-1]
-        x_hat_bernoulli = x_hat[:, -1].to(torch.float32).to(self.device)
-        
-        x_bernoulli = torch.sigmoid(x_bernoulli)
-        
-        # print(x_hat_gauss.shape)
-        # print(x_gauss.shape)
-        REC_G = self.recon(x_hat_gauss, x_gauss)
-        KLD_G = torch.distributions.kl_divergence(qz_gauss, pz_gauss).sum(dim=1)
-        BCE_B = F.binary_cross_entropy(x_bernoulli, x_hat_bernoulli, reduction='sum')
-        
+        # if i == 0:
+        #     beta = 0.0
+        # elif i == 1:
+        #     beta = 0.1
+        # else: beta = 0.3
+        #if i % 2 == 0: beta = 0.2
+        #else: beta = 0.7
+
         beta = 0.1
 
-        return torch.mean(REC_G + 0.1*BCE_B + beta*KLD_G) 
-        #return torch.mean(REC_G + beta*(BCE_B + KLD_G))
+        return torch.mean(REC + beta*KLD)
     

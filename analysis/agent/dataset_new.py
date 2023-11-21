@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     
     print(f'{PATH_MODEL}{DATA_FILE}_{EPOCHS}.pth')
-    model = torch.load(f'{PATH_MODEL}{DATA_FILE}_disc_{EPOCHS}.pth')
+    model = torch.load(f'{PATH_MODEL}{DATA_FILE}_disc_{EPOCHS}_sym.pth')
     df_real = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
     
     train_dataset = torch.tensor(df_real.values, dtype=torch.float32)
@@ -38,7 +38,7 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
 
     print("Processing completed.")
 
-    df_regen.to_csv(f'{PATH_DATA}{DATA_FILE}_disc_{EPOCHS}_new.csv', index=False)
+    df_regen.to_csv(f'{PATH_DATA}{DATA_FILE}_disc_{EPOCHS}_new_sym.csv', index=False)
 
 def main():
     PATH_MODEL = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/models/'

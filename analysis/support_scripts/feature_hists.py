@@ -8,8 +8,8 @@ def main():
     
     EPOCHS = 100
     
-    df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}_disc_{EPOCHS}_new.csv')
-    output_file = ROOT.TFile(f"{PATH_OUT}/{DATA_FILE}_disc_{EPOCHS}_new.root", "RECREATE")
+    df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}_disc_{EPOCHS}_new_sym.csv')
+    output_file = ROOT.TFile(f"{PATH_OUT}/{DATA_FILE}_disc_{EPOCHS}_new_sym.root", "RECREATE")
     for column_name in df.columns:
         column_array = df[column_name].values
         print(f'Column Name: {column_name}')
