@@ -4,9 +4,9 @@ import pandas as pd
 def main():
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/'
     PATH_OUT = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/hists/'
-    DATA_FILE = 'df_low'
+    DATA_FILE = 'df_no_zeros'
     
-    EPOCHS = 100
+    EPOCHS = 1000
     
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}_disc_{EPOCHS}_new_sym.csv')
     output_file = ROOT.TFile(f"{PATH_OUT}/{DATA_FILE}_disc_{EPOCHS}_new_sym.root", "RECREATE")

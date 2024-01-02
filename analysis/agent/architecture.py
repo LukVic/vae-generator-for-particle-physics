@@ -67,7 +67,7 @@ class Decoder(nn.Module):
                 layers.append(nn.Linear(arch[idx][0],arch[idx][1]))
                 #init.xavier_uniform_(layers[-1].weight)
             
-            if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
             if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
         
@@ -108,7 +108,7 @@ class VAE(nn.Module):
         std = torch.exp(sigma)  
         qz_gauss = torch.distributions.Normal(mu, std)
         z = qz_gauss.rsample()
-        pz_gauss = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(sigma))
+        pz_gauss = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(std))
         #! DECODER
         
         mu_gauss, sigma_gauss, p_bernoulli = self.decoder(z)
@@ -127,8 +127,8 @@ class VAE(nn.Module):
         xhat_gauss_mu, xhat_gauss_sigma = torch.split(x_hat, x.shape[1], dim=1) 
         std = torch.exp(xhat_gauss_sigma)
         #exit()
-        pxz = Normal(xhat_gauss_mu, torch.ones_like(std))
-        #pxz = Normal(xhat_gauss_mu, std)
+        pxz = Normal(xhat_gauss_mu,  std)
+        #pxz = Normal(xhat_gauss_mu, torch.ones_like(std))
         E_log_pxz = -pxz.log_prob(x.to(self.device)).sum(dim=1)
 
         return E_log_pxz
@@ -154,6 +154,6 @@ class VAE(nn.Module):
         
         beta = 0.1
 
-        return torch.mean(REC_G + 0.1*BCE_B + beta*KLD_G) 
+        return torch.mean(REC_G + beta*KLD_G) 
         #return torch.mean(REC_G + beta*(BCE_B + KLD_G))
     

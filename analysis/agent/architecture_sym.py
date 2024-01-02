@@ -114,13 +114,15 @@ class VAE(nn.Module):
             mu_gauss, sigma_gauss, p_bernoulli = self.decoder(z)
             std = torch.exp(sigma_gauss)
             # pxz_gauss = Normal(mu_gauss, torch.ones_like(std))
-            pxz_gauss = Normal(mu_gauss, std)
+            pxz_gauss = torch.distributions.Normal(mu_gauss, std)
             x_gauss = pxz_gauss.sample()
             x_bernoulli = torch.bernoulli(p_bernoulli)
             x = torch.cat((x_gauss, x_bernoulli.view(-1,1)), dim=1)
             encoder_out = self.encoder(x.view(-1, self.input_size))
             return encoder_out
 
+    def count_params(self):
+        return sum(p.numel() for p in self.encoder.parameters() if p.requires_grad)
 
     def loss_function(self, x, distr_out, step):
         if step == 1:
@@ -147,7 +149,8 @@ class VAE(nn.Module):
             LOSS_G = E_log_pxz
             LOSS_B = F.binary_cross_entropy(x_bernoulli, p, reduction="sum")
             
-            return torch.mean(LOSS_G + 0.1*LOSS_B) 
+            #return torch.mean(LOSS_G + 0.1*LOSS_B)
+            return torch.mean(LOSS_G) 
         
         elif step == 2:
             

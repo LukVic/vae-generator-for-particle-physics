@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from tqdm.auto import tqdm
 import json
 
@@ -18,7 +19,7 @@ def main():
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/'
     PATH_MODEL = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/models/'
     
-    DATA_FILE = 'df_low'
+    DATA_FILE = 'df_no_zeros'
     
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
     train_dataset = torch.tensor(df.values, dtype=torch.float32)
@@ -43,12 +44,11 @@ def main():
     elbo_history = []
         
     scaler = StandardScaler()
+    #scaler = MinMaxScaler()
     train_dataset_norm = scaler.fit_transform(train_dataset)
     train_dataloader = DataLoader(train_dataset_norm, batch_size=gen_params["batch_size"], shuffle=True)
-    train_dataset_norm[:,7] = np.round(train_dataset_norm[:,7]).astype(int)
-    #train_dataset_norm[train_dataset_norm == -1] = 0.1
-    #train_dataset_norm[train_dataset_norm == 1] = 0.9
-    print(train_dataset_norm[train_dataset_norm == 1].shape)
+    #train_dataset_norm[:,7] = np.round(train_dataset_norm[:,7]).astype(int)
+    #print(train_dataset_norm[train_dataset_norm == 1].shape)
     #exit()
 
     # Create model and optimizer
@@ -74,8 +74,8 @@ def main():
     torch.save(model, f'{PATH_MODEL}{DATA_FILE}_disc_{gen_params["num_epochs"]}.pth')
     
     #event_regen(input_size, scaler, train_dataloader, f'{PATH_MODEL}{DATA_FILE}_{gen_params["num_epochs"]}.pth')
-    #pos_collapse(train_dataloader, f'{PATH_MODEL}{DATA_FILE}_{gen_params["num_epochs"]}.pth', f'{PATH_JSON}hyperparams.json')
-    #elbo_plot(elbo_history,f'{PATH_MODEL}{DATA_FILE}_{gen_params["num_epochs"]}.pth')
+    pos_collapse(train_dataloader, f'{PATH_MODEL}{DATA_FILE}_disc_{gen_params["num_epochs"]}.pth', f'{PATH_JSON}hyperparams.json')
+    elbo_plot(elbo_history,f'{PATH_MODEL}{DATA_FILE}_disc_{gen_params["num_epochs"]}.pth', 'std')
     
 if __name__ == "__main__":
     main()
