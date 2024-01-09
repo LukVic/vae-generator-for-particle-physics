@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch
 import torch.optim as optim
@@ -12,6 +14,7 @@ import json
 #from architecture import VAE
 from architecture import VAE
 from applications import *
+from dataset_new import dataset_regen
 
 def main():
     OPTIMIZE = False
@@ -42,18 +45,21 @@ def main():
     
     input_size = train_dataset.shape[1]
     elbo_history = []
+    elbo_min = np.inf
         
     scaler = StandardScaler()
     #scaler = MinMaxScaler()
     train_dataset_norm = scaler.fit_transform(train_dataset)
     train_dataloader = DataLoader(train_dataset_norm, batch_size=gen_params["batch_size"], shuffle=True)
-    #train_dataset_norm[:,7] = np.round(train_dataset_norm[:,7]).astype(int)
-    #print(train_dataset_norm[train_dataset_norm == 1].shape)
-    #exit()
 
     # Create model and optimizer
     model = VAE(gen_params["latent_size"], device, input_size, conf_dict)
     optimizer = optim.Adam(model.parameters(), lr=gen_params["lr"])
+
+    directory = f'std_{gen_params["num_epochs"]}_epochs_model/'
+
+    if not os.path.exists(f'{PATH_MODEL}{directory}'):
+        os.makedirs(f'{PATH_MODEL}{directory}')
 
     # Train the model
     model.train()
@@ -66,16 +72,25 @@ def main():
             loss = model.loss_function(x, x_hat, pz, qz)
             loss.backward()
             optimizer.step()
-            elbo_history.append(loss.item())
             progress_bar.set_description(f'EPOCH: {epoch+1}/{gen_params["num_epochs"]} | LOSS: {loss:.7f}')
             progress_bar.update(1)
         progress_bar.close()     
+        elbo_history.append(loss.item())
+        if epoch % 500 == 0 :
+            print(f'OLD/NEW: {elbo_min}/{loss.item()}') 
+            elbo_min = loss.item()
+            torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth')
+            pos_collapse(train_dataloader, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth', f'{PATH_JSON}hyperparams.json')
+            elbo_plot(elbo_history,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth', 'std', f'{PATH_JSON}hyperparams.json')
+            dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', EPOCHS=epoch, TYPE='std', scaler=scaler)
+        if elbo_min > loss.item():
+            torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth')
+            elbo_plot(elbo_history,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth', 'std', f'{PATH_JSON}hyperparams.json')
+            dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', EPOCHS=epoch, TYPE='std', scaler=scaler)
 
-    torch.save(model, f'{PATH_MODEL}{DATA_FILE}_disc_{gen_params["num_epochs"]}.pth')
-    
-    #event_regen(input_size, scaler, train_dataloader, f'{PATH_MODEL}{DATA_FILE}_{gen_params["num_epochs"]}.pth')
-    pos_collapse(train_dataloader, f'{PATH_MODEL}{DATA_FILE}_disc_{gen_params["num_epochs"]}.pth', f'{PATH_JSON}hyperparams.json')
-    elbo_plot(elbo_history,f'{PATH_MODEL}{DATA_FILE}_disc_{gen_params["num_epochs"]}.pth', 'std')
-    
+    torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{gen_params["num_epochs"]}.pth')
+    #pos_collapse(train_dataloader, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}.pth', f'{PATH_JSON}hyperparams.json')
+    elbo_plot(elbo_history,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{gen_params["num_epochs"]}.pth', 'std', f'{PATH_JSON}hyperparams.json')
+    dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{gen_params["num_epochs"]}_best.pth',PATH_JSON=f'{PATH_JSON}hyperparams.json', EPOCHS=gen_params["num_epochs"], TYPE='std', scaler=scaler)
 if __name__ == "__main__":
     main()

@@ -30,9 +30,10 @@ class Encoder(nn.Module):
                 layers.append(nn.Linear(arch[idx][0],arch[idx][1]))
                 #init.xavier_uniform_(layers[-1].weight)
             
-            if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
-            if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
+            #if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
         
         self.body = nn.Sequential(*layers)
         
@@ -68,8 +69,10 @@ class Decoder(nn.Module):
                 #init.xavier_uniform_(layers[-1].weight)
             
             #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
-            if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
+            #if relu[idx] != 0: layers.append(nn.Sigmoid())
+            #if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
         
         self.body = nn.Sequential(*layers)
 
@@ -147,7 +150,7 @@ class VAE(nn.Module):
         x_bernoulli = torch.sigmoid(x_bernoulli)
         
         # print(x_hat_gauss.shape)
-        # print(x_gauss.shape)
+        #print(x_gauss)
         REC_G = self.recon(x_hat_gauss, x_gauss)
         KLD_G = torch.distributions.kl_divergence(qz_gauss, pz_gauss).sum(dim=1)
         BCE_B = F.binary_cross_entropy(x_bernoulli, x_hat_bernoulli, reduction='sum')

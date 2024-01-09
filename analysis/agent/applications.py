@@ -1,3 +1,5 @@
+import os
+
 import matplotlib.pyplot as plt
 import torch
 import json
@@ -35,7 +37,7 @@ def event_regen(input_size, scaler, train_dataloader, PATH_MODEL):
             udxs.append(b)
         ax.axis('off')
     plt.savefig(PATH_RESULTS + 'visual.png')
-    plt.show()
+    #plt.show()
 
 def pos_collapse(train_dataloader, PATH_MODEL, PATH_JSON):
     with open(f"{PATH_JSON}", 'r') as json_file:
@@ -63,19 +65,34 @@ def pos_collapse(train_dataloader, PATH_MODEL, PATH_JSON):
         plt.ylabel('Mean KL-divergence accros the batch')
         plt.hist(kl_divs_mean, bins=gen_params["latent_size"])
         #plt.xticks(range(0, 20, 1))
+        
+        
         plt.savefig(PATH_RESULTS + f'posterior_collapse_{gen_params["num_epochs"]}_std.png')
-        plt.show()
+        #plt.show()
             
-def elbo_plot(elbo_history, PATH_MODEL, TYPE):
-    model = torch.load(f'{PATH_MODEL}')
+def elbo_plot(elbo_history, PATH_MODEL, TYPE, PATH_JSON):
+    with open(f"{PATH_JSON}", 'r') as json_file:
+        conf_dict = json.load(json_file)
+    gen_params = conf_dict["general"]
     
+    model = torch.load(f'{PATH_MODEL}')
     # ELBO graph
     plt.figure()
     plt.plot(elbo_history)
-    plt.xlabel('Batch number')
+    plt.xlabel('Epoch')
     plt.ylabel('Total Loss')
-    plt.title('Total Loss vs. Batch number')
-    plt.savefig(PATH_RESULTS + f'elbo{TYPE}.pdf')
-    plt.show()
+    plt.title('Total Loss vs. Epoch number')
+    
+    directory = f'{TYPE}_{gen_params["num_epochs"]}_epochs_results/'
 
-    print("Number of VAE params: {0}".format(model.count_params()))
+    if not os.path.exists(f'{PATH_RESULTS}{directory}'):
+        os.makedirs(f'{PATH_RESULTS}{directory}')
+    
+    
+    plt.savefig(f'{PATH_RESULTS}{directory}elbo_{TYPE}.pdf')
+    #plt.show()
+
+    # Open a file in write mode
+    with open(f'{PATH_RESULTS}{directory}params_num_{TYPE}.txt', 'w') as file:
+        # Redirect the print statement to the file
+        print("Number of VAE params: {0}".format(model.count_params()), file=file)
