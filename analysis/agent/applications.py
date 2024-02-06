@@ -89,7 +89,8 @@ def elbo_plot(elbo_history, PATH_MODEL, TYPE, PATH_JSON):
         os.makedirs(f'{PATH_RESULTS}{directory}')
     
     
-    plt.savefig(f'{PATH_RESULTS}{directory}elbo_{TYPE}.pdf')
+    plt.savefig(f'{PATH_RESULTS}{directory}elbo_{TYPE}_0.pdf')
+    plt.close()
     #plt.show()
 
     # Open a file in write mode

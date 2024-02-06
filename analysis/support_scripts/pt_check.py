@@ -2,6 +2,7 @@ import ROOT
 import pandas as pd
 import numpy as np
 
+import os
 
 def pt_check(path):
     data_original = np.array([])
@@ -10,7 +11,7 @@ def pt_check(path):
     etas = []
     
     df_original = pd.read_csv(f'{path}data/pt_sum.csv')
-    df_generated = pd.read_csv(f'{path}data/pt_sum_gen.csv')
+    df_generated = pd.read_csv(f'{path}data/pt_sum_gen_std.csv')
     df_generated_sym = pd.read_csv(f'{path}data/pt_sum_gen_sym.csv')
     
     #print(df_original.shape)
@@ -52,6 +53,9 @@ def pt_check(path):
     h_ht_lep_generated_sym.Scale(1. / h_ht_lep_generated_sym.Integral())
     h_ht_lep_generated_sym.Write()
     
+    
+    c1 = ROOT.TCanvas("c1", "Canvas", 800, 600)
+    
     # Set histogram style
     h_ht_lep_original.SetLineColor(ROOT.kGreen)
     h_ht_lep_original.SetMarkerStyle(0)  # Adjust marker style for better visibility
@@ -66,7 +70,9 @@ def pt_check(path):
     
     
     # Perform the chi-square test
-    result = h_ht_lep_original.Chi2Test(h_ht_lep_generated_sym, "P WW")
+    result1 = h_ht_lep_original.Chi2Test(h_ht_lep_generated, "P WW")
+    result2 = h_ht_lep_original.Chi2Test(h_ht_lep_generated_sym, "P WW")
+    
 
     # Output the chi-square value and p-value
     #print("Chi-square value:", result)
@@ -75,14 +81,15 @@ def pt_check(path):
     
     
     # Draw the histogram without error bars
-    h_ht_lep_generated_sym.Draw("HIST E")  # "HIST" specifies histogram drawing style without error bars
+    h_ht_lep_generated.Draw("HIST E")  # "HIST" specifies histogram drawing style without error bars
+
+    # Draw the histogram without error bars
+    h_ht_lep_generated_sym.Draw("SAME HIST E")  # "HIST" specifies histogram drawing style without error bars
     
     # Draw the histogram with error bars
     h_ht_lep_original.Draw("SAME HIST")  # "E" specifies error bars
     
-    # Draw the histogram without error bars
-    h_ht_lep_generated.Draw("SAME HIST E")  # "HIST" specifies histogram drawing style without error bars
-
+   
 
 
         # Create a legend
@@ -101,15 +108,26 @@ def pt_check(path):
     legend.Draw("SAME")
 
 
-    # Show the canvas
-    ROOT.gPad.Update()
-    ROOT.gPad.WaitPrimitive()  
+    # # Show the canvas
+    # ROOT.gPad.Update()
+    # ROOT.gPad.WaitPrimitive()  
 
         
-    fOut = ROOT.TFile(f"{path}hists/let_pt_orig_gen_comparison.root", "RECREATE")
-    h_ht_lep_original.Write()
-    h_ht_lep_generated.Write()
-    fOut.Close()
+    # fOut = ROOT.TFile(f"{path}hists/let_pt_orig_gen_comparison.root", "RECREATE")
+    # h_ht_lep_original.Write()
+    # h_ht_lep_generated.Write()
+    # fOut.Close()
+    
+    directory = f'15000_15000_epochs_histogram_comparison/'
+
+    if not os.path.exists(f'{path}results/feature_plots_comparison/{directory}'):
+        os.makedirs(f'{path}results/feature_plots_comparison/{directory}')
+        
+
+    c1.SaveAs(f"{path}results/feature_plots_comparison/{directory}vae_std_sym_pt_sum_comparison.pdf")
+    
+    
+    
 def main():
     PATH = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/'
     pt_check(PATH)

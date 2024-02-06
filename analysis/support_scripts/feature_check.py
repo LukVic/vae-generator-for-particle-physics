@@ -9,8 +9,8 @@ def feature_check(path):
     data_ganerated_sym = np.array([])
     
     df_original = pd.read_csv(f'{path}data/df_no_zeros.csv')
-    df_generated = pd.read_csv(f'{path}data/df_no_zeros_disc_100_900_std.csv')
-    df_generated_sym = pd.read_csv(f'{path}data/df_no_zeros_disc_1000_100_new_sym.csv')
+    df_generated = pd.read_csv(f'{path}data/df_no_zeros_disc_15000_15000_std.csv')
+    df_generated_sym = pd.read_csv(f'{path}data/df_no_zeros_disc_15000_15000_sym.csv')
 
     feature_list = pd.read_csv(f'{path}features/low_features.csv', header=None).to_numpy()
 
@@ -31,8 +31,9 @@ def feature_check(path):
         min_all = np.min([data_original,data_ganerated,data_ganerated_sym])
         max_all = np.max([data_original,data_ganerated,data_ganerated_sym])
         
-        # min_all = -100000
-        # max_all = 100000
+        if feature == 'taus_charge_0':
+            min_all = -1.1
+            max_all = 1.1
         
         #print(min_all)
         h_feature_original = ROOT.TH1F(f"h_{feature[0]}_original",f";{feature[0]}; events (normalized)", 100, min_all, max_all)
@@ -42,8 +43,20 @@ def feature_check(path):
         for event_o, event_g, event_g_s in zip(data_original, data_ganerated, data_ganerated_sym):
             #print(event_o)
             h_feature_original.Fill(event_o)
-            h_feature_generated.Fill(event_g)
-            h_feature_generated_sym.Fill(event_g_s)
+            
+            if feature != 'taus_charge_0':
+                h_feature_generated.Fill(event_g)
+                h_feature_generated_sym.Fill(event_g_s)
+            else:
+                print(event_g)
+                
+                if event_g < 0.1: event_g = -1
+                else: event_g = 1
+                if event_g_s < 0.1: event_g_s = -1
+                else: event_g_s = 1
+                
+                h_feature_generated.Fill(event_g)
+                h_feature_generated_sym.Fill(event_g_s)
 
         h_feature_original.Scale(1. / h_feature_original.Integral())
         h_feature_original.Write()
@@ -101,7 +114,7 @@ def feature_check(path):
 
         # Add entries to the legend
         legend.AddEntry(h_feature_original, "Original", "l")
-        legend.AddEntry(h_feature_generated, "Generated Standard", "l")
+        legend.AddEntry(h_feature_generated, "Generated ELBO", "l")
         legend.AddEntry(h_feature_generated_sym, "Generated Symmetric", "l")
         
         # Set legend style
@@ -112,7 +125,7 @@ def feature_check(path):
         legend.Draw("SAME")
         
         
-        directory = f'1000_100_epochs_histogram_comparison/'
+        directory = f'15000_15000_epochs_histogram_comparison/'
 
         if not os.path.exists(f'{path}results/feature_plots_comparison/{directory}'):
             os.makedirs(f'{path}results/feature_plots_comparison/{directory}')

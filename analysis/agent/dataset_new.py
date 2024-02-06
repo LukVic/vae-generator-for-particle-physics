@@ -15,8 +15,6 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, EPOCHS, TYPE, sca
     
     train_dataset = torch.tensor(df_real.values, dtype=torch.float32)
     input_size = train_dataset.shape[1]
-   
-    train_dataset_norm = scaler.fit_transform(train_dataset)
     
     model.eval()
     latent_dimension = gen_params["latent_size"]

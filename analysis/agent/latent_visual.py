@@ -19,9 +19,11 @@ import multiprocessing
 def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     
     ALGORITHM = 'TSNE'
+    directory = f'std_15000_epochs_model/'
     
-    print(f'{PATH_MODEL}{DATA_FILE}_{EPOCHS}.pth')
-    model = torch.load(f'{PATH_MODEL}{DATA_FILE}_disc_{EPOCHS}_sym.pth')
+    
+    print(f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth')
+    model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth')
     df_real = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
     
     train_dataset = torch.tensor(df_real.values, dtype=torch.float32)
@@ -29,7 +31,7 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     scaler = StandardScaler()
     train_dataset_norm = torch.tensor(scaler.fit_transform(train_dataset))
     model.eval()
-    latent_dimension = 20
+    latent_dimension = 50
 
     data_arr = []
     
@@ -41,7 +43,7 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     print(train_dataset.shape)
 
     for idx, data in enumerate(train_dataset):
-        print(f"EVENT NUMBER: {idx}")
+        #print(f"EVENT NUMBER: {idx}")
         #if idx == 5000: break
         z_means, z_sigmas = model.encoder(data.view(-1, 28).to('cuda').float())
 
@@ -101,16 +103,16 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
         print(type(trans_encoded))
         print(np.array(trans_encoded.embedding_))
         
-        np.savetxt(f'{PATH_DATA}points_encoded_sym.csv',trans_encoded.embedding_, delimiter=',')
-        np.savetxt(f'{PATH_DATA}points_latent_sym.csv',trans_latent.embedding_, delimiter=',')
-        np.savetxt(f'{PATH_DATA}points_data_sym.csv',trans_data.embedding_, delimiter=',')
-        np.savetxt(f'{PATH_DATA}points_decoded_sym.csv',trans_decoded.embedding_, delimiter=',')
+        np.savetxt(f'{PATH_DATA}points_encoded.csv',trans_encoded.embedding_, delimiter=',')
+        np.savetxt(f'{PATH_DATA}points_latent.csv',trans_latent.embedding_, delimiter=',')
+        np.savetxt(f'{PATH_DATA}points_data.csv',trans_data.embedding_, delimiter=',')
+        np.savetxt(f'{PATH_DATA}points_decoded.csv',trans_decoded.embedding_, delimiter=',')
     
 
 
 
 def find_overlap(PATH_DATA):
-    files = ['points_encoded_sym.csv', 'points_latent_sym.csv', 'points_data_sym.csv', 'points_decoded_sym.csv']
+    files = ['points_encoded.csv', 'points_latent.csv', 'points_data.csv', 'points_decoded.csv']
     points_encoded = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
     points_latent = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
     points_data = np.genfromtxt(f'{PATH_DATA}{files[2]}', delimiter=',')
@@ -228,7 +230,7 @@ def main():
     PATH_MODEL = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/models/'
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/'
     DATA_FILE = 'df_no_zeros'
-    EPOCHS = 10000
+    EPOCHS = 15000
     
     
     dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS)

@@ -98,26 +98,28 @@ def main():
         progress_bar.close()     
         elbo_history1.append(loss1.item())
         elbo_history2.append(loss2.item())
-        if epoch % 500 == 0:
+        if epoch % 1500 == 0:
             print(f'1: OLD/NEW: {elbo_min1}/{loss1.item()}')
             print(f'2: OLD/NEW: {elbo_min2}/{loss2.item()}') 
-            elbo_min1 = loss1.item()
-            elbo_min2 = loss2.item()
+
             torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth')
             elbo_plot(elbo_history1,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth', 'sym_1', f'{PATH_JSON}hyperparams.json')
             elbo_plot(elbo_history2,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth', 'sym_2', f'{PATH_JSON}hyperparams.json')
             dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', EPOCHS=epoch, TYPE='sym', scaler=scaler)
         if (elbo_min1 > loss1.item() and elbo_min2 > loss2.item()):
+            print("SAVING NEW BEST MODEL")
             torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth')
-            elbo_plot(elbo_history1,f'{PATH_MODEL}{directory}{DATA_FILE}_best.pth', 'sym_1', f'{PATH_JSON}hyperparams.json')
-            elbo_plot(elbo_history2,f'{PATH_MODEL}{directory}{DATA_FILE}_best.pth', 'sym_2', f'{PATH_JSON}hyperparams.json')
-            dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', EPOCHS=epoch, TYPE='sym', scaler=scaler)  
+            elbo_plot(elbo_history1,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth', 'sym_1', f'{PATH_JSON}hyperparams.json')
+            elbo_plot(elbo_history2,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth', 'sym_2', f'{PATH_JSON}hyperparams.json')
+            dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', EPOCHS=gen_params["num_epochs"], TYPE='sym', scaler=scaler)  
+            elbo_min1 = loss1.item()
+            elbo_min2 = loss2.item()
 
-    torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{gen_params["num_epochs"]}.pth')
-    #! ADD POSTERIOR COLLAPS
-    #pos_collapse(train_dataloader, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}.pth', f'{PATH_JSON}hyperparams.json')
-    elbo_plot(elbo_history1,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{gen_params["num_epochs"]}.pth', 'sym_1', f'{PATH_JSON}hyperparams.json')
-    elbo_plot(elbo_history2,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{gen_params["num_epochs"]}.pth', 'sym_2', f'{PATH_JSON}hyperparams.json')
-    dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{gen_params["num_epochs"]}_best.pth',PATH_JSON=f'{PATH_JSON}hyperparams.json', EPOCHS=gen_params["num_epochs"], TYPE='sym', scaler=scaler)
+    # torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{gen_params["num_epochs"]}.pth')
+    # #! ADD POSTERIOR COLLAPS
+    # #pos_collapse(train_dataloader, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}.pth', f'{PATH_JSON}hyperparams.json')
+    # elbo_plot(elbo_history1,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{gen_params["num_epochs"]}.pth', 'sym_1', f'{PATH_JSON}hyperparams.json')
+    # elbo_plot(elbo_history2,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{gen_params["num_epochs"]}.pth', 'sym_2', f'{PATH_JSON}hyperparams.json')
+    # dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{gen_params["num_epochs"]}_best.pth',PATH_JSON=f'{PATH_JSON}hyperparams.json', EPOCHS=gen_params["num_epochs"], TYPE='sym', scaler=scaler)
 if __name__ == "__main__":
     main()
