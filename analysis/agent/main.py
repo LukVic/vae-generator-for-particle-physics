@@ -1,3 +1,5 @@
+import sys
+sys.path.append("/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/support_scripts")
 import os
 
 import numpy as np
@@ -15,6 +17,7 @@ import json
 from architecture import VAE
 from applications import *
 from dataset_new import dataset_regen
+from feature_transform import angle_to_tan
 
 def main():
     OPTIMIZE = False
@@ -26,6 +29,13 @@ def main():
     
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
     train_dataset = torch.tensor(df.values, dtype=torch.float32)
+
+    with open(f"{PATH_JSON}hyperparams.json", 'r') as json_file:
+        conf_dict = json.load(json_file)
+
+    #! convert angle to its tangens
+    train_dataset = angle_to_tan(conf_dict['angle_convert']['indices'], train_dataset)
+    #print(train_dataset.T[9])
     
     if torch.cuda.is_available():
         print("CUDA (GPU) is available.")
@@ -33,10 +43,7 @@ def main():
     else:
         print("CUDA (GPU) is not available.")
         device = 'cpu'
-    
-    with open(f"{PATH_JSON}hyperparams.json", 'r') as json_file:
-        conf_dict = json.load(json_file)
-    
+        
     gen_params = conf_dict["general"]
     
     if OPTIMIZE:
@@ -76,7 +83,7 @@ def main():
             progress_bar.update(1)
         progress_bar.close()     
         elbo_history.append(loss.item())
-        if epoch % 1500 == 0 :
+        if epoch % 100 == 0 :
             print(f'OLD/NEW: {elbo_min}/{loss.item()}') 
             torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth')
             pos_collapse(train_dataloader, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth', f'{PATH_JSON}hyperparams.json')

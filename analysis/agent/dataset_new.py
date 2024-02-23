@@ -1,9 +1,15 @@
+import sys
+sys.path.append("/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/support_scripts")
+
 import torch
 import numpy as np
 import pandas as pd
 import json
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
+
+from feature_transform import tan_to_angle
+
 
 def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, EPOCHS, TYPE, scaler):
     with open(f"{PATH_JSON}", 'r') as json_file:
@@ -14,6 +20,8 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, EPOCHS, TYPE, sca
     df_real = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
     
     train_dataset = torch.tensor(df_real.values, dtype=torch.float32)
+    
+    
     input_size = train_dataset.shape[1]
     
     model.eval()
@@ -29,6 +37,7 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, EPOCHS, TYPE, sca
         xhat_bernoulli = torch.bernoulli(xhats_bernoulli)
         xhats = torch.cat((xhat_gauss, xhat_bernoulli.view(-1,1)), dim=1)
         x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
+        x_hats_denorm = tan_to_angle(conf_dict['angle_convert']['indices'], torch.tensor(x_hats_denorm)).numpy()
         data_array = np.vstack((data_array, x_hats_denorm))
 
     # Create a DataFrame from the NumPy array

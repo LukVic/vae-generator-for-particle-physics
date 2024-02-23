@@ -90,7 +90,9 @@ def pt_check(path):
     h_ht_lep_original.Draw("SAME HIST")  # "E" specifies error bars
     
    
-
+    h_ht_lep_original.GetYaxis().SetTitleOffset(1.5) 
+    h_ht_lep_generated.GetYaxis().SetTitleOffset(1.5) 
+    h_ht_lep_generated_sym.GetYaxis().SetTitleOffset(1.5) 
 
         # Create a legend
     legend = ROOT.TLegend(0.5, 0.6, 0.9, 0.9)  # Define legend position (x1, y1, x2, y2)
