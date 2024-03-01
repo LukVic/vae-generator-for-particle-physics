@@ -30,10 +30,11 @@ class Encoder(nn.Module):
                 layers.append(nn.Linear(arch[idx][0],arch[idx][1]))
                 #init.xavier_uniform_(layers[-1].weight)
             
-            #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
-            if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
-            if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
+            #if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
         
         self.body = nn.Sequential(*layers)
         
@@ -68,10 +69,11 @@ class Decoder(nn.Module):
                 layers.append(nn.Linear(arch[idx][0],arch[idx][1]))
                 #init.xavier_uniform_(layers[-1].weight)
             
-            #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
-            if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
-            if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
+            #if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
         
         self.body = nn.Sequential(*layers)
 

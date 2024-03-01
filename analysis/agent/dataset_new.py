@@ -21,7 +21,6 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, EPOCHS, TYPE, sca
     
     train_dataset = torch.tensor(df_real.values, dtype=torch.float32)
     
-    
     input_size = train_dataset.shape[1]
     
     model.eval()
@@ -37,7 +36,7 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, EPOCHS, TYPE, sca
         xhat_bernoulli = torch.bernoulli(xhats_bernoulli)
         xhats = torch.cat((xhat_gauss, xhat_bernoulli.view(-1,1)), dim=1)
         x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
-        x_hats_denorm = tan_to_angle(conf_dict['angle_convert']['indices'], torch.tensor(x_hats_denorm)).numpy()
+        #x_hats_denorm = tan_to_angle(conf_dict['angle_convert']['indices'], torch.tensor(x_hats_denorm)).numpy()
         data_array = np.vstack((data_array, x_hats_denorm))
 
     # Create a DataFrame from the NumPy array
@@ -52,7 +51,7 @@ def main():
     EPOCHS = 1000
     PATH_MODEL = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/models/{TYPE}_{EPOCHS}_epochs_model/'
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/'
-    DATA_FILE = 'df_no_zeros'
+    DATA_FILE = 'df_phi'
     
     scaler = StandardScaler()
     #scaler = MinMaxScaler()

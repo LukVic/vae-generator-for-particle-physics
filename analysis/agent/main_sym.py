@@ -22,7 +22,10 @@ def main():
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/'
     PATH_MODEL = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/models/'
     
-    DATA_FILE = 'df_no_zeros'
+    #DATA_FILE = 'df_phi'
+    #DATA_FILE = 'df_no_zeros'
+    #DATA_FILE = 'df_8'
+    DATA_FILE = 'df_pt'
     
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
     train_dataset = torch.tensor(df.values, dtype=torch.float32)
@@ -54,9 +57,6 @@ def main():
     #scaler = MinMaxScaler()
     train_dataset_norm = scaler.fit_transform(train_dataset)
     train_dataloader = DataLoader(train_dataset_norm, batch_size=gen_params["batch_size"], shuffle=True)
-    #train_dataset_norm[:,7] = np.round(train_dataset_norm[:,7]).astype(int)
-    #print(train_dataset_norm[train_dataset_norm == 1].shape)
-    #exit()
 
     # Create model and optimizer
     model = VAE(gen_params["latent_size"], device, input_size, conf_dict)

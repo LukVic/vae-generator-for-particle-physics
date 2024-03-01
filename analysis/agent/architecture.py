@@ -31,7 +31,8 @@ class Encoder(nn.Module):
                 #init.xavier_uniform_(layers[-1].weight)
             
             #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
-            if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
             #if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
         
@@ -69,7 +70,8 @@ class Decoder(nn.Module):
                 #init.xavier_uniform_(layers[-1].weight)
             
             #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
-            if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
             #if relu[idx] != 0: layers.append(nn.Sigmoid())
             #if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
@@ -155,7 +157,7 @@ class VAE(nn.Module):
         KLD_G = torch.distributions.kl_divergence(qz_gauss, pz_gauss).sum(dim=1)
         BCE_B = F.binary_cross_entropy(x_bernoulli, x_hat_bernoulli, reduction='sum')
         
-        beta = 0.1
+        beta = 1.0
 
         return torch.mean(REC_G + beta*KLD_G) 
         #return torch.mean(REC_G + beta*(BCE_B + KLD_G))

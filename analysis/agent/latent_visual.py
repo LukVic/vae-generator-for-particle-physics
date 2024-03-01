@@ -2,9 +2,10 @@ import torch
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.manifold import TSNE
 #from tsnecuda import TSNE
-import umap
+from umap import UMAP
 
 import plotly.express as px
 import plotly.io as pio
@@ -19,26 +20,36 @@ import multiprocessing
 def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     
     ALGORITHM = 'TSNE'
-    directories = [f'std_15000_epochs_model/', f'sym_15000_epochs_model/']
+    directories = [f'std_6000_epochs_model/', f'sym_6000_epochs_model/']
+    EVENTS_NUM = -1
     
-    
+    print(directories)
     # store std and sym together
-    data_arrs = []
     encoded_arrs = []
-    latent_arrs = []
     decoded_arrs = []
+    
+    df_real = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
+    
+    train_dataset = torch.tensor(df_real.values, dtype=torch.float32)
+    
+    shuffled_indices = np.random.permutation(train_dataset.shape[0])
+    print(shuffled_indices)
+    train_dataset = train_dataset[shuffled_indices, :]
+    
+    train_dataset = train_dataset[:EVENTS_NUM]
+    
+    scaler = StandardScaler()
+    #scaler = MinMaxScaler()
+    train_dataset_norm = torch.tensor(scaler.fit_transform(train_dataset))
+
+    latent_dimension = 30
+    
     
     for directory in directories:
     
         print(f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth')
         model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth')
-        df_real = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
-        
-        train_dataset = torch.tensor(df_real.values, dtype=torch.float32)
-        scaler = StandardScaler()
-        train_dataset_norm = torch.tensor(scaler.fit_transform(train_dataset))
         model.eval()
-        latent_dimension = 50
 
         data_arr = []
         encoded_arr= []
@@ -47,110 +58,155 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
 
         print("DATASET LOAD DONE")
 
-        for idx, data in enumerate(train_dataset_norm):
+        for data in train_dataset_norm:
             z_means, z_sigmas = model.encoder(data.view(-1, 28).to('cuda').float())
             encoded_arr.extend(z_means.detach().cpu())
             data_arr.append(data)
             
-        data_arr = scaler.inverse_transform(np.array(data_arr)).tolist()
+        data_arr = np.array(train_dataset).tolist() 
+        #data_arr = scaler.inverse_transform(np.array(data_arr)).tolist()
         
         with torch.no_grad():
             latent_samples = torch.randn(train_dataset.shape[0], latent_dimension)
-            
-
             decoder_mu_gauss, decoder_sigma_gauss, decoder_bernoulli = model.decoder(latent_samples.to('cuda'))
             px_gauss = torch.distributions.Normal(decoder_mu_gauss, torch.exp(decoder_sigma_gauss))
             decoder_gauss = px_gauss.sample()
+            #decoder_gauss = decoder_mu_gauss
             decoder_bernoulli = torch.bernoulli(decoder_bernoulli)
-            
+            decoder_bernoulli[decoder_bernoulli == 0] = -1
             decoder = torch.cat((decoder_gauss, decoder_bernoulli.view(-1,1)), dim=1)
             decoder_denorm = scaler.inverse_transform(decoder.cpu().numpy())
+            decoder_denorm = decoder_denorm
             decoded_arr.extend(decoder_denorm.tolist())
             latent_arr.extend(latent_samples.tolist())
         
-        
-        data_arrs.append(data_arr)
         encoded_arrs.append(encoded_arr)
-        latent_arrs.append(latent_arr)
         decoded_arrs.append(decoded_arr)
-    
-    
+        
+    #TODO
+    # mash together prior, encoded_std, encoded_sym
+    # mash torether data, decoded std, decoded sym
+    # exit()
+    latent_list = encoded_arrs[0] + encoded_arrs[1] + latent_arr
+    data_list = decoded_arrs[0] + decoded_arrs[1] + data_arr
+    #data_list = data_arr
+    list_length = len(encoded_arrs[0])
     
     if ALGORITHM == 'TSNE':
         print("RUNNING t-SNE")
         random_state = 42
-        tsne_instance = TSNE(n_components=2, perplexity=10, n_jobs=12, random_state=random_state)
+        tsne_instance = TSNE(n_components=2, perplexity=30, n_jobs=12, random_state=random_state)
+        
 
-        # Fit TSNE transformation arrays separately
-        trans_encoded_std = tsne_instance.fit_transform(np.array(encoded_arrs[0]))
-        trans_latent_std = tsne_instance.fit_transform(np.array(latent_arrs[0]))
-        trans_data_std = tsne_instance.fit_transform(np.array(data_arrs[0]))
-        trans_decoded_std = tsne_instance.fit_transform(np.array(decoded_arrs[0]))
+        # # Fit TSNE transformation arrays separately
+        # trans_encoded_std = tsne_instance.fit_transform(np.array(encoded_arrs[0]))
+        # trans_prior_std = tsne_instance.fit_transform(np.array(prior_arrs[0]))
+        # trans_data_std = tsne_instance.fit_transform(np.array(data_arrs[0]))
+        # trans_decoded_std = tsne_instance.fit_transform(np.array(decoded_arrs[0]))
         
-        trans_encoded_sym = tsne_instance.fit_transform(np.array(encoded_arrs[1]))
-        trans_latent_sym = tsne_instance.fit_transform(np.array(latent_arrs[1]))
-        trans_data_sym = tsne_instance.fit_transform(np.array(data_arrs[1]))
-        trans_decoded_sym = tsne_instance.fit_transform(np.array(decoded_arrs[1]))
+        # trans_encoded_sym = tsne_instance.fit_transform(np.array(encoded_arrs[1]))
+        # trans_prior_sym = tsne_instance.fit_transform(np.array(prior_arrs[1]))
+        # trans_data_sym = tsne_instance.fit_transform(np.array(data_arrs[1]))
+        # trans_decoded_sym = tsne_instance.fit_transform(np.array(decoded_arrs[1]))
 
-        print(trans_encoded_std.shape)
-        print(trans_latent_std.shape)
-        print(trans_data_std.shape)
-        print(trans_decoded_std.shape)
+        # print(trans_encoded_std.shape)
+        # print(trans_prior_std.shape)
+        # print(trans_data_std.shape)
+        # print(trans_decoded_std.shape)
         
         
-        print("t-SNE FINISHED")
+        # print("t-SNE FINISHED")
+        
+        # np.savetxt(f'{PATH_DATA}points_encoded_std.csv',trans_encoded_std, delimiter=',')
+        # np.savetxt(f'{PATH_DATA}points_prior_std.csv',trans_prior_std, delimiter=',')
+        # np.savetxt(f'{PATH_DATA}points_data_std.csv',trans_data_std, delimiter=',')
+        # np.savetxt(f'{PATH_DATA}points_decoded_std.csv',trans_decoded_std, delimiter=',')
+        
+        # np.savetxt(f'{PATH_DATA}points_encoded_sym.csv',trans_encoded_sym, delimiter=',')
+        # np.savetxt(f'{PATH_DATA}points_prior_sym.csv',trans_prior_sym, delimiter=',')
+        # np.savetxt(f'{PATH_DATA}points_data_sym.csv',trans_data_sym, delimiter=',')
+        # np.savetxt(f'{PATH_DATA}points_decoded_sym.csv',trans_decoded_sym, delimiter=',')
+
+        trans_latent = tsne_instance.fit_transform(np.array(latent_list))
+        trans_feature = tsne_instance.fit_transform(np.array(data_list))
+        
+        trans_encoded_std = trans_latent[0:list_length]
+        trans_encoded_sym = trans_latent[list_length:2*list_length]
+        trans_prior = trans_latent[2*list_length:]
+        
+        trans_decoded_std = trans_feature[0:list_length]
+        trans_decoded_sym = trans_feature[list_length:2*list_length]
+        trans_data = trans_feature[2*list_length:]
+        #trans_data = trans_feature
         
         np.savetxt(f'{PATH_DATA}points_encoded_std.csv',trans_encoded_std, delimiter=',')
-        np.savetxt(f'{PATH_DATA}points_latent_std.csv',trans_latent_std, delimiter=',')
-        np.savetxt(f'{PATH_DATA}points_data_std.csv',trans_data_std, delimiter=',')
-        np.savetxt(f'{PATH_DATA}points_decoded_std.csv',trans_decoded_std, delimiter=',')
-        
         np.savetxt(f'{PATH_DATA}points_encoded_sym.csv',trans_encoded_sym, delimiter=',')
-        np.savetxt(f'{PATH_DATA}points_latent_sym.csv',trans_latent_sym, delimiter=',')
-        np.savetxt(f'{PATH_DATA}points_data_sym.csv',trans_data_sym, delimiter=',')
+        np.savetxt(f'{PATH_DATA}points_prior.csv',trans_prior, delimiter=',')
+        
+        np.savetxt(f'{PATH_DATA}points_decoded_std.csv',trans_decoded_std, delimiter=',')
         np.savetxt(f'{PATH_DATA}points_decoded_sym.csv',trans_decoded_sym, delimiter=',')
+        np.savetxt(f'{PATH_DATA}points_data.csv',trans_data, delimiter=',')
+        
+        
         
     else:
         print("RUNNING UMAP")
-        trans_encoded = umap.UMAP(n_neighbors=10, n_components=2, n_jobs=12).fit(encoded_arr)
-        trans_latent = umap.UMAP(n_neighbors=10, n_components=2, n_jobs=12).fit(latent_arr)
-        
-        trans_data = umap.UMAP(n_neighbors=10, n_components=2, n_jobs=12).fit(data_arr)
-        trans_decoded = umap.UMAP(n_neighbors=10, n_components=2, n_jobs=12).fit(decoded_arr)
-        print("UMAP FINISHED")
-    
-        print(type(trans_encoded))
-        print(np.array(trans_encoded.embedding_))
-        
-        np.savetxt(f'{PATH_DATA}points_encoded_std.csv',trans_encoded.embedding_, delimiter=',')
-        np.savetxt(f'{PATH_DATA}points_latent_std.csv',trans_latent.embedding_, delimiter=',')
-        np.savetxt(f'{PATH_DATA}points_data_std.csv',trans_data.embedding_, delimiter=',')
-        np.savetxt(f'{PATH_DATA}points_decoded_std.csv',trans_decoded.embedding_, delimiter=',')
-    
+        random_state = 42
+        umap_instance = UMAP(n_components=2, n_neighbors=30, min_dist=0.1)
 
+        # Fit UMAP transformation arrays separately
+        trans_latent = umap_instance.fit_transform(np.array(latent_list))
+        trans_feature = umap_instance.fit_transform(np.array(data_list))
+
+        trans_encoded_std = trans_latent[0:list_length]
+        trans_encoded_sym = trans_latent[list_length:2*list_length]
+        trans_prior = trans_latent[2*list_length:]
+
+        trans_decoded_std = trans_feature[0:list_length]
+        trans_decoded_sym = trans_feature[list_length:2*list_length]
+        trans_data = trans_feature[2*list_length:]
+
+        np.savetxt(f'{PATH_DATA}points_encoded_std.csv', trans_encoded_std, delimiter=',')
+        np.savetxt(f'{PATH_DATA}points_encoded_sym.csv', trans_encoded_sym, delimiter=',')
+        np.savetxt(f'{PATH_DATA}points_prior.csv', trans_prior, delimiter=',')
+
+        np.savetxt(f'{PATH_DATA}points_decoded_std.csv', trans_decoded_std, delimiter=',')
+        np.savetxt(f'{PATH_DATA}points_decoded_sym.csv', trans_decoded_sym, delimiter=',')
+        np.savetxt(f'{PATH_DATA}points_data.csv', trans_data, delimiter=',')
+        print("UMAP FINISHED")
+       
 
 
 def find_overlap(PATH_DATA, PATH_RESULTS):
-    files = ['points_encoded_std.csv', 'points_latent_std.csv', 'points_data_std.csv', 'points_decoded_std.csv']
-    points_encoded = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
-    points_latent = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
-    points_data = np.genfromtxt(f'{PATH_DATA}{files[2]}', delimiter=',')
-    points_decoded = np.genfromtxt(f'{PATH_DATA}{files[3]}', delimiter=',')
+    #files = ['points_encoded_std.csv', 'points_prior_std.csv', 'points_data_std.csv', 'points_decoded_std.csv']
+    files = ['points_encoded_std.csv', 'points_encoded_sym.csv', 'points_prior.csv', 'points_decoded_std.csv', 'points_decoded_sym.csv', 'points_data.csv']
+    
+    # points_encoded = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
+    # points_prior = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
+    # points_data = np.genfromtxt(f'{PATH_DATA}{files[2]}', delimiter=',')
+    # points_decoded = np.genfromtxt(f'{PATH_DATA}{files[3]}', delimiter=',')
+    
+    points_encoded_std = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
+    points_encoded_sym = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
+    points_prior = np.genfromtxt(f'{PATH_DATA}{files[2]}', delimiter=',')
+    points_decoded_std = np.genfromtxt(f'{PATH_DATA}{files[3]}', delimiter=',')
+    points_decoded_sym = np.genfromtxt(f'{PATH_DATA}{files[4]}', delimiter=',')
+    points_data = np.genfromtxt(f'{PATH_DATA}{files[5]}', delimiter=',')
     
     
-    # Initialize sets to keep track of points
-    points_encoded_set = set(map(tuple, points_encoded))
-    points_latent_set = set(map(tuple, points_latent))
-    points_data_set = set(map(tuple, points_data))
-    points_decoded_set = set(map(tuple, points_decoded))
+    # # Initialize sets to keep track of points
+    # points_encoded_set = set(map(tuple, points_encoded))
+    # points_latent_set = set(map(tuple, points_prior))
+    # points_data_set = set(map(tuple, points_data))
+    # points_decoded_set = set(map(tuple, points_decoded))
 
-    TH = 0.1
+    # TH = 0.1
 
-    # Initialize lists to store overlapping points
-    overlap_encoded = []
-    overlap_latent = []
-    overlap_data = []
-    overlap_decoded = []
+    # # Initialize lists to store overlapping points
+    # overlap_encoded = []
+    # overlap_latent = []
+    # overlap_data = []
+    # overlap_decoded = []
 
     # print("COMPUTING THE OVERLAPING")
 
@@ -208,19 +264,35 @@ def find_overlap(PATH_DATA, PATH_RESULTS):
     
     
     # # Create DataFrames for UMAP results
-    umap_encoded_df = pd.DataFrame(data=points_encoded, columns=["t-SNE_1", "t-SNE_2"])
-    umap_encoded_df["Source"] = "Encoded Data"
-    umap_latent_df = pd.DataFrame(data=points_latent, columns=["t-SNE_1", "t-SNE_2"])
-    umap_latent_df["Source"] = "Latent Data"
+    # umap_encoded_df = pd.DataFrame(data=points_encoded, columns=["t-SNE_1", "t-SNE_2"])
+    # umap_encoded_df["Source"] = "Encoded Data"
+    # umap_latent_df = pd.DataFrame(data=points_prior, columns=["t-SNE_1", "t-SNE_2"])
+    # umap_latent_df["Source"] = "Latent Data"
     # umap_overlap_latent_df = pd.DataFrame(data=overlap_encoded, columns=["t-SNE_1", "t-SNE_2"])
     # umap_overlap_latent_df["Source"] = "Overlapping Data"
 
-    umap_data_df = pd.DataFrame(data=points_data, columns=["t-SNE_1", "t-SNE_2"])
-    umap_data_df["Source"] = "Original Data"
-    umap_decoded_df = pd.DataFrame(data=points_decoded, columns=["t-SNE_1", "t-SNE_2"])
-    umap_decoded_df["Source"] = "Decoded Data"
+    # umap_data_df = pd.DataFrame(data=points_data, columns=["t-SNE_1", "t-SNE_2"])
+    # umap_data_df["Source"] = "Original Data"
+    # umap_decoded_df = pd.DataFrame(data=points_decoded, columns=["t-SNE_1", "t-SNE_2"])
+    # umap_decoded_df["Source"] = "Decoded Data"
     # umap_overlap_data_df = pd.DataFrame(data=overlap_data, columns=["t-SNE_1", "t-SNE_2"])
     # umap_overlap_data_df["Source"] = "Overlapping Data"
+
+    tsne_encoded_std_df = pd.DataFrame(data=points_encoded_std, columns=["t-SNE_1", "t-SNE_2"])
+    tsne_encoded_std_df["Source"] = "Encoded Data ELBO"
+    tsne_encoded_sym_df = pd.DataFrame(data=points_encoded_sym, columns=["t-SNE_1", "t-SNE_2"])
+    tsne_encoded_sym_df["Source"] = "Encoded Data SYMM"
+    tsne_prior_df = pd.DataFrame(data=points_prior, columns=["t-SNE_1", "t-SNE_2"])
+    tsne_prior_df["Source"] = "Prior Data"
+    
+    tsne_decoded_std_df = pd.DataFrame(data=points_decoded_std, columns=["t-SNE_1", "t-SNE_2"])
+    tsne_decoded_std_df["Source"] = "Decoded Data ELBO"
+    tsne_decoded_sym_df = pd.DataFrame(data=points_decoded_sym, columns=["t-SNE_1", "t-SNE_2"])
+    tsne_decoded_sym_df["Source"] = "Decoded Data SYMM"
+    tsne_data_df = pd.DataFrame(data=points_data, columns=["t-SNE_1", "t-SNE_2"])
+    tsne_data_df["Source"] = "Simulated Data"
+    
+
 
     # print("OVERLAPING COMPUTED")
     
@@ -246,34 +318,36 @@ def find_overlap(PATH_DATA, PATH_RESULTS):
     # Plot for the first dataset
     # Plot the first point cloud (t-SNE_1)
     plt.figure(figsize=(10, 10))
-    plt.scatter(umap_encoded_df["t-SNE_1"], umap_encoded_df["t-SNE_2"], c='blue', label='Point Cloud 1 (t-SNE_1)', s = 1)
-    plt.title("t-SNE Visualization in 2D (Encoded vs. Latent Data)")
+    plt.title("t-SNE Visualization in 2D (Encoded ELBO vs. Encoded SYM vs. Prior)")
     plt.xlabel("t-SNE Component 1")
     plt.ylabel("t-SNE Component 2")
 
     # Plot the second point cloud (t-SNE_2)
-    plt.scatter(umap_latent_df["t-SNE_1"], umap_latent_df["t-SNE_2"], c='red', label='Point Cloud 2 (t-SNE_2)', s = 1)
+    plt.scatter(tsne_encoded_sym_df["t-SNE_1"], tsne_encoded_sym_df["t-SNE_2"], c='red', label='Encoded SYM', s = 1, alpha=1.0)
+    plt.scatter(tsne_encoded_std_df["t-SNE_1"], tsne_encoded_std_df["t-SNE_2"], c='blue', label='Encoded ELBO', s = 1, alpha=1.0)
+    plt.scatter(tsne_prior_df["t-SNE_1"], tsne_prior_df["t-SNE_2"], c='green', label='Prior', s = 1, alpha=1.0)
 
     plt.legend()
     plt.grid(True)
-    plt.savefig(f'{PATH_RESULTS}vae_std_latent_tsne.pdf')
+    plt.savefig(f'{PATH_RESULTS}vae_latent_tsne_{-1}_30_new_pt.pdf')
     #plt.show()
 
     
 
     # Plot the first point cloud (t-SNE_1)
     plt.figure(figsize=(10, 10))
-    plt.scatter(umap_decoded_df["t-SNE_1"], umap_decoded_df["t-SNE_2"], c='blue', label='Point Cloud 1 (t-SNE_1)', s = 1)
-    plt.title("t-SNE Visualization in 2D (Encoded vs. Latent Data)")
+    plt.scatter(tsne_decoded_sym_df["t-SNE_1"], tsne_decoded_sym_df["t-SNE_2"], c='red', label='Decoded SYM', s = 1, alpha=1.0)
+    plt.scatter(tsne_decoded_std_df["t-SNE_1"], tsne_decoded_std_df["t-SNE_2"], c='blue', label='Decoded ELBO', s = 1, alpha=1.0)
+    plt.scatter(tsne_data_df["t-SNE_1"], tsne_data_df["t-SNE_2"], c='green', label='Simulated data', s = 1, alpha = 1.0)
+    plt.title("t-SNE Visualization in 2D (Decoded ELBO vs. Decoded SYM vs. Simulated Data)")
     plt.xlabel("t-SNE Component 1")
     plt.ylabel("t-SNE Component 2")
 
     # Plot the second point cloud (t-SNE_2)
-    plt.scatter(umap_data_df["t-SNE_1"], umap_data_df["t-SNE_2"], c='red', label='Point Cloud 2 (t-SNE_2)', s = 1)
-
+    
     plt.legend()
     plt.grid(True)
-    plt.savefig(f'{PATH_RESULTS}vae_std_data_tsne.pdf')
+    plt.savefig(f'{PATH_RESULTS}vae_data_tsne_{-1}_30_new_pt.pdf')
     #plt.show()
     
     
@@ -284,10 +358,12 @@ def main():
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/'
     PATH_RESULTS = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/'
     DATA_FILE = 'df_no_zeros'
-    EPOCHS = 15000
+    #DATA_FILE = 'df_phi'
+    #DATA_FILE = 'df_pt'
+    EPOCHS = 1000
     
     
-    #dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS)
+    dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS)
     find_overlap(PATH_DATA, PATH_RESULTS)
     
 if __name__ == "__main__":

@@ -1,16 +1,37 @@
 import numpy as np
 import pandas as pd
 
+
+# Separates only needed features and saves the dataset into a file.
 def feature_cutter(path):
-    features = pd.read_csv(f'{path}features/pt_sum_gen.csv', header=None).to_numpy()
+    
+    # FEATURE_CSV_PATH = 'features/pt_sum_gen.csv'
+    # INPUT_DATSET_CSV_PATH = 'data/df_no_zeros_disc_6000_6000_sym.csv'
+    # OUTPUT_DATASET_CSV_PATH = 'data/pt_sum_gen_sym.csv'
+    
+    # FEATURE_CSV_PATH = 'features/phi_features.csv'
+    # INPUT_DATSET_CSV_PATH = 'data/df_no_zeros.csv'
+    # OUTPUT_DATASET_CSV_PATH = 'data/df_phi.csv'
+    
+    FEATURE_CSV_PATH = 'features/pt_features.csv'
+    INPUT_DATSET_CSV_PATH = 'data/df_no_zeros.csv'
+    OUTPUT_DATASET_CSV_PATH = 'data/df_pt.csv'
+    
+    # FEATURE_CSV_PATH = 'features/features_8.csv'
+    # INPUT_DATSET_CSV_PATH = 'data/df_no_zeros.csv'
+    # OUTPUT_DATASET_CSV_PATH = 'data/df_8.csv'
+    
+    
+    features = pd.read_csv(f'{path}{FEATURE_CSV_PATH}', header=None).to_numpy()
     print(features)
-    df_big = pd.read_csv(f'{path}data/df_no_zeros_disc_15000_15000_sym.csv')
+    df_big = pd.read_csv(f'{path}{INPUT_DATSET_CSV_PATH}')
     df_ten = pd.DataFrame()
     for feature in features:
         df_ten[f'{feature[0]}'] = df_big[f'{feature[0]}']
-    print(df_ten)
-    df_ten.to_csv(path + 'data/pt_sum_gen_sym.csv', index=False)
-    
+    df_ten.to_csv(f'{path}{OUTPUT_DATASET_CSV_PATH}', index=False)
+
+
+
 def main():    
     PATH = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/'
     feature_cutter(PATH)

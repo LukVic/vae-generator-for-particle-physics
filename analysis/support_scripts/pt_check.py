@@ -120,7 +120,7 @@ def pt_check(path):
     # h_ht_lep_generated.Write()
     # fOut.Close()
     
-    directory = f'15000_15000_epochs_histogram_comparison/'
+    directory = f'6000_6000_epochs_histogram_comparison/'
 
     if not os.path.exists(f'{path}results/feature_plots_comparison/{directory}'):
         os.makedirs(f'{path}results/feature_plots_comparison/{directory}')

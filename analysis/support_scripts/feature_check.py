@@ -2,31 +2,48 @@ import os
 import ROOT
 import pandas as pd
 import numpy as np
+import logging
+import ctypes
 
 def feature_check(path):
+    
+    # Configure logging to output to console
+    logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    EPOCHS_STD = 1000
+    EPOCHS_SYM = 1000
+    
+    # DATASET = 'df_no_zeros'
+    # FEATURES = 'low_features'
+    # DATASET = 'df_phi'
+    # FEATURES = 'phi_features'
+    #DATASET = 'df_8'
+    #FEATURES = 'features_8'
+    DATASET = 'df_pt'
+    FEATURES = 'pt_features'
+    
     data_original = np.array([])
     data_ganerated = np.array([])
     data_ganerated_sym = np.array([])
     
-    df_original = pd.read_csv(f'{path}data/df_no_zeros.csv')
-    df_generated = pd.read_csv(f'{path}data/df_no_zeros_disc_1000_1000_std.csv')
-    df_generated_sym = pd.read_csv(f'{path}data/df_no_zeros_disc_15000_15000_sym.csv')
+    
+    df_original = pd.read_csv(f'{path}data/{DATASET}.csv')
+    df_generated = pd.read_csv(f'{path}data/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_SYM}_std.csv')
+    df_generated_sym = pd.read_csv(f'{path}data/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_SYM}_sym.csv')
 
-    feature_list = pd.read_csv(f'{path}features/low_features.csv', header=None).to_numpy()
+    feature_list = pd.read_csv(f'{path}features/{FEATURES}.csv', header=None).to_numpy()
+    
+    chi2_sum_std = 0
+    chi2_sum_sym = 0
+    
+    
+    logging.info(f'ELBO EPOCHS NUM: {EPOCHS_STD}')
+    logging.info(f'SYMM EPOCHS NUM: {EPOCHS_SYM}')
     
     for feature in feature_list:
-        # for (index_original, row_original), (index_generated, row_generated), (index_generated_sym, row_generated_sym) in zip(df_original.iterrows(), df_generated.iterrows(), df_generated_sym.iterrows()):
-        #     #print(f"Row {index_original}: Original = {row_original}, Generated = {row_generated}")
-        #     #print(type(feature[0]))
-        #     data_original = np.append(data_original, row_original[feature[0]])
-        #     data_ganerated = np.append(data_ganerated, row_generated[feature[0]])
-        #     data_ganerated_sym = np.append(data_ganerated_sym, row_generated_sym[feature[0]])
-        
         data_original = df_original[feature[0]].values
         data_ganerated = df_generated[feature[0]].values
         data_ganerated_sym = df_generated_sym[feature[0]].values
-        
-
         
         min_all = np.min([data_original,data_ganerated,data_ganerated_sym])
         max_all = np.max([data_original,data_ganerated,data_ganerated_sym])
@@ -122,14 +139,27 @@ def feature_check(path):
         # Draw the legend
         legend.Draw("SAME")
         
+        # Define variables to store chi-square statistic and other information
+        chi2_statistic = ctypes.c_double(0.0)
+        ndf = ctypes.c_int(0)
+        igood = ctypes.c_int(0)
+        
+        
         # Perform the chi-square test
-        result_std = h_feature_original.Chi2Test(h_feature_generated_std, "P WW")
-        result_sym = h_feature_original.Chi2Test(h_feature_generated_sym, "P WW")
+        h_feature_original.Chi2TestX(h_feature_generated_std, chi2_statistic, ndf, igood, "P WW")
+        result_std = chi2_statistic.value / ndf.value
+        chi2_sum_std += result_std
         
-        print(result_std)
-        print(result_sym)
         
-        directory = f'1000_15000_epochs_histogram_comparison/'
+        h_feature_original.Chi2TestX(h_feature_generated_sym, chi2_statistic, ndf, igood, "P WW")
+        result_sym = chi2_statistic.value / ndf.value
+        chi2_sum_sym += result_sym
+        
+        logging.info(f'CURRENT FEATURE: {feature}')
+        logging.info(f'ELBO VAE: {result_std}')
+        logging.info(f'SYMM VAE: {result_sym}')
+        
+        directory = f'{EPOCHS_STD}_{EPOCHS_SYM}_epochs_histogram_comparison/'
 
         if not os.path.exists(f'{path}results/feature_plots_comparison/{directory}'):
             os.makedirs(f'{path}results/feature_plots_comparison/{directory}')
@@ -137,6 +167,10 @@ def feature_check(path):
 
         c1.SaveAs(f"{path}results/feature_plots_comparison/{directory}vae_std_sym_{feature[0]}_comparison.pdf")
 
+    logging.info(f'SUMMED CHI2 ELBO: {chi2_sum_std}')
+    logging.info(f'SUMMED CHI2 SYMM: {chi2_sum_sym}')
+
+        
             
 def main():
     PATH = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/'

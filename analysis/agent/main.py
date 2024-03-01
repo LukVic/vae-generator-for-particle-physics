@@ -25,7 +25,10 @@ def main():
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/'
     PATH_MODEL = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/models/'
     
-    DATA_FILE = 'df_no_zeros'
+    #DATA_FILE = 'df_phi'
+    #DATA_FILE = 'df_no_zeros'
+    #DATA_FILE = 'df_8'
+    DATA_FILE = 'df_pt'
     
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
     train_dataset = torch.tensor(df.values, dtype=torch.float32)
@@ -34,7 +37,7 @@ def main():
         conf_dict = json.load(json_file)
 
     #! convert angle to its tangens
-    train_dataset = angle_to_tan(conf_dict['angle_convert']['indices'], train_dataset)
+    #train_dataset = angle_to_tan(conf_dict['angle_convert']['indices'], train_dataset)
     #print(train_dataset.T[9])
     
     if torch.cuda.is_available():
