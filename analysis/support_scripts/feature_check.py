@@ -10,17 +10,17 @@ def feature_check(path):
     # Configure logging to output to console
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    EPOCHS_STD = 1000
-    EPOCHS_SYM = 1000
+    EPOCHS_STD = 6000
+    EPOCHS_SYM = 6000
     
-    # DATASET = 'df_no_zeros'
-    # FEATURES = 'low_features'
+    DATASET = 'df_no_zeros'
+    FEATURES = 'low_features'
     # DATASET = 'df_phi'
     # FEATURES = 'phi_features'
     #DATASET = 'df_8'
     #FEATURES = 'features_8'
-    DATASET = 'df_pt'
-    FEATURES = 'pt_features'
+    # DATASET = 'df_pt'
+    # FEATURES = 'pt_features'
     
     data_original = np.array([])
     data_ganerated = np.array([])
@@ -131,6 +131,12 @@ def feature_check(path):
         legend.AddEntry(h_feature_original, "Original", "l")
         legend.AddEntry(h_feature_generated_std, "Generated ELBO", "l")
         legend.AddEntry(h_feature_generated_sym, "Generated Symmetric", "l")
+        
+        latex = ROOT.TLatex()
+        latex.SetTextSize(0.05)  # Set text size
+        latex.SetTextFont(52)
+        latex.DrawLatexNDC(0.47, 0.52, "ATLAS Work in Progress") 
+
         
         # Set legend style
         legend.SetBorderSize(0)

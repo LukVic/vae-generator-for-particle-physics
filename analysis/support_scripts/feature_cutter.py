@@ -5,17 +5,17 @@ import pandas as pd
 # Separates only needed features and saves the dataset into a file.
 def feature_cutter(path):
     
-    # FEATURE_CSV_PATH = 'features/pt_sum_gen.csv'
-    # INPUT_DATSET_CSV_PATH = 'data/df_no_zeros_disc_6000_6000_sym.csv'
-    # OUTPUT_DATASET_CSV_PATH = 'data/pt_sum_gen_sym.csv'
+    FEATURE_CSV_PATH = 'features/pt_sum_gen.csv'
+    INPUT_DATSET_CSV_PATH = 'data/df_no_zeros_disc_6000_6000_sym.csv'
+    OUTPUT_DATASET_CSV_PATH = 'data/pt_sum_gen_sym.csv'
     
     # FEATURE_CSV_PATH = 'features/phi_features.csv'
     # INPUT_DATSET_CSV_PATH = 'data/df_no_zeros.csv'
     # OUTPUT_DATASET_CSV_PATH = 'data/df_phi.csv'
     
-    FEATURE_CSV_PATH = 'features/pt_features.csv'
-    INPUT_DATSET_CSV_PATH = 'data/df_no_zeros.csv'
-    OUTPUT_DATASET_CSV_PATH = 'data/df_pt.csv'
+    # FEATURE_CSV_PATH = 'features/pt_features.csv'
+    # INPUT_DATSET_CSV_PATH = 'data/df_no_zeros.csv'
+    # OUTPUT_DATASET_CSV_PATH = 'data/df_pt.csv'
     
     # FEATURE_CSV_PATH = 'features/features_8.csv'
     # INPUT_DATSET_CSV_PATH = 'data/df_no_zeros.csv'

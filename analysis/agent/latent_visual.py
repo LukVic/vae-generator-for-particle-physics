@@ -20,8 +20,8 @@ import multiprocessing
 def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     
     ALGORITHM = 'TSNE'
-    directories = [f'std_6000_epochs_model/', f'sym_6000_epochs_model/']
-    EVENTS_NUM = -1
+    directories = [f'std_20000_epochs_model/', f'sym_20000_epochs_model/']
+    EVENTS_NUM = 3000
     
     print(directories)
     # store std and sym together
@@ -60,7 +60,10 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
 
         for data in train_dataset_norm:
             z_means, z_sigmas = model.encoder(data.view(-1, 28).to('cuda').float())
-            encoded_arr.extend(z_means.detach().cpu())
+            qz = torch.distributions.Normal(z_means, torch.exp(z_sigmas))
+            encoder = qz.sample()
+            #encoded_arr.extend(z_means.detach().cpu())
+            encoded_arr.extend(encoder.detach().cpu())
             data_arr.append(data)
             
         data_arr = np.array(train_dataset).tolist() 
@@ -318,37 +321,35 @@ def find_overlap(PATH_DATA, PATH_RESULTS):
     # Plot for the first dataset
     # Plot the first point cloud (t-SNE_1)
     plt.figure(figsize=(10, 10))
-    plt.title("t-SNE Visualization in 2D (Encoded ELBO vs. Encoded SYM vs. Prior)")
-    plt.xlabel("t-SNE Component 1")
-    plt.ylabel("t-SNE Component 2")
+    plt.scatter(tsne_encoded_sym_df["t-SNE_1"], tsne_encoded_sym_df["t-SNE_2"], c='red', label='Encoded SYM', s=4, alpha=1.0)
+    plt.scatter(tsne_encoded_std_df["t-SNE_1"], tsne_encoded_std_df["t-SNE_2"], c='blue', label='Encoded ELBO', s=4, alpha=1.0)
+    plt.scatter(tsne_prior_df["t-SNE_1"], tsne_prior_df["t-SNE_2"], c='green', label='Prior', s=4, alpha=1.0)
+    plt.title(r"Comparison in the latent space $\mathcal{Z}$", fontsize=34)
+    plt.xlabel("t-SNE Component 1", fontsize=24)  # Increase label size
+    plt.ylabel("t-SNE Component 2", fontsize=24)  # Increase label size
 
-    # Plot the second point cloud (t-SNE_2)
-    plt.scatter(tsne_encoded_sym_df["t-SNE_1"], tsne_encoded_sym_df["t-SNE_2"], c='red', label='Encoded SYM', s = 1, alpha=1.0)
-    plt.scatter(tsne_encoded_std_df["t-SNE_1"], tsne_encoded_std_df["t-SNE_2"], c='blue', label='Encoded ELBO', s = 1, alpha=1.0)
-    plt.scatter(tsne_prior_df["t-SNE_1"], tsne_prior_df["t-SNE_2"], c='green', label='Prior', s = 1, alpha=1.0)
 
-    plt.legend()
+    legend1 = plt.legend(fontsize=24, scatterpoints=20)  # Increase legend size
+    legend1.get_frame().set_alpha(0.8)
     plt.grid(True)
-    plt.savefig(f'{PATH_RESULTS}vae_latent_tsne_{-1}_30_new_pt.pdf')
-    #plt.show()
-
-    
+    plt.savefig(f'{PATH_RESULTS}vae_latent_tsne_{3000}_30_new.pdf')
+    # plt.show()
 
     # Plot the first point cloud (t-SNE_1)
     plt.figure(figsize=(10, 10))
-    plt.scatter(tsne_decoded_sym_df["t-SNE_1"], tsne_decoded_sym_df["t-SNE_2"], c='red', label='Decoded SYM', s = 1, alpha=1.0)
-    plt.scatter(tsne_decoded_std_df["t-SNE_1"], tsne_decoded_std_df["t-SNE_2"], c='blue', label='Decoded ELBO', s = 1, alpha=1.0)
-    plt.scatter(tsne_data_df["t-SNE_1"], tsne_data_df["t-SNE_2"], c='green', label='Simulated data', s = 1, alpha = 1.0)
-    plt.title("t-SNE Visualization in 2D (Decoded ELBO vs. Decoded SYM vs. Simulated Data)")
-    plt.xlabel("t-SNE Component 1")
-    plt.ylabel("t-SNE Component 2")
+    plt.scatter(tsne_decoded_sym_df["t-SNE_1"], tsne_decoded_sym_df["t-SNE_2"], c='red', label='Decoded SYM', s=4, alpha=1.0)
+    plt.scatter(tsne_decoded_std_df["t-SNE_1"], tsne_decoded_std_df["t-SNE_2"], c='blue', label='Decoded ELBO', s=4, alpha=1.0)
+    plt.scatter(tsne_data_df["t-SNE_1"], tsne_data_df["t-SNE_2"], c='green', label='Simulated data', s=4, alpha=1.0)
+    plt.title(r"Comparison in the data space $\mathcal{X}$", fontsize=34)
+    plt.xlabel("t-SNE Component 1", fontsize=24)  # Increase label size
+    plt.ylabel("t-SNE Component 2", fontsize=24)  # Increase label size
 
-    # Plot the second point cloud (t-SNE_2)
-    
-    plt.legend()
+
+    legend2 = plt.legend(fontsize=24, scatterpoints=20)  # Increase legend size
+    legend2.get_frame().set_alpha(0.8)
     plt.grid(True)
-    plt.savefig(f'{PATH_RESULTS}vae_data_tsne_{-1}_30_new_pt.pdf')
-    #plt.show()
+    plt.savefig(f'{PATH_RESULTS}vae_data_tsne_{3000}_30_new.pdf')
+    # plt.show()
     
     
     
@@ -363,7 +364,7 @@ def main():
     EPOCHS = 1000
     
     
-    dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS)
+    #dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS)
     find_overlap(PATH_DATA, PATH_RESULTS)
     
 if __name__ == "__main__":

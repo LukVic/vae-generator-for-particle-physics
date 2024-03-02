@@ -115,9 +115,7 @@ class VAE(nn.Module):
         z = qz_gauss.rsample()
         pz_gauss = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(std))
         #! DECODER
-        
         mu_gauss, sigma_gauss, p_bernoulli = self.decoder(z)
-
         xhat_gauss = torch.cat((mu_gauss, sigma_gauss), dim=1)
         xhat = torch.cat((xhat_gauss, p_bernoulli.view(-1,1)), dim=1)
         return xhat, pz_gauss, qz_gauss
@@ -128,19 +126,15 @@ class VAE(nn.Module):
 
     # Computes reconstruction loss
     def recon(self, x_hat, x):
-        
         xhat_gauss_mu, xhat_gauss_sigma = torch.split(x_hat, x.shape[1], dim=1) 
         std = torch.exp(xhat_gauss_sigma)
-        #exit()
         pxz = Normal(xhat_gauss_mu,  std)
-        #pxz = Normal(xhat_gauss_mu, torch.ones_like(std))
         E_log_pxz = -pxz.log_prob(x.to(self.device)).sum(dim=1)
-
         return E_log_pxz
+
 
     def loss_function(self, x, x_hat, pz, qz):
         pz_gauss = pz
-        
         qz_gauss = qz
         
         x_gauss = x[:, :-1]
@@ -151,8 +145,6 @@ class VAE(nn.Module):
         
         x_bernoulli = torch.sigmoid(x_bernoulli)
         
-        # print(x_hat_gauss.shape)
-        #print(x_gauss)
         REC_G = self.recon(x_hat_gauss, x_gauss)
         KLD_G = torch.distributions.kl_divergence(qz_gauss, pz_gauss).sum(dim=1)
         BCE_B = F.binary_cross_entropy(x_bernoulli, x_hat_bernoulli, reduction='sum')

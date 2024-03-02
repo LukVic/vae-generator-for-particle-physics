@@ -98,9 +98,14 @@ def pt_check(path):
     legend = ROOT.TLegend(0.5, 0.6, 0.9, 0.9)  # Define legend position (x1, y1, x2, y2)
 
     # Add entries to the legend
-    legend.AddEntry(h_ht_lep_original, "Original", "l")
-    legend.AddEntry(h_ht_lep_generated, "Generated Standard", "l")
+    legend.AddEntry(h_ht_lep_original, "Simulated", "l")
+    legend.AddEntry(h_ht_lep_generated, "Generated ELBO", "l")
     legend.AddEntry(h_ht_lep_generated_sym, "Generated Symmetric", "l")
+    
+    latex = ROOT.TLatex()
+    latex.SetTextSize(0.05)  # Set text size
+    latex.SetTextFont(52)
+    latex.DrawLatexNDC(0.47, 0.52, "ATLAS Work in Progress") 
     
     # Set legend style
     legend.SetBorderSize(0)

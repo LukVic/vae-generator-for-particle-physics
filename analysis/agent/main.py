@@ -26,9 +26,9 @@ def main():
     PATH_MODEL = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/models/'
     
     #DATA_FILE = 'df_phi'
-    #DATA_FILE = 'df_no_zeros'
+    DATA_FILE = 'df_no_zeros'
     #DATA_FILE = 'df_8'
-    DATA_FILE = 'df_pt'
+    #DATA_FILE = 'df_pt'
     
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
     train_dataset = torch.tensor(df.values, dtype=torch.float32)
