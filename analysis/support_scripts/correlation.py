@@ -151,11 +151,64 @@ def compute_coverage(path):
     print(f"Coverage for ELBO: {coverage_std}")
     print(f"Coverage for SYM: {coverage_sym}")
     
+    
+# Compute mmd
+def compute_mmd(path):
+    
+    # Configure logging to output to console
+    logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    EPOCHS_STD = 6000
+    EPOCHS_SYM = 6000
+    
+    gamma = 1.0
+    
+    DATASET = 'df_no_zeros'
+    FEATURES = 'low_features'
+    
+    
+    df_original = pd.read_csv(f'{path}data/{DATASET}.csv').values
+    df_generated_std = pd.read_csv(f'{path}data/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_SYM}_std.csv').values
+    df_generated_sym = pd.read_csv(f'{path}data/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_SYM}_sym.csv').values
+    
+    # Normalize the data
+    scaler = StandardScaler()
+    original_data_normalized = scaler.fit_transform(df_original)
+    generated_data_std_normalized = scaler.transform(df_generated_std)
+    generated_data_sym_normalized = scaler.transform(df_generated_sym)
+    
+
+    mmd_std = gaussian_mmd(original_data_normalized, generated_data_std_normalized, gamma)
+    mmd_sym = gaussian_mmd(original_data_normalized, generated_data_sym_normalized, gamma)
+
+    
+    print(f"mmd for ELBO: {mmd_std}")
+    print(f"mmd for SYM: {mmd_sym}")
+
+def gaussian_mmd(X, Y, gamma):
+    
+    
+    # Compute squared Euclidean distances between samples
+    XX = np.sum(X ** 2, axis=1, keepdims=True)
+    YY = np.sum(Y ** 2, axis=1, keepdims=True)
+    XY = np.dot(X, Y.T)
+    
+    # Compute Gaussian kernel evaluations
+    XX_sum = np.sum(XX) / (X.shape[0] ** 2)
+    YY_sum = np.sum(YY) / (Y.shape[0] ** 2)
+    XY_sum = np.sum(XY) / (X.shape[0] * Y.shape[0])
+
+    mmd = np.exp(-gamma * (XX_sum - 2 * XY_sum + YY_sum))
+    
+    return mmd
+
+    
 def main():
     PATH = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/'
     #correlation_matrix(PATH)
     #wasserstein_dist(PATH)
-    compute_coverage(PATH)
+    #compute_coverage(PATH)
+    compute_mmd(PATH)
     
 if __name__ == "__main__":
     main()
