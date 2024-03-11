@@ -26,13 +26,13 @@ def pt_check(path):
     #print(max(data_original))
     #print(min(data_original))
     
-    h_ht_lep_original = ROOT.TH1F("h_ht_lep_original",";ht_lep; events (normalized)", 100, 0, 300000)
+    h_ht_lep_original = ROOT.TH1F("h_ht_lep_original",";ht_lep; events (normalized)", 100, 0, 310000)
 
     
-    h_ht_lep_generated = ROOT.TH1F("h_ht_lep_generated",";ht_lep; events (normalized)", 100, 0, 300000)
+    h_ht_lep_generated = ROOT.TH1F("h_ht_lep_generated",";ht_lep; events (normalized)", 100, 0, 310000)
 
     
-    h_ht_lep_generated_sym = ROOT.TH1F("h_ht_lep_generated_sym",";ht_lep; events (normalized)", 100, 0, 300000)
+    h_ht_lep_generated_sym = ROOT.TH1F("h_ht_lep_generated_sym",";ht_lep; events (normalized)", 100, 0, 310000)
 
     
     #print(etas)
@@ -90,12 +90,19 @@ def pt_check(path):
     h_ht_lep_original.Draw("SAME HIST")  # "E" specifies error bars
     
    
-    h_ht_lep_original.GetYaxis().SetTitleOffset(1.5) 
-    h_ht_lep_generated.GetYaxis().SetTitleOffset(1.5) 
-    h_ht_lep_generated_sym.GetYaxis().SetTitleOffset(1.5) 
+    h_ht_lep_original.GetXaxis().SetTitleSize(0.048)
+    h_ht_lep_original.GetYaxis().SetTitleSize(0.048)
+    h_ht_lep_generated.GetXaxis().SetTitleSize(0.048)
+    h_ht_lep_generated.GetYaxis().SetTitleSize(0.048)
+    h_ht_lep_generated_sym.GetXaxis().SetTitleSize(0.048)
+    h_ht_lep_generated_sym.GetYaxis().SetTitleSize(0.048)
+   
+    h_ht_lep_original.GetYaxis().SetTitleOffset(1.0) 
+    h_ht_lep_generated.GetYaxis().SetTitleOffset(1.0) 
+    h_ht_lep_generated_sym.GetYaxis().SetTitleOffset(1.0) 
 
         # Create a legend
-    legend = ROOT.TLegend(0.5, 0.6, 0.9, 0.9)  # Define legend position (x1, y1, x2, y2)
+    legend = ROOT.TLegend(0.48, 0.6, 0.92, 0.9)  # Define legend position (x1, y1, x2, y2)
 
     # Add entries to the legend
     legend.AddEntry(h_ht_lep_original, "Simulated", "l")
@@ -103,9 +110,9 @@ def pt_check(path):
     legend.AddEntry(h_ht_lep_generated_sym, "Generated Symmetric", "l")
     
     latex = ROOT.TLatex()
-    latex.SetTextSize(0.05)  # Set text size
+    latex.SetTextSize(0.052)  # Set text size
     latex.SetTextFont(52)
-    latex.DrawLatexNDC(0.47, 0.52, "ATLAS Work in Progress") 
+    latex.DrawLatexNDC(0.49, 0.52, "ATLAS Work in Progress") 
     
     # Set legend style
     legend.SetBorderSize(0)

@@ -123,19 +123,62 @@ def feature_check(path):
             h_feature_generated_std.Draw("SAME HIST E")  # "HIST" specifies histogram drawing style without error bars
             
             
-        
-        # Create a legend
-        legend = ROOT.TLegend(0.5, 0.6, 0.9, 0.9)  # Define legend position (x1, y1, x2, y2)
+        if feature != 'taus_charge_0':
+            # Create a legend
+            legend = ROOT.TLegend(0.48, 0.6, 0.92, 0.9)  # Define legend position (x1, y1, x2, y2)
 
-        # Add entries to the legend
-        legend.AddEntry(h_feature_original, "Original", "l")
-        legend.AddEntry(h_feature_generated_std, "Generated ELBO", "l")
-        legend.AddEntry(h_feature_generated_sym, "Generated Symmetric", "l")
-        
-        latex = ROOT.TLatex()
-        latex.SetTextSize(0.05)  # Set text size
-        latex.SetTextFont(52)
-        latex.DrawLatexNDC(0.47, 0.52, "ATLAS Work in Progress") 
+            # Add entries to the legend
+            legend.AddEntry(h_feature_original, "Simulated", "l")
+            legend.AddEntry(h_feature_generated_std, "Generated ELBO", "l")
+            legend.AddEntry(h_feature_generated_sym, "Generated Symmetric", "l")
+            
+            h_feature_original.GetXaxis().SetTitleSize(0.048)
+            h_feature_original.GetYaxis().SetTitleSize(0.048)
+            h_feature_generated_std.GetXaxis().SetTitleSize(0.048)
+            h_feature_generated_std.GetYaxis().SetTitleSize(0.048)
+            h_feature_generated_sym.GetXaxis().SetTitleSize(0.048)
+            h_feature_generated_sym.GetYaxis().SetTitleSize(0.048)
+            
+            h_feature_original.GetXaxis().SetTitleOffset(0.9) 
+            h_feature_generated_std.GetXaxis().SetTitleOffset(0.9) 
+            h_feature_generated_sym.GetXaxis().SetTitleOffset(0.9) 
+            
+            h_feature_original.GetYaxis().SetTitleOffset(1.0) 
+            h_feature_generated_std.GetYaxis().SetTitleOffset(1.0) 
+            h_feature_generated_sym.GetYaxis().SetTitleOffset(1.0) 
+            
+            latex = ROOT.TLatex()
+            latex.SetTextSize(0.052)  # Set text size
+            latex.SetTextFont(52)
+            latex.DrawLatexNDC(0.49, 0.52, "ATLAS Work in Progress")
+        else:
+            # Create a legend
+            legend = ROOT.TLegend(0.42, 0.6, 0.86, 0.9)  # Define legend position (x1, y1, x2, y2)
+
+            # Add entries to the legend
+            legend.AddEntry(h_feature_original, "Simulated", "l")
+            legend.AddEntry(h_feature_generated_std, "Generated ELBO", "l")
+            legend.AddEntry(h_feature_generated_sym, "Generated Symmetric", "l")
+            
+            h_feature_original.GetXaxis().SetTitleSize(0.048)
+            h_feature_original.GetYaxis().SetTitleSize(0.048)
+            h_feature_generated_std.GetXaxis().SetTitleSize(0.048)
+            h_feature_generated_std.GetYaxis().SetTitleSize(0.048)
+            h_feature_generated_sym.GetXaxis().SetTitleSize(0.048)
+            h_feature_generated_sym.GetYaxis().SetTitleSize(0.048)
+            
+            h_feature_original.GetXaxis().SetTitleOffset(0.9) 
+            h_feature_generated_std.GetXaxis().SetTitleOffset(0.9) 
+            h_feature_generated_sym.GetXaxis().SetTitleOffset(0.9) 
+            
+            h_feature_original.GetYaxis().SetTitleOffset(1.0) 
+            h_feature_generated_std.GetYaxis().SetTitleOffset(1.0) 
+            h_feature_generated_sym.GetYaxis().SetTitleOffset(1.0) 
+            
+            latex = ROOT.TLatex()
+            latex.SetTextSize(0.052)  # Set text size
+            latex.SetTextFont(52)
+            latex.DrawLatexNDC(0.43, 0.52, "ATLAS Work in Progress")
 
         
         # Set legend style

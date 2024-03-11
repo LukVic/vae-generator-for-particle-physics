@@ -20,7 +20,7 @@ import multiprocessing
 def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     
     ALGORITHM = 'TSNE'
-    directories = [f'std_20000_epochs_model/', f'sym_20000_epochs_model/']
+    directories = [f'std_15000_epochs_model/', f'sym_15000_epochs_model/']
     EVENTS_NUM = 3000
     
     print(directories)
@@ -33,7 +33,7 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     train_dataset = torch.tensor(df_real.values, dtype=torch.float32)
     
     shuffled_indices = np.random.permutation(train_dataset.shape[0])
-    print(shuffled_indices)
+    print(train_dataset.shape[0])
     train_dataset = train_dataset[shuffled_indices, :]
     
     train_dataset = train_dataset[:EVENTS_NUM]
@@ -42,7 +42,7 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
     #scaler = MinMaxScaler()
     train_dataset_norm = torch.tensor(scaler.fit_transform(train_dataset))
 
-    latent_dimension = 30
+    latent_dimension = 50
     
     
     for directory in directories:
@@ -324,15 +324,16 @@ def find_overlap(PATH_DATA, PATH_RESULTS):
     plt.scatter(tsne_encoded_sym_df["t-SNE_1"], tsne_encoded_sym_df["t-SNE_2"], c='red', label='Encoded SYM', s=4, alpha=1.0)
     plt.scatter(tsne_encoded_std_df["t-SNE_1"], tsne_encoded_std_df["t-SNE_2"], c='blue', label='Encoded ELBO', s=4, alpha=1.0)
     plt.scatter(tsne_prior_df["t-SNE_1"], tsne_prior_df["t-SNE_2"], c='green', label='Prior', s=4, alpha=1.0)
-    plt.title(r"Comparison in the latent space $\mathcal{Z}$", fontsize=34)
-    plt.xlabel("t-SNE Component 1", fontsize=24)  # Increase label size
-    plt.ylabel("t-SNE Component 2", fontsize=24)  # Increase label size
+    plt.title(r"Comparison in the latent space $\mathcal{Z}$", fontsize=36)
+    plt.xlabel("t-SNE Component 1", fontsize=28)  # Increase label size
+    plt.ylabel("t-SNE Component 2", fontsize=28)  # Increase label size
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
 
-
-    legend1 = plt.legend(fontsize=24, scatterpoints=20)  # Increase legend size
+    legend1 = plt.legend(fontsize=28, scatterpoints=20)  # Increase legend size
     legend1.get_frame().set_alpha(0.8)
     plt.grid(True)
-    plt.savefig(f'{PATH_RESULTS}vae_latent_tsne_{3000}_30_new.pdf')
+    plt.savefig(f'{PATH_RESULTS}vae_latent_tsne_{15000}_30_old.pdf')
     # plt.show()
 
     # Plot the first point cloud (t-SNE_1)
@@ -340,15 +341,16 @@ def find_overlap(PATH_DATA, PATH_RESULTS):
     plt.scatter(tsne_decoded_sym_df["t-SNE_1"], tsne_decoded_sym_df["t-SNE_2"], c='red', label='Decoded SYM', s=4, alpha=1.0)
     plt.scatter(tsne_decoded_std_df["t-SNE_1"], tsne_decoded_std_df["t-SNE_2"], c='blue', label='Decoded ELBO', s=4, alpha=1.0)
     plt.scatter(tsne_data_df["t-SNE_1"], tsne_data_df["t-SNE_2"], c='green', label='Simulated data', s=4, alpha=1.0)
-    plt.title(r"Comparison in the data space $\mathcal{X}$", fontsize=34)
-    plt.xlabel("t-SNE Component 1", fontsize=24)  # Increase label size
-    plt.ylabel("t-SNE Component 2", fontsize=24)  # Increase label size
+    plt.title(r"Comparison in the data space $\mathcal{X}$", fontsize=36)
+    plt.xlabel("t-SNE Component 1", fontsize=28)  # Increase label size
+    plt.ylabel("t-SNE Component 2", fontsize=28)  # Increase label size
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
 
-
-    legend2 = plt.legend(fontsize=24, scatterpoints=20)  # Increase legend size
+    legend2 = plt.legend(fontsize=28, scatterpoints=20)  # Increase legend size
     legend2.get_frame().set_alpha(0.8)
     plt.grid(True)
-    plt.savefig(f'{PATH_RESULTS}vae_data_tsne_{3000}_30_new.pdf')
+    plt.savefig(f'{PATH_RESULTS}vae_data_tsne_{15000}_30_old.pdf')
     # plt.show()
     
     
@@ -363,8 +365,7 @@ def main():
     #DATA_FILE = 'df_pt'
     EPOCHS = 1000
     
-    
-    #dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS)
+    dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS)
     find_overlap(PATH_DATA, PATH_RESULTS)
     
 if __name__ == "__main__":
