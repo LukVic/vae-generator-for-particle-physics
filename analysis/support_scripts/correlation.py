@@ -136,6 +136,34 @@ def mmd(source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None):
     return loss
 
 
+def compute_fid(path):
+    # Configure logging to output to console
+    logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    df_original, df_generated_std, df_generated_sym, feature_list = load_data(path=path)
+    
+    # Normalize the data
+    scaler = StandardScaler()
+    original_data_normalized = scaler.fit_transform(df_original.iloc[0:100])
+    generated_data_std_normalized = scaler.transform(df_generated_std.iloc[0:100])
+    generated_data_sym_normalized = scaler.transform(df_generated_sym.iloc[0:100])
+    
+    # calculate mean and covariance statistics
+    mu1, sigma1 = original_data_normalized.mean(axis=0), np.cov(original_data_normalized, rowvar=False)
+    mu2, sigma2 = generated_data_sym_normalized.mean(axis=0), np.cov(generated_data_sym_normalized, rowvar=False)
+    # calculate sum squared difference between means
+    ssdiff = np.sum((mu1 - mu2)**2.0)
+    # calculate sqrt of product between cov
+    covmean = sqrtm(sigma1.dot(sigma2))
+    # check and correct imaginary numbers from sqrt
+    if np.iscomplexobj(covmean):
+        covmean = covmean.real
+    # calculate score
+    fid = ssdiff + np.trace(sigma1 + sigma2 - 2.0 * covmean)
+    
+    
+    print(f"fid for ELBO: {fid}")
+
 def load_data(path):
     EPOCHS_STD = 6000
     EPOCHS_SYM = 6000
@@ -158,8 +186,8 @@ def main():
     #wasserstein_dist(PATH)
     #compute_coverage(PATH)
     #wrap_prdc(PATH)
-    compute_mmd(PATH)
-    
+    #compute_mmd(PATH)
+    compute_fid(PATH)
     
 if __name__ == "__main__":
     main()
