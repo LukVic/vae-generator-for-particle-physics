@@ -1,11 +1,11 @@
 import pandas as pd
 import numpy as np
 
+
 def classification_preprocess():
     classes = {'tth' : 0, 'ttw': 1, 'ttz' : 2, 'tt' : 3}
     
-    df_all_train = pd.DataFrame()
-    df_all_test = pd.DataFrame()
+    df_all = pd.DataFrame()
     
     
     for cl in classes:
@@ -16,30 +16,15 @@ def classification_preprocess():
         df_class['sig_mass'] = 0
         df_class['y'] = classes[cl]
         
-        # Shuffle the DataFrame
-        df_class = df_class.sample(frac=1, random_state=42)  # Shuffle with random_state for reproducibility
-
-        # Calculate the number of rows for the 20-80 split
-        num_rows = df_class.shape[0]
-        split_index = int(0.8 * num_rows)
-
-        # Split the shuffled DataFrame into 20% and 80%
-        df_class_train = df_class.iloc[:split_index]
-        df_class_test = df_class.iloc[split_index:]
-
-        df_all_train = pd.concat([df_all_train, df_class_train])
-        df_all_test = pd.concat([df_all_test, df_class_test])
+        df_all = pd.concat([df_all, df_class])
     
     
-    print(df_all_train.shape)
-    print(df_all_test.shape)
+    print(df_all.shape)
 
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
-    TRAIN_FILE = f'df_train_full_vec'
-    TEST_FILE = f'df_test_full_vec'
+    FILE_DATA = 'df_all_full_vec'
 
-    np.savetxt(f'{PATH_DATA}{TRAIN_FILE}.csv',df_all_train, delimiter=',')
-    np.savetxt(f'{PATH_DATA}{TEST_FILE}.csv',df_all_test, delimiter=',')
+    df_all.to_pickle(f'{PATH_DATA}{FILE_DATA}.pkl')
 
 def main():
     classification_preprocess()
