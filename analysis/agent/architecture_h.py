@@ -109,16 +109,34 @@ class VAE(nn.Module):
     def forward(self, x):
         #! ENCODER
         x = x.to(self.device)
-        mu, sigma = self.encoder(x.view(-1, self.input_size))
-        std = torch.exp(sigma)  
-        qz_gauss = torch.distributions.Normal(mu, std)
-        z = qz_gauss.rsample()
-        pz_gauss = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(std))
+        
+        
+        #!DETERMINISTIC PATH
+        r_1 = self.encoder(x.view(-1, self.input_size))
+        r_2 = self.encoder(x.view(-1, self.input_size))
+        
+        delta_mu_1, delta_sigma_1 = self.encoder(r_1.view(-1, self.input_size))
+        delta_mu_2, delta_sigma_2 = self.encoder(r_2.view(-1, self.input_size))
+        delta_std_1 = torch.exp(delta_sigma_1)
+        delta_std_2 = torch.exp(delta_sigma_2)  
+        
+        qz_gauss_2 = torch.distributions.Normal(delta_mu_2, delta_std_2)
+        z_2 = qz_gauss_2.rsample()
+        
+        mu_1, sigma_1 = self.encoder(z_2.view(-1, self.input_size))
+        std_1 = torch.exp(sigma_1)
+        
+        qz_gauss_1 = torch.distributions.Normal(mu_1 + delta_mu_1, std_1 + delta_std_1)
+        z_1 = qz_gauss_1.rsample()
+        
+        
+        pz_gauss = torch.distributions.Normal(torch.zeros_like(mu_1), torch.ones_like(std_1))
+        
         #! DECODER
-        mu_gauss, sigma_gauss, p_bernoulli = self.decoder(z)
+        mu_gauss, sigma_gauss, p_bernoulli = self.decoder(z_1)
         xhat_gauss = torch.cat((mu_gauss, sigma_gauss), dim=1)
         xhat = torch.cat((xhat_gauss, p_bernoulli.view(-1,1)), dim=1)
-        return xhat, pz_gauss, qz_gauss
+        return xhat, pz_gauss, qz_gauss_1, qz_gauss_2 # qz_gauss_1, qz_gauss_2 for KL divergence
 
     def count_params(self):
         return sum(p.numel() for p in self.encoder.parameters() if p.requires_grad)
@@ -133,10 +151,9 @@ class VAE(nn.Module):
         return E_log_pxz
 
 
-    def loss_function(self, x, x_hat, pz, qz_1, qz_2):
+    def loss_function(self, x, x_hat, pz, qz):
         pz_gauss = pz
-        qz_gauss_1 = qz_1
-        qz_gauss_2 = qz_2
+        qz_gauss = qz
         
         x_gauss = x[:, :-1]
         x_bernoulli = x[:, -1].to(torch.float32).to(self.device)
@@ -147,12 +164,11 @@ class VAE(nn.Module):
         x_bernoulli = torch.sigmoid(x_bernoulli)
         
         REC_G = self.recon(x_hat_gauss, x_gauss)
-        KLD_G_1 = torch.distributions.kl_divergence(qz_gauss_1, pz_gauss).sum(dim=1)
-        KLD_G_2 = torch.distributions.kl_divergence(qz_gauss_2, pz_gauss).sum(dim=1)
+        KLD_G = torch.distributions.kl_divergence(qz_gauss, pz_gauss).sum(dim=1)
         BCE_B = F.binary_cross_entropy(x_bernoulli, x_hat_bernoulli, reduction='sum')
         
         beta = 1.0
 
-        return torch.mean(REC_G + beta*(KLD_G_1 + KLD_G_2)) 
+        return torch.mean(REC_G + beta*KLD_G) 
         #return torch.mean(REC_G + beta*(BCE_B + KLD_G))
     
