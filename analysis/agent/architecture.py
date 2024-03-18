@@ -133,10 +133,9 @@ class VAE(nn.Module):
         return E_log_pxz
 
 
-    def loss_function(self, x, x_hat, pz, qz_1, qz_2):
+    def loss_function(self, x, x_hat, pz, qz):
         pz_gauss = pz
-        qz_gauss_1 = qz_1
-        qz_gauss_2 = qz_2
+        qz_gauss = qz
         
         x_gauss = x[:, :-1]
         x_bernoulli = x[:, -1].to(torch.float32).to(self.device)
@@ -147,12 +146,11 @@ class VAE(nn.Module):
         x_bernoulli = torch.sigmoid(x_bernoulli)
         
         REC_G = self.recon(x_hat_gauss, x_gauss)
-        KLD_G_1 = torch.distributions.kl_divergence(qz_gauss_1, pz_gauss).sum(dim=1)
-        KLD_G_2 = torch.distributions.kl_divergence(qz_gauss_2, pz_gauss).sum(dim=1)
+        KLD_G = torch.distributions.kl_divergence(qz, pz_gauss).sum(dim=1)
         BCE_B = F.binary_cross_entropy(x_bernoulli, x_hat_bernoulli, reduction='sum')
         
         beta = 1.0
 
-        return torch.mean(REC_G + beta*(KLD_G_1 + KLD_G_2)) 
+        return torch.mean(REC_G + beta*KLD_G) 
         #return torch.mean(REC_G + beta*(BCE_B + KLD_G))
     
