@@ -31,7 +31,7 @@ class Encoder(nn.Module):
                 #init.xavier_uniform_(layers[-1].weight)
             
             #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
-            #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
             #if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
@@ -70,7 +70,7 @@ class Decoder(nn.Module):
                 #init.xavier_uniform_(layers[-1].weight)
             
             #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
-            #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
             #if relu[idx] != 0: layers.append(nn.Sigmoid())
@@ -113,7 +113,7 @@ class Deterministic_encoder(nn.Module):
                 layers.append(nn.Linear(arch[idx][0],self.r_size))
                 #init.xavier_uniform_(layers[-1].weight)
             
-            #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
@@ -155,7 +155,9 @@ class VAE(nn.Module):
         r_2 = self.deterministic_encoder_2(r_1.view(-1, self.r_dim))
         
         delta_mu_1, delta_sigma_1 = self.encoder_1(r_1.view(-1, self.r_dim))
+        delta_sigma_1 = F.hardtanh(delta_sigma_1, -7., 2.)
         delta_mu_2, delta_sigma_2 = self.encoder_2(r_2.view(-1, self.r_dim))
+        delta_sigma_2 = F.hardtanh(delta_sigma_2, -7., 2.)
         delta_std_1 = torch.exp(delta_sigma_1)
         delta_std_2 = torch.exp(delta_sigma_2)  
         
@@ -165,26 +167,18 @@ class VAE(nn.Module):
         mu_1, sigma_1 = self.encoder_3(z_2.view(-1, self.zdim))
         std_1 = torch.exp(sigma_1)
         
-        # print(f"MU_1: {mu_1.shape}")
-        # print(f"STD_1: {std_1.shape}")
-        
-        # print(f"D MU_1: {delta_mu_1.shape}")
-        # print(f"D STD_1: {delta_std_1.shape}")
-        
-        # print(f"D MU_2: {delta_mu_2.shape}")
-        # print(f"D STD_2: {delta_std_2.shape}")
         
         qz_gauss_1 = torch.distributions.Normal(mu_1 + delta_mu_1, std_1 + delta_std_1)
         z_1 = qz_gauss_1.rsample()
         
-        pz_1_gauss = torch.distributions.Normal(torch.zeros_like(delta_mu_2), torch.ones_like(delta_std_2))
-        pz_2_gauss = torch.distributions.Normal(torch.zeros_like(mu_1), torch.ones_like(std_1))
+        pz_2_gauss = torch.distributions.Normal(torch.zeros_like(delta_mu_2), torch.ones_like(delta_std_2))
+        pz_1_gauss = torch.distributions.Normal(mu_1, std_1)
         
         #! DECODER
         mu_gauss, sigma_gauss, p_bernoulli = self.decoder(z_1)
         xhat_gauss = torch.cat((mu_gauss, sigma_gauss), dim=1)
         xhat = torch.cat((xhat_gauss, p_bernoulli.view(-1,1)), dim=1)
-        return xhat, pz_1_gauss, pz_2_gauss, qz_gauss_1, qz_gauss_2 # qz_gauss_1, qz_gauss_2 for KL divergence
+        return xhat, pz_2_gauss, pz_1_gauss, qz_gauss_2, qz_gauss_1 # qz_gauss_1, qz_gauss_2 for KL divergence
 
     def count_params(self):
         return sum(p.numel() for p in self.encoder_1.parameters() if p.requires_grad)
@@ -216,8 +210,8 @@ class VAE(nn.Module):
         x_bernoulli = torch.sigmoid(x_bernoulli)
         
         REC_G = self.recon(x_hat_gauss, x_gauss)
-        KLD_G_1 = torch.distributions.kl_divergence(qz_gauss_1, pz_2_gauss).sum(dim=1)
-        KLD_G_2 = torch.distributions.kl_divergence(qz_gauss_2, pz_1_gauss).sum(dim=1)
+        KLD_G_1 = torch.distributions.kl_divergence(qz_gauss_1, pz_1_gauss).sum(dim=1)
+        KLD_G_2 = torch.distributions.kl_divergence(qz_gauss_2, pz_2_gauss).sum(dim=1)
         BCE_B = F.binary_cross_entropy(x_bernoulli, x_hat_bernoulli, reduction='sum')
         
         beta = 1.0
