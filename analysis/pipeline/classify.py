@@ -20,28 +20,60 @@ import confmatrix_prettyprint as cm
 def classify():
     
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
-    FILE_DATA = 'df_all_full_vec'
-    PATH_MODEL =  f'{PATH_DATA}xgboost_model_trained.pkl'
+    FILE_DATA = 'df_all_full_vec_pres'
+    PATH_MODEL =  f'{PATH_DATA}xgboost_model_trained_pres.pkl'
     
-    classes = {0: 'ttH',
-        1: 'ttW',
-        2: 'ttZ',
-        3: 'ttBar',
+    classes = {
+        0: 'tbh_all',
+        1: 'ttH',
+        2: 'ttW',
+        3: 'ttZ',
+        4: 'ttBar',
     }
     
     model = None
     
     df_data = pd.read_pickle(f'{PATH_DATA}{FILE_DATA}.pkl')
     
+    df_data = df_data[df_data['weight'] >= 0]
+    
+    df_data.loc[df_data['y'] == 0, 'weight'] *= 0.019
+    
     y = df_data['y']
     X = df_data.drop(columns=['y'])
     
+    
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    if os.path.exists(PATH_MODEL):
-        model = joblib.load(f'{PATH_DATA}xgboost_model_trained.pkl')
-    else:        
-        model = train_model(X_train, y_train, 'XGB')
+    
+    X_train = X_train.drop(columns=['row_number'])
+    X_train = X_train.drop(columns=['weight'])
+    
+    weight = X_test['weight']
+    X_test = X_test.drop(columns=['row_number'])
+    X_test = X_test.drop(columns=['weight'])
+    
+    #! MODEL IS NOT TRAINED AGAIN IF EXISTS
+    # if os.path.exists(PATH_MODEL):
+    #     model = joblib.load(f'{PATH_DATA}xgboost_model_trained_pres.pkl')
+    # else:        
+    model = train_model(X_train, y_train, 'XGB')
+        
+    # Get feature importances
+    importances = model.named_steps['clf'].feature_importances_
+
+    # Sort feature importances in descending order
+    indices = np.argsort(importances)[::-1][:20]  # Select the top 20 indices
+
+    # Plot feature importances
+    plt.figure(figsize=(10, 6))
+    plt.title("Top 20 Feature Importances")
+    plt.bar(range(20), importances[indices], align="center")
+    plt.xticks(range(20), X_train.columns[indices], rotation=90)
+    plt.xlim([-1, 20])
+    plt.tight_layout()
+    plt.savefig(f'{PATH_DATA}feature_importance_top20.png')
+    
     
     y_pred = model.predict(X_test)
     y_pred_proba = model.predict_proba(X_test)
@@ -60,9 +92,9 @@ def classify():
     plot_roc_multiclass('XGB'+'_%s test (20%% of %s)' % ('', 'ttH'), y_test, y_pred_proba, classes,
                                     {'Accuracy': accuracy, 'F1 Weighted': f1_test, 'ROC AUC Weighted': auc_test}, PATH_DATA)
     
-    cm.plot_confusion_matrix_from_data(y_test, y_pred, None,PATH_DATA, pred_val_axis='col')
+    cm.plot_confusion_matrix_from_data(y_test, y_pred, weight,PATH_DATA, pred_val_axis='col')
     
-    x_values, y_S, y_B, y_signif, y_signif_simp, y_signif_imp, best_significance_threshold = calculate_significance_all_thresholds_new_method(y_pred_proba, y_test, None, 0, 0.2)
+    x_values, y_S, y_B, y_signif, y_signif_simp, y_signif_imp, best_significance_threshold = calculate_significance_all_thresholds_new_method(y_pred_proba, y_test, weight, 0, 0.2)
     maxsignificance = max(y_signif)
     maxsignificance_simple = max(y_signif_simp)
     

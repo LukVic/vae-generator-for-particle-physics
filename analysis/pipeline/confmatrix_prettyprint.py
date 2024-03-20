@@ -161,11 +161,12 @@ def pretty_plot_confusion_matrix(df_cm, folder, annot=True, cmap="Oranges", fmt=
                     cbar=cbar, cmap=cmap, linecolor='w', fmt=fmt)
 
     classes = {
-               'ttH': 0,
-               'ttW': 1,
-               'ttZ': 2,
-               'ttBar' : 3,
-               ' ': 4}
+            'tbH': 0,
+            'ttH': 1,
+            'ttW': 2,
+            'ttZ': 3,
+            'ttBar' : 4,
+            ' ': 5}
     
     #set ticklabels rotation
     ax.set_xticklabels(ax.get_xticklabels(), rotation = 45, fontsize = 10)

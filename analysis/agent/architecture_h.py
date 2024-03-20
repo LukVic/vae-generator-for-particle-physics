@@ -33,7 +33,8 @@ class Encoder(nn.Module):
             #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
             if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
-            if relu[idx] != 0: layers.append(nn.ReLU())
+            #if relu[idx] != 0: layers.append(nn.ReLU())
+            if relu[idx] != 0: layers.append(nn.GELU())
             #if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
         
         self.body = nn.Sequential(*layers)
@@ -72,7 +73,8 @@ class Decoder(nn.Module):
             #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
             if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
-            if relu[idx] != 0: layers.append(nn.ReLU())
+            # if relu[idx] != 0: layers.append(nn.ReLU())
+            if relu[idx] != 0: layers.append(nn.GELU())
             #if relu[idx] != 0: layers.append(nn.Sigmoid())
             #if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
         
@@ -116,7 +118,8 @@ class Deterministic_encoder(nn.Module):
             if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
-            if relu[idx] != 0: layers.append(nn.ReLU())
+            # if relu[idx] != 0: layers.append(nn.ReLU())
+            if relu[idx] != 0: layers.append(nn.GELU())
             #if relu[idx] != 0: layers.append(nn.Sigmoid())
             #if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
         
@@ -155,9 +158,9 @@ class VAE(nn.Module):
         r_2 = self.deterministic_encoder_2(r_1.view(-1, self.r_dim))
         
         delta_mu_1, delta_sigma_1 = self.encoder_1(r_1.view(-1, self.r_dim))
-        delta_sigma_1 = F.hardtanh(delta_sigma_1, -7., 2.)
+        #delta_sigma_1 = F.hardtanh(delta_sigma_1, -7., 2.)
         delta_mu_2, delta_sigma_2 = self.encoder_2(r_2.view(-1, self.r_dim))
-        delta_sigma_2 = F.hardtanh(delta_sigma_2, -7., 2.)
+        #delta_sigma_2 = F.hardtanh(delta_sigma_2, -7., 2.)
         delta_std_1 = torch.exp(delta_sigma_1)
         delta_std_2 = torch.exp(delta_sigma_2)  
         
