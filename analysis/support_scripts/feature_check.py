@@ -10,8 +10,8 @@ def feature_check(path):
     # Configure logging to output to console
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    EPOCHS_STD = 10
-    EPOCHS_SYM = 10
+    EPOCHS_STD = 1000
+    EPOCHS_SYM = 1000
     
     DATASET = 'df_no_zeros'
     FEATURES = 'low_features'

@@ -164,7 +164,7 @@ class VAE(nn.Module):
         delta_std_1 = torch.exp(delta_sigma_1)
         delta_std_2 = torch.exp(delta_sigma_2)  
         
-        qz_gauss_2 = torch.distributions.Normal(0 + delta_mu_2, 1*delta_std_2)
+        qz_gauss_2 = torch.distributions.Normal(0 + delta_mu_2, 0 + delta_std_2)
         z_2 = qz_gauss_2.rsample()
         
         mu_1, sigma_1 = self.encoder_3(z_2.view(-1, self.zdim))
