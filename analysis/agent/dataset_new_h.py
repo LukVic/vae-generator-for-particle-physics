@@ -58,7 +58,7 @@ def main():
     
     scaler = StandardScaler()
     #scaler = MinMaxScaler()
-    dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS, TYPE, scaler)
+    dataset_regen_h(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS, TYPE, scaler)
     
 if __name__ == "__main__":
     main()

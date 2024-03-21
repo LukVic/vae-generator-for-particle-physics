@@ -73,7 +73,7 @@ class Decoder(nn.Module):
             if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
-            #if relu[idx] != 0: layers.append(nn.ReLU())
+            # if relu[idx] != 0: layers.append(nn.ReLU())
             if relu[idx] != 0: layers.append(nn.GELU())
             #if relu[idx] != 0: layers.append(nn.Sigmoid())
             #if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
@@ -118,8 +118,8 @@ class Deterministic_encoder(nn.Module):
             #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
             if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
-            if relu[idx] != 0: layers.append(nn.ReLU())
-            #if relu[idx] != 0: layers.append(nn.GELU())
+            # if relu[idx] != 0: layers.append(nn.ReLU())
+            if relu[idx] != 0: layers.append(nn.GELU())
             #if relu[idx] != 0: layers.append(nn.Sigmoid())
             #if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
         
@@ -148,40 +148,42 @@ class VAE(nn.Module):
         self.encoder_3 = Encoder(self.zdim * 2, self.zdim, self.config).to(self.device)
         self.decoder = Decoder(self.zdim * 2, self.input_size, self.config).to(self.device)
 
-    def forward(self, x):
-        #! ENCODER
-        x = x.to(self.device)
+    def forward(self, sample, step):
+        #! THE FIRST STEP
+        if step == 1:
+            x = sample.to(self.device)
+            r_1 = self.deterministic_encoder_1(x.view(-1, self.input_size))
+            r_2 = self.deterministic_encoder_2(r_1.view(-1, self.r_dim))
+            delta_mu_1, delta_sigma_1 = self.encoder_1(r_1.view(-1, self.r_dim))
+            delta_mu_2, delta_sigma_2 = self.encoder_2(r_2.view(-1, self.r_dim))
+            delta_std_1 = torch.exp(delta_sigma_1)
+            delta_std_2 = torch.exp(delta_sigma_2)  
+            qz_gauss_2 = torch.distributions.Normal(0 + delta_mu_2, 0 + delta_std_2)
+            z_2 = qz_gauss_2.rsample()
+            mu_1, sigma_1 = self.encoder_3(z_2.view(-1, self.zdim))
+            std_1 = torch.exp(sigma_1)
+            qz_gauss_1 = torch.distributions.Normal(mu_1 + delta_mu_1, std_1 + delta_std_1)
+            z_1 = qz_gauss_1.rsample()
+            
+            return z_1, z_2
         
-        
-        #!DETERMINISTIC PATH
-        r_1 = self.deterministic_encoder_1(x.view(-1, self.input_size))
-        r_2 = self.deterministic_encoder_2(r_1.view(-1, self.r_dim))
-        
-        delta_mu_1, delta_sigma_1 = self.encoder_1(r_1.view(-1, self.r_dim))
-        #delta_sigma_1 = F.hardtanh(delta_sigma_1, -7., 2.)
-        delta_mu_2, delta_sigma_2 = self.encoder_2(r_2.view(-1, self.r_dim))
-        #delta_sigma_2 = F.hardtanh(delta_sigma_2, -7., 2.)
-        delta_std_1 = torch.exp(delta_sigma_1)
-        delta_std_2 = torch.exp(delta_sigma_2)  
-        
-        qz_gauss_2 = torch.distributions.Normal(0 + delta_mu_2, 0 + delta_std_2)
-        z_2 = qz_gauss_2.rsample()
-        
-        mu_1, sigma_1 = self.encoder_3(z_2.view(-1, self.zdim))
-        std_1 = torch.exp(sigma_1)
-        
-        
-        qz_gauss_1 = torch.distributions.Normal(mu_1 + delta_mu_1, std_1 + delta_std_1)
-        z_1 = qz_gauss_1.rsample()
-        
-        pz_2_gauss = torch.distributions.Normal(torch.zeros_like(delta_mu_2), torch.ones_like(delta_std_2))
-        pz_1_gauss = torch.distributions.Normal(mu_1, std_1)
-        
-        #! DECODER
-        mu_gauss, sigma_gauss, p_bernoulli = self.decoder(z_1)
-        xhat_gauss = torch.cat((mu_gauss, sigma_gauss), dim=1)
-        xhat = torch.cat((xhat_gauss, p_bernoulli.view(-1,1)), dim=1)
-        return xhat, pz_2_gauss, pz_1_gauss, qz_gauss_2, qz_gauss_1 # qz_gauss_1, qz_gauss_2 for KL divergence
+        #! THE SECOND STEP
+        elif step == 2:
+            z_2 = sample.to(self.device)
+            
+            mu_1, sigma_1 = self.encoder_3(z_2.view(-1, self.zdim))
+            
+            std_1 = torch.exp(sigma_1)
+            pz1z2 = torch.distributions.Normal(mu_1, std_1)
+            z_1 = pz1z2.sample()
+            
+            mu_gauss, sigma_gauss, p_bernoulli = self.decoder(z_1)
+            std = torch.exp(sigma_gauss)
+            pxz_gauss = torch.distributions.Normal(mu_gauss, std)
+            x_gauss = pxz_gauss.sample()
+            x_bernoulli = torch.bernoulli(p_bernoulli)
+            x = torch.cat((x_gauss, x_bernoulli.view(-1,1)), dim=1)
+            return x
 
     def count_params(self):
         return sum(p.numel() for p in self.encoder_1.parameters() if p.requires_grad)
@@ -198,27 +200,39 @@ class VAE(nn.Module):
         return E_log_pxz
 
 
-    def loss_function(self, x, x_hat, pz_1, pz_2, qz_1, qz_2):
-        pz_1_gauss = pz_1
-        pz_2_gauss = pz_2
-        qz_gauss_1 = qz_1
-        qz_gauss_2 = qz_2
-        
-        x_gauss = x[:, :-1]
-        x_bernoulli = x[:, -1].to(torch.float32).to(self.device)
-        
-        x_hat_gauss = x_hat[:, :-1]
-        x_hat_bernoulli = x_hat[:, -1].to(torch.float32).to(self.device)
-        
-        x_bernoulli = torch.sigmoid(x_bernoulli)
-        
-        REC_G = self.recon(x_hat_gauss, x_gauss)
-        KLD_G_1 = torch.distributions.kl_divergence(qz_gauss_1, pz_1_gauss).sum(dim=1)
-        KLD_G_2 = torch.distributions.kl_divergence(qz_gauss_2, pz_2_gauss).sum(dim=1)
-        BCE_B = F.binary_cross_entropy(x_bernoulli, x_hat_bernoulli, reduction='sum')
-        
-        beta = 1.0
+    def loss_function(self, x, variables, step):
+        if step == 1:
+            z_1 = variables[0]
+            z_2 = variables[1]
+            x_gauss = x[:, :-1]
+            x_bernoulli = x[:, -1].to(torch.float32).to(self.device)
+            
+            #! HERE WE HAVE X
+            mu, sigma, p = self.decoder(z_1)
+            pxz1 = torch.distributions.Normal(mu, torch.exp(sigma))
+            
+            E_log_pxz1 = -pxz1.log_prob(x_gauss.to(self.device)).sum(dim=1)
+            
+            LOSS_G = E_log_pxz1
+            
+            return torch.mean(LOSS_G) 
+        elif step == 2:
+            r_1 = self.deterministic_encoder_1(variables.view(-1, self.input_size))
+            r_2 = self.deterministic_encoder_2(r_1.view(-1, self.r_dim))
+            delta_mu_1, delta_sigma_1 = self.encoder_1(r_1.view(-1, self.r_dim))
+            delta_mu_2, delta_sigma_2 = self.encoder_2(r_2.view(-1, self.r_dim))
+            delta_std_1 = torch.exp(delta_sigma_1)
+            delta_std_2 = torch.exp(delta_sigma_2)
+            
+            qz_gauss_2 = torch.distributions.Normal(0 + delta_mu_2, 0 + delta_std_2)
+            z_2 = qz_gauss_2.rsample()
+            
+            mu_1, sigma_1 = self.encoder_3(z_2.view(-1, self.zdim))
+            std_1 = torch.exp(sigma_1)
+            qz_gauss_1 = torch.distributions.Normal(mu_1 + delta_mu_1, std_1 + delta_std_1)
 
-        return torch.mean(REC_G + beta*(KLD_G_1 + KLD_G_2)) 
-        #return torch.mean(REC_G + beta*(BCE_B + KLD_G))
-    
+            E_log_qxz1 = -qz_gauss_1.log_prob(x.to(self.device)).sum(dim=1)
+            
+            LOSS_G = E_log_qxz1
+            
+            return torch.mean(LOSS_G)
