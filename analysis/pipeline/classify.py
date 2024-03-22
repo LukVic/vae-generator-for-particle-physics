@@ -75,8 +75,8 @@ def classify():
     print(X_train_strict.shape)
     print(X_train_loose.shape)
     
-    X_train = X_train_strict
-    y_train = y_train_strict
+    X_train = X_train_loose
+    y_train = y_train_loose
     X_test = X_test_strict
     y_test = y_test_strict
     
@@ -95,7 +95,7 @@ def classify():
     # else:
     print(X_train.shape)
     print(y_train.shape)        
-    model = train_model(X_train, y_train, 'XGB')
+    model = train_model(X_train, y_train, 'TAB')
     
     # Get feature importances
     importances = model.named_steps['clf'].feature_importances_
@@ -189,20 +189,21 @@ def train_model(X, y, name=None, parameters={}, svd_components=0):
     if name == 'TAB':
         # Parameters for TabNet
         tabnet_params = {
-            'n_d': 64,
-            'n_a': 64,
-            'n_steps': 5,
-            'gamma': 1.5,
-            'n_independent': 2,
-            'n_shared': 2,
-            'momentum': 0.02,
-            'optimizer_params': dict(lr=2e-2),
-            'scheduler_params': {"step_size": 50, # how to use learning rate scheduler
-                                "gamma": 0.9},
-            'scheduler_fn': None, # how to use learning rate scheduler
-            'mask_type': "entmax", # "sparsemax"
-            'verbose': 1,
-            'device_name': 'cuda' if torch.cuda.is_available() else 'cpu'
+        'n_steps' : 3,
+        'gamma' : 1.3,
+        'n_shared' : 1,
+        'mask_type' : 'entmax',
+        'verbose' : 1,
+        'device_name' : 'cuda',
+        'optimizer_fn' : torch.optim.Adam,
+        'optimizer_params' : dict(lr = 2e-2, weight_decay =3e-6),
+        'momentum' : 0.7,
+        'scheduler_fn' : torch.optim.lr_scheduler.ReduceLROnPlateau,
+        'epsilon' : 1e-16,
+        'scheduler_params' : dict(mode="min",
+                                patience=9,  # changing scheduler patience to be lower than early stopping patience
+                                min_lr=1e-5,
+                                factor=0.5)
         }
 
         # Initialize TabNetClassifier
