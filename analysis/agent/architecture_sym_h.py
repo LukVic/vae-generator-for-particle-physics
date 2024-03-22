@@ -170,7 +170,6 @@ class VAE(nn.Module):
         #! THE SECOND STEP
         elif step == 2:
             z_2 = sample.to(self.device)
-            
             mu_1, sigma_1 = self.encoder_3(z_2.view(-1, self.zdim))
             
             std_1 = torch.exp(sigma_1)

@@ -4,8 +4,10 @@ import pandas as pd
 import random
 import logging
 import matplotlib.pyplot as plt
+import torch
 
 
+from pytorch_tabnet.tab_model import TabNetClassifier
 from sklearn.preprocessing import StandardScaler
 import joblib
 import xgboost as xgb
@@ -20,30 +22,64 @@ import confmatrix_prettyprint as cm
 def classify():
     
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
-    FILE_DATA = 'df_all_full_vec_pres'
+    FILE_DATA_LOOSE = 'df_all_full_vec_pres_loose'
+    FILE_DATA_STRICT = 'df_all_full_vec_pres'
     PATH_MODEL =  f'{PATH_DATA}xgboost_model_trained_pres.pkl'
     
     classes = {
         0: 'tbh_all',
-        1: 'ttH',
-        2: 'ttW',
-        3: 'ttZ',
-        4: 'ttBar',
+        1: 'tth',
+        2: 'ttw',
+        3: 'ttz',
+        4: 'tt',
     }
+    # classes = {
+    #     0: 'tbh_all',
+    #     1: 'bkg_all',
+    # }
     
     model = None
     
-    df_data = pd.read_pickle(f'{PATH_DATA}{FILE_DATA}.pkl')
+    df_data_loose = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_LOOSE}.pkl')
+    df_data_strict = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_STRICT}.pkl')
+
     
-    df_data = df_data[df_data['weight'] >= 0]
+
+    df_data_strict = df_data_strict[df_data_strict['weight'] >= 0]
+    df_data_strict.loc[df_data_strict['y'] == 0, 'weight'] *= 0.04
+    y_strict = df_data_strict['y']
+    X_strict = df_data_strict.drop(columns=['y'])
+    X_strict = X_strict.drop(columns=['sig_mass'])
+    X_strict = X_strict.drop(columns=['total_charge'])
+    X_strict = X_strict.drop(columns=['lep_ID_1'])
+    X_strict = X_strict.drop(columns=['lep_ID_0'])
     
-    df_data.loc[df_data['y'] == 0, 'weight'] *= 0.019
+    X_train_strict, X_test_strict, y_train_strict, y_test_strict = train_test_split(X_strict, y_strict, test_size=0.2, random_state=42)
+
+    row_numbers_to_exclude = X_test_strict['row_number'].tolist()
+    df_data_loose = df_data_loose[~df_data_loose['row_number'].isin(row_numbers_to_exclude)]
+
     
-    y = df_data['y']
-    X = df_data.drop(columns=['y'])
+    df_data_loose = df_data_loose[df_data_loose['weight'] >= 0]
+    df_data_loose.loc[df_data_loose['y'] == 0, 'weight'] *= 0.04
+    y_loose = df_data_loose['y']
+    X_loose = df_data_loose.drop(columns=['y'])
+    X_loose = X_loose.drop(columns=['sig_mass'])
+    X_loose = X_loose.drop(columns=['total_charge'])
+    X_loose = X_loose.drop(columns=['lep_ID_1'])
+    X_loose = X_loose.drop(columns=['lep_ID_0'])
     
+    X_train_loose = X_loose
+    y_train_loose = y_loose
     
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    print(X_train_strict.shape)
+    print(X_train_loose.shape)
+    
+    X_train = X_train_strict
+    y_train = y_train_strict
+    X_test = X_test_strict
+    y_test = y_test_strict
+    
     
     
     X_train = X_train.drop(columns=['row_number'])
@@ -56,9 +92,11 @@ def classify():
     #! MODEL IS NOT TRAINED AGAIN IF EXISTS
     # if os.path.exists(PATH_MODEL):
     #     model = joblib.load(f'{PATH_DATA}xgboost_model_trained_pres.pkl')
-    # else:        
+    # else:
+    print(X_train.shape)
+    print(y_train.shape)        
     model = train_model(X_train, y_train, 'XGB')
-        
+    
     # Get feature importances
     importances = model.named_steps['clf'].feature_importances_
 
@@ -73,7 +111,7 @@ def classify():
     plt.xlim([-1, 20])
     plt.tight_layout()
     plt.savefig(f'{PATH_DATA}feature_importance_top20.png')
-    
+    print(X_train.columns[indices])
     
     y_pred = model.predict(X_test)
     y_pred_proba = model.predict_proba(X_test)
@@ -129,7 +167,7 @@ def train_model(X, y, name=None, parameters={}, svd_components=0):
             # 'n_estimators': 2300
             'colsample_bytree': 1.0, 'gamma': 0.00025, 'learning_rate': 0.5, 'max_depth': 6, 'min_child_weight': 0.043,
             'n_estimators': 80, 'reg_alpha': 0.0036000000000000003, 'scale_pos_weight': 10, 'subsample': 0.8,
-            'num_class': 4,
+            'num_class': 5,
             'tree_method': 'gpu_hist',
             'random_state': random.randint(0, 1000)
 
@@ -147,7 +185,37 @@ def train_model(X, y, name=None, parameters={}, svd_components=0):
         ])
 
         pipe.fit(X, y)
+        
+    if name == 'TAB':
+        # Parameters for TabNet
+        tabnet_params = {
+            'n_d': 64,
+            'n_a': 64,
+            'n_steps': 5,
+            'gamma': 1.5,
+            'n_independent': 2,
+            'n_shared': 2,
+            'momentum': 0.02,
+            'optimizer_params': dict(lr=2e-2),
+            'scheduler_params': {"step_size": 50, # how to use learning rate scheduler
+                                "gamma": 0.9},
+            'scheduler_fn': None, # how to use learning rate scheduler
+            'mask_type': "entmax", # "sparsemax"
+            'verbose': 1,
+            'device_name': 'cuda' if torch.cuda.is_available() else 'cpu'
+        }
 
+        # Initialize TabNetClassifier
+        clf = TabNetClassifier(**tabnet_params)
+
+        # TabNet classifier
+        print('\t|-> training TabNetClassifier')
+        pipe = Pipeline([
+            ('standard_scaler', sc),
+            ('clf', clf)
+        ])
+
+        pipe.fit(X, y)
 
     return pipe
 
