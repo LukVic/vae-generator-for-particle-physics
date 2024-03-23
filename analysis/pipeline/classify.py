@@ -21,10 +21,13 @@ import confmatrix_prettyprint as cm
 
 def classify():
     
+    AUGMENT = True
+    
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
     FILE_DATA_LOOSE = 'df_all_full_vec_pres_loose'
     FILE_DATA_STRICT = 'df_all_full_vec_pres'
     PATH_MODEL =  f'{PATH_DATA}xgboost_model_trained_pres.pkl'
+    
     
     classes = {
         0: 'tbh_all',
@@ -38,6 +41,8 @@ def classify():
     #     1: 'bkg_all',
     # }
     
+
+        
     model = None
     
     df_data_loose = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_LOOSE}.pkl')
@@ -46,13 +51,13 @@ def classify():
     
 
     df_data_strict = df_data_strict[df_data_strict['weight'] >= 0]
-    df_data_strict.loc[df_data_strict['y'] == 0, 'weight'] *= 0.04
+    df_data_strict.loc[df_data_strict['y'] == 0, 'weight'] *= 0.019
     y_strict = df_data_strict['y']
     X_strict = df_data_strict.drop(columns=['y'])
     X_strict = X_strict.drop(columns=['sig_mass'])
-    X_strict = X_strict.drop(columns=['total_charge'])
-    X_strict = X_strict.drop(columns=['lep_ID_1'])
-    X_strict = X_strict.drop(columns=['lep_ID_0'])
+    # X_strict = X_strict.drop(columns=['total_charge'])
+    # X_strict = X_strict.drop(columns=['lep_ID_1'])
+    # X_strict = X_strict.drop(columns=['lep_ID_0'])
     
     X_train_strict, X_test_strict, y_train_strict, y_test_strict = train_test_split(X_strict, y_strict, test_size=0.2, random_state=42)
 
@@ -61,13 +66,13 @@ def classify():
 
     
     df_data_loose = df_data_loose[df_data_loose['weight'] >= 0]
-    df_data_loose.loc[df_data_loose['y'] == 0, 'weight'] *= 0.04
+    df_data_loose.loc[df_data_loose['y'] == 0, 'weight'] *= 0.019
     y_loose = df_data_loose['y']
     X_loose = df_data_loose.drop(columns=['y'])
     X_loose = X_loose.drop(columns=['sig_mass'])
-    X_loose = X_loose.drop(columns=['total_charge'])
-    X_loose = X_loose.drop(columns=['lep_ID_1'])
-    X_loose = X_loose.drop(columns=['lep_ID_0'])
+    # X_loose = X_loose.drop(columns=['total_charge'])
+    # X_loose = X_loose.drop(columns=['lep_ID_1'])
+    # X_loose = X_loose.drop(columns=['lep_ID_0'])
     
     X_train_loose = X_loose
     y_train_loose = y_loose
@@ -75,11 +80,10 @@ def classify():
     print(X_train_strict.shape)
     print(X_train_loose.shape)
     
-    X_train = X_train_loose
-    y_train = y_train_loose
+    X_train = X_train_strict
+    y_train = y_train_strict
     X_test = X_test_strict
     y_test = y_test_strict
-    
     
     
     X_train = X_train.drop(columns=['row_number'])
@@ -88,14 +92,30 @@ def classify():
     weight = X_test['weight']
     X_test = X_test.drop(columns=['row_number'])
     X_test = X_test.drop(columns=['weight'])
+
+    #! DATA AUGMENTATION
+    X_augment_train = None
+    if AUGMENT:
+        df_train = pd.concat([X_train, y_train], axis=1)
+        df_augment_train = pd.DataFrame()
+        for cl in classes:
+            df_generated = pd.read_csv(f'{PATH_DATA}generated_df_{cl}_full_vec_pres_loose_feature_cut_E100_S10000_std.csv')
+            df_augment_train = pd.concat([df_augment_train, df_generated])
+        
+        df_train = pd.concat([df_train, df_augment_train])
+        df_train = df_train.sample(frac=1, random_state=42) 
+        df_train = df_train.reset_index(drop=True)
+        
+        y_train = df_train['y']
+        X_train = df_train.drop(columns='y')
+    
     
     #! MODEL IS NOT TRAINED AGAIN IF EXISTS
     # if os.path.exists(PATH_MODEL):
     #     model = joblib.load(f'{PATH_DATA}xgboost_model_trained_pres.pkl')
     # else:
-    print(X_train.shape)
-    print(y_train.shape)        
-    model = train_model(X_train, y_train, 'TAB')
+
+    model = train_model(X_train, y_train, 'XGB')
     
     # Get feature importances
     importances = model.named_steps['clf'].feature_importances_
@@ -281,6 +301,7 @@ def calculate_significance_all_thresholds_new_method(predicted_probs_y: np.array
         y_pred = calculate_class_predictions_basedon_decision_threshold(predicted_probs_y, th)
         response = calculate_significance_one_threshold_new_method(true_y, y_pred, weights, other_bgr,
                                                                    test_set_scale_factor)
+        
         y_S.append(response['S'])
         y_B.append(response['B'])
         y_signif.append(response['significance'])
@@ -337,7 +358,6 @@ def calculate_significance_one_threshold_new_method(true_y: np.array, predicted_
     background_total = 0
     for i in range(1, cm_len): # no -1
         background_total += cm[i, 0]
-
 
     S = signal_total * test_set_scale_factor
     B = background_total * test_set_scale_factor
