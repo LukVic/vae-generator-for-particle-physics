@@ -47,6 +47,13 @@ def classify():
     
     df_data_loose = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_LOOSE}.pkl')
     df_data_strict = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_STRICT}.pkl')
+    
+    print(df_data_strict.shape)
+    
+    if ONE_MASS:
+        df_data_loose = df_data_loose[(df_data_loose['sig_mass'] == 0) | (df_data_loose['sig_mass'] == 2)]
+        df_data_strict = df_data_strict[(df_data_strict['sig_mass'] == 0) | (df_data_strict['sig_mass'] == 2)]
+    
 
     df_data_strict = df_data_strict[df_data_strict['weight'] >= 0]
     df_data_strict.loc[df_data_strict['y'] == 0, 'weight'] *= 0.14
@@ -61,10 +68,9 @@ def classify():
     
     #:TODO
     # just one mass included
-    if ONE_MASS:
-        
+    if not ONE_MASS:
         df_test = pd.concat([X_test_strict, y_test_strict], axis=1)
-        df_test = df_test[(df_test['sig_mass'] == 0) | (df_test['sig_mass'] == 1)]
+        df_test = df_test[(df_test['sig_mass'] == 0) | (df_test['sig_mass'] == 2)]
         y_test_strict = df_test['y']
         X_test_strict = df_test.drop(columns=['y'])
     

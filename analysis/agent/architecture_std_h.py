@@ -115,8 +115,8 @@ class Deterministic_encoder(nn.Module):
                 layers.append(nn.Linear(arch[idx][0],self.r_size))
                 #init.xavier_uniform_(layers[-1].weight)
             
-            #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
-            if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
             #if relu[idx] != 0: layers.append(nn.GELU())
@@ -162,16 +162,27 @@ class VAE(nn.Module):
         delta_mu_2, delta_sigma_2 = self.encoder_2(r_2.view(-1, self.r_dim))
         #delta_sigma_2 = F.hardtanh(delta_sigma_2, -7., 2.)
         delta_std_1 = torch.exp(delta_sigma_1)
-        delta_std_2 = torch.exp(delta_sigma_2)  
+        delta_std_2 = torch.exp(delta_sigma_2)
+        #qz_gauss_2 = torch.distributions.Normal(0 + delta_mu_2, 0 + delta_std_2)
         
-        qz_gauss_2 = torch.distributions.Normal(0 + delta_mu_2, 0 + delta_std_2)
+        ones = torch.ones(delta_std_2.shape).to(self.device)
+        sigma_new_2 = (1 * delta_std_2)/(ones + delta_std_2)
+        mu_new_2 = (0 * delta_std_2 + delta_mu_2 * 1)/(ones + delta_std_2)
+        
+        qz_gauss_2 = torch.distributions.Normal(mu_new_2, sigma_new_2)
+        
         z_2 = qz_gauss_2.rsample()
         
         mu_1, sigma_1 = self.encoder_3(z_2.view(-1, self.zdim))
         std_1 = torch.exp(sigma_1)
         
+        #qz_gauss_1 = torch.distributions.Normal(mu_1 + delta_mu_1, std_1 + delta_std_1)
         
-        qz_gauss_1 = torch.distributions.Normal(mu_1 + delta_mu_1, std_1 + delta_std_1)
+        sigma_new_1 = (delta_std_1 * std_1)/(delta_std_1 + std_1)
+        mu_new_1 = (delta_mu_1 * std_1 + mu_1 * delta_std_1)/(delta_std_1 + std_1)
+        
+        qz_gauss_1 = torch.distributions.Normal(mu_new_1, sigma_new_1)
+        
         z_1 = qz_gauss_1.rsample()
         
         pz_2_gauss = torch.distributions.Normal(torch.zeros_like(delta_mu_2), torch.ones_like(delta_std_2))
