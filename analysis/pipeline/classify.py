@@ -21,7 +21,9 @@ import confmatrix_prettyprint as cm
 
 def classify():
     
-    AUGMENT = True
+    AUGMENT = False
+    ONE_MASS = True
+    MASSES = {250: 1, 800: 2, 3000: 3}
     
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
     FILE_DATA_LOOSE = 'df_all_full_vec_pres_loose'
@@ -41,35 +43,40 @@ def classify():
     #     1: 'bkg_all',
     # }
     
-
-        
     model = None
     
     df_data_loose = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_LOOSE}.pkl')
     df_data_strict = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_STRICT}.pkl')
 
-    
-
     df_data_strict = df_data_strict[df_data_strict['weight'] >= 0]
-    df_data_strict.loc[df_data_strict['y'] == 0, 'weight'] *= 0.019
+    df_data_strict.loc[df_data_strict['y'] == 0, 'weight'] *= 0.14
     y_strict = df_data_strict['y']
     X_strict = df_data_strict.drop(columns=['y'])
-    X_strict = X_strict.drop(columns=['sig_mass'])
+    
     # X_strict = X_strict.drop(columns=['total_charge'])
     # X_strict = X_strict.drop(columns=['lep_ID_1'])
     # X_strict = X_strict.drop(columns=['lep_ID_0'])
     
     X_train_strict, X_test_strict, y_train_strict, y_test_strict = train_test_split(X_strict, y_strict, test_size=0.2, random_state=42)
-
+    
+    #:TODO
+    # just one mass included
+    if ONE_MASS:
+        
+        df_test = pd.concat([X_test_strict, y_test_strict], axis=1)
+        df_test = df_test[(df_test['sig_mass'] == 0) | (df_test['sig_mass'] == 1)]
+        y_test_strict = df_test['y']
+        X_test_strict = df_test.drop(columns=['y'])
+    
+    
     row_numbers_to_exclude = X_test_strict['row_number'].tolist()
     df_data_loose = df_data_loose[~df_data_loose['row_number'].isin(row_numbers_to_exclude)]
 
     
     df_data_loose = df_data_loose[df_data_loose['weight'] >= 0]
-    df_data_loose.loc[df_data_loose['y'] == 0, 'weight'] *= 0.019
+    df_data_loose.loc[df_data_loose['y'] == 0, 'weight'] *= 0.14
     y_loose = df_data_loose['y']
     X_loose = df_data_loose.drop(columns=['y'])
-    X_loose = X_loose.drop(columns=['sig_mass'])
     # X_loose = X_loose.drop(columns=['total_charge'])
     # X_loose = X_loose.drop(columns=['lep_ID_1'])
     # X_loose = X_loose.drop(columns=['lep_ID_0'])
@@ -80,21 +87,21 @@ def classify():
     print(X_train_strict.shape)
     print(X_train_loose.shape)
     
-    X_train = X_train_strict
-    y_train = y_train_strict
+    X_train = X_train_loose
+    y_train = y_train_loose
     X_test = X_test_strict
     y_test = y_test_strict
     
-    
+    X_train = X_train.drop(columns=['sig_mass'])
     X_train = X_train.drop(columns=['row_number'])
     X_train = X_train.drop(columns=['weight'])
     
     weight = X_test['weight']
+    X_test = X_test.drop(columns=['sig_mass'])
     X_test = X_test.drop(columns=['row_number'])
     X_test = X_test.drop(columns=['weight'])
 
     #! DATA AUGMENTATION
-    X_augment_train = None
     if AUGMENT:
         df_train = pd.concat([X_train, y_train], axis=1)
         df_augment_train = pd.DataFrame()
