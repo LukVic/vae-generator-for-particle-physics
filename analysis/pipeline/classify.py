@@ -21,13 +21,14 @@ import confmatrix_prettyprint as cm
 
 def classify():
     
-    AUGMENT = False
-    ONE_MASS = True
-    MASSES = {250: 1, 800: 2, 3000: 3}
+    AUGMENT = True
+    LOOSE = True
+    ONE_MASS = False
+    MASS = 1
     
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
-    FILE_DATA_LOOSE = 'df_all_full_vec_pres_loose'
-    FILE_DATA_STRICT = 'df_all_full_vec_pres'
+    FILE_DATA_LOOSE = 'df_all_full_vec_pres_loose_feature_cut'
+    FILE_DATA_STRICT = 'df_all_full_vec_pres_feature_cut'
     PATH_MODEL =  f'{PATH_DATA}xgboost_model_trained_pres.pkl'
     
     
@@ -48,21 +49,19 @@ def classify():
     df_data_loose = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_LOOSE}.pkl')
     df_data_strict = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_STRICT}.pkl')
     
-    print(df_data_strict.shape)
-    
     if ONE_MASS:
-        df_data_loose = df_data_loose[(df_data_loose['sig_mass'] == 0) | (df_data_loose['sig_mass'] == 2)]
-        df_data_strict = df_data_strict[(df_data_strict['sig_mass'] == 0) | (df_data_strict['sig_mass'] == 2)]
+        df_data_loose = df_data_loose[(df_data_loose['sig_mass'] == 0) | (df_data_loose['sig_mass'] == MASS)]
+        df_data_strict = df_data_strict[(df_data_strict['sig_mass'] == 0) | (df_data_strict['sig_mass'] == MASS)]
     
 
     df_data_strict = df_data_strict[df_data_strict['weight'] >= 0]
     df_data_strict.loc[df_data_strict['y'] == 0, 'weight'] *= 0.14
     y_strict = df_data_strict['y']
     X_strict = df_data_strict.drop(columns=['y'])
-    
     # X_strict = X_strict.drop(columns=['total_charge'])
     # X_strict = X_strict.drop(columns=['lep_ID_1'])
     # X_strict = X_strict.drop(columns=['lep_ID_0'])
+    # X_strict = X_strict.drop(columns=['taus_fromPV_0'])
     
     X_train_strict, X_test_strict, y_train_strict, y_test_strict = train_test_split(X_strict, y_strict, test_size=0.2, random_state=42)
     
@@ -70,7 +69,7 @@ def classify():
     # just one mass included
     if not ONE_MASS:
         df_test = pd.concat([X_test_strict, y_test_strict], axis=1)
-        df_test = df_test[(df_test['sig_mass'] == 0) | (df_test['sig_mass'] == 2)]
+        df_test = df_test[(df_test['sig_mass'] == 0) | (df_test['sig_mass'] == MASS)]
         y_test_strict = df_test['y']
         X_test_strict = df_test.drop(columns=['y'])
     
@@ -86,15 +85,17 @@ def classify():
     # X_loose = X_loose.drop(columns=['total_charge'])
     # X_loose = X_loose.drop(columns=['lep_ID_1'])
     # X_loose = X_loose.drop(columns=['lep_ID_0'])
+    # X_loose = X_loose.drop(columns=['taus_fromPV_0'])
     
     X_train_loose = X_loose
     y_train_loose = y_loose
     
-    print(X_train_strict.shape)
-    print(X_train_loose.shape)
-    
-    X_train = X_train_loose
-    y_train = y_train_loose
+    if LOOSE:
+        X_train = X_train_loose
+        y_train = y_train_loose
+    else:
+        X_train = X_train_strict
+        y_train = y_train_strict
     X_test = X_test_strict
     y_test = y_test_strict
     
@@ -111,8 +112,11 @@ def classify():
     if AUGMENT:
         df_train = pd.concat([X_train, y_train], axis=1)
         df_augment_train = pd.DataFrame()
-        for cl in classes:
-            df_generated = pd.read_csv(f'{PATH_DATA}generated_df_{cl}_full_vec_pres_loose_feature_cut_E100_S10000_std.csv')
+        for cl in classes.values():
+            PATH_GEN_MODEL = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/{cl}_input/'
+            df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_full_vec_pres_loose_feature_cut_E100_S10000_std.csv')
+            print(df_generated)
+            print(df_train)
             df_augment_train = pd.concat([df_augment_train, df_generated])
         
         df_train = pd.concat([df_train, df_augment_train])
@@ -134,14 +138,14 @@ def classify():
     importances = model.named_steps['clf'].feature_importances_
 
     # Sort feature importances in descending order
-    indices = np.argsort(importances)[::-1][:20]  # Select the top 20 indices
+    indices = np.argsort(importances)[::-1][:5]  # Select the top 20 indices
 
     # Plot feature importances
     plt.figure(figsize=(10, 6))
     plt.title("Top 20 Feature Importances")
-    plt.bar(range(20), importances[indices], align="center")
-    plt.xticks(range(20), X_train.columns[indices], rotation=90)
-    plt.xlim([-1, 20])
+    plt.bar(range(5), importances[indices], align="center")
+    plt.xticks(range(5), X_train.columns[indices], rotation=90)
+    plt.xlim([-1, 5])
     plt.tight_layout()
     plt.savefig(f'{PATH_DATA}feature_importance_top20.png')
     print(X_train.columns[indices])

@@ -5,13 +5,13 @@ import pandas as pd
 # Separates only needed features and saves the dataset into a file.
 def feature_cutter(path):
     
-    classes = {'tbh_all', 'tth', 'ttw', 'ttz', 'tt'}
+    classes = {'tth', 'ttw', 'ttz', 'tt'}
     FEATURE_CSV_PATH = 'features/best_5.csv'
     
     for cls in classes:
         
-        INPUT_DATSET_CSV_PATH = f'data/{cls}_input//df_{cls}_full_vec_pres_loose.csv'
-        OUTPUT_DATASET_CSV_PATH = f'data/{cls}_input//df_{cls}_full_vec_pres_loose_feature_cut.csv'
+        INPUT_DATSET_CSV_PATH = f'data/{cls}_input/df_{cls}_full_vec_pres_loose.csv'
+        OUTPUT_DATASET_CSV_PATH = f'data/{cls}_input/df_{cls}_full_vec_pres_loose_feature_cut.csv'
         
         # FEATURE_CSV_PATH = 'features/pt_sum_gen.csv'
         # INPUT_DATSET_CSV_PATH = 'data/df_no_zeros_disc_6000_6000_sym.csv'

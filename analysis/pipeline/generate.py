@@ -22,10 +22,10 @@ from sample import data_gen
 def main():
     REACTION = 'tt'
     OPTIMIZE = False
-    PATH_JSON = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/config/'
-    PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/tt_input/'
-    PATH_MODEL = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/models/production/tt_input/'
-    
+    PATH_JSON = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/config/'
+    PATH_DATA = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/{REACTION}_input/'
+    PATH_MODEL = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/models/production/{REACTION}_input/'
+    PATH_FEATURES = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/features/'
     classes = {'tbh_all': 0, 'tth' : 1, 'ttw': 2, 'ttz' : 3, 'tt' : 4}
     
     #DATA_FILE = 'df_phi'
@@ -33,10 +33,15 @@ def main():
     #DATA_FILE = 'df_8'
     #DATA_FILE = 'df_pt'
     DATA_FILE = f'df_{REACTION}_full_vec_pres_loose_feature_cut'
+    FEATURES_FILE = f'best_5'
     
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
+    df = df.drop(columns=['weight', 'row_number'])
     train_dataset = torch.tensor(df.values, dtype=torch.float32)
-
+    features = pd.read_csv(f'{PATH_FEATURES}{FEATURES_FILE}.csv')
+    print(features)
+    
+    print(df)
     with open(f"{PATH_JSON}hyperparams.json", 'r') as json_file:
         conf_dict = json.load(json_file)
 

@@ -21,6 +21,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     
     model = torch.load(PATH_MODEL)
     df_real = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
+    df_real = df_real.drop(columns=['weight', 'row_number'])
     
     train_dataset = torch.tensor(df_real.values, dtype=torch.float32)
     
@@ -32,7 +33,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     data_array = np.empty((0, input_size), dtype=np.float32)
 
     with torch.no_grad():
-        latent_samples = torch.randn(train_dataset.shape[0], latent_dimension)
+        latent_samples = torch.randn(SAMPLES, latent_dimension)
         xhats_mu_gauss, xhats_sigma_gauss, xhats_bernoulli = model.decoder(latent_samples.to('cuda'))
         px_gauss = torch.distributions.Normal(xhats_mu_gauss, torch.exp(xhats_sigma_gauss))
         xhat_gauss = px_gauss.sample()

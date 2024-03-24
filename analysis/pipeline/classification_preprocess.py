@@ -8,7 +8,7 @@ def classification_preprocess():
     
     for cl in classes:
         PATH_DATA = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/{cl}_input/'
-        DATA_FILE = f'df_{cl}_full_vec_pres'
+        DATA_FILE = f'df_{cl}_full_vec_pres_feature_cut'
         
         df_class = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
         print(cl)
@@ -20,7 +20,7 @@ def classification_preprocess():
     
 
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
-    FILE_DATA = 'df_all_full_vec_pres'
+    FILE_DATA = 'df_all_full_vec_pres_feature_cut'
 
     df_all.to_pickle(f'{PATH_DATA}{FILE_DATA}.pkl')
 
