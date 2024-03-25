@@ -13,7 +13,7 @@ from feature_transform import tan_to_angle
 
 def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction):
     
-    SAMPLES = 10000
+    SAMPLES = 100000
     
     with open(f"{PATH_JSON}", 'r') as json_file:
         conf_dict = json.load(json_file)
@@ -34,6 +34,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
 
     with torch.no_grad():
         latent_samples = torch.randn(SAMPLES, latent_dimension)
+        print(f'SIZE OF THE DATASET: {SAMPLES}')
         xhats_mu_gauss, xhats_sigma_gauss, xhats_bernoulli = model.decoder(latent_samples.to('cuda'))
         px_gauss = torch.distributions.Normal(xhats_mu_gauss, torch.exp(xhats_sigma_gauss))
         xhat_gauss = px_gauss.sample()

@@ -20,6 +20,8 @@ from applications import *
 from sample import data_gen
 
 def main():
+    TRAIN = False
+    #'tbh_all' 'tth' 'ttw' 'ttz' 'tt'
     REACTION = 'tt'
     OPTIMIZE = False
     PATH_JSON = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/config/'
@@ -39,9 +41,7 @@ def main():
     df = df.drop(columns=['weight', 'row_number'])
     train_dataset = torch.tensor(df.values, dtype=torch.float32)
     features = pd.read_csv(f'{PATH_FEATURES}{FEATURES_FILE}.csv')
-    print(features)
     
-    print(df)
     with open(f"{PATH_JSON}hyperparams.json", 'r') as json_file:
         conf_dict = json.load(json_file)
 
@@ -76,25 +76,29 @@ def main():
     if not os.path.exists(f'{PATH_MODEL}{directory}'):
         os.makedirs(f'{PATH_MODEL}{directory}')
 
-    # Train the model
-    model.train()
-    for epoch in range(gen_params["num_epochs"]):
-        progress_bar = tqdm(total=len(train_dataloader))
-        for _, x in enumerate(train_dataloader):
-            x = x.view(-1, input_size)
-            optimizer.zero_grad()
-            x_hat, pz, qz, = model(x.float())
-            loss = model.loss_function(x, x_hat, pz, qz)
-            loss.backward()
-            optimizer.step()
-            progress_bar.set_description(f'EPOCH: {epoch+1}/{gen_params["num_epochs"]} | LOSS: {loss:.7f}')
-            progress_bar.update(1)
-        progress_bar.close()     
-        elbo_history.append(loss.item())
-        if elbo_min > loss.item():
-            print("SAVING NEW BEST MODEL")
-            torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
-            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE='std', scaler=scaler, reaction=classes[REACTION])
-            elbo_min = loss.item()
+    if TRAIN:
+        # Train the model
+        model.train()
+        for epoch in range(gen_params["num_epochs"]):
+            progress_bar = tqdm(total=len(train_dataloader))
+            for _, x in enumerate(train_dataloader):
+                x = x.view(-1, input_size)
+                optimizer.zero_grad()
+                x_hat, pz, qz, = model(x.float())
+                loss = model.loss_function(x, x_hat, pz, qz)
+                loss.backward()
+                optimizer.step()
+                progress_bar.set_description(f'EPOCH: {epoch+1}/{gen_params["num_epochs"]} | LOSS: {loss:.7f}')
+                progress_bar.update(1)
+            progress_bar.close()     
+            elbo_history.append(loss.item())
+            if elbo_min > loss.item():
+                print("SAVING NEW BEST MODEL")
+                torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
+                data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE='std', scaler=scaler, reaction=classes[REACTION])
+                elbo_min = loss.item()
+    else:
+        model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
+        data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE='std', scaler=scaler, reaction=classes[REACTION])
 if __name__ == "__main__":
     main()

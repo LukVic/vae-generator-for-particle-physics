@@ -18,7 +18,7 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, EPOCHS, TYPE, sca
     
     model = torch.load(PATH_MODEL)
     df_real = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
-    
+    df_real = df_real.drop(columns=['weight', 'row_number'])
     train_dataset = torch.tensor(df_real.values, dtype=torch.float32)
     
     input_size = train_dataset.shape[1]

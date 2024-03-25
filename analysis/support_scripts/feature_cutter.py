@@ -5,7 +5,7 @@ import pandas as pd
 # Separates only needed features and saves the dataset into a file.
 def feature_cutter(path):
     
-    classes = {'tth', 'ttw', 'ttz', 'tt'}
+    classes = {'tbh_all'}
     FEATURE_CSV_PATH = 'features/best_5.csv'
     
     for cls in classes:

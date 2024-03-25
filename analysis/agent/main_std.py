@@ -22,15 +22,17 @@ from feature_transform import angle_to_tan
 def main():
     OPTIMIZE = False
     PATH_JSON = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/config/'
-    PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/tt/'
+    PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/tt_input/'
     PATH_MODEL = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/models/'
     
     #DATA_FILE = 'df_phi'
-    DATA_FILE = 'df_no_zeros'
+    #DATA_FILE = 'df_no_zeros'
     #DATA_FILE = 'df_8'
     #DATA_FILE = 'df_pt'
+    DATA_FILE = 'df_tt_full_vec_pres_loose_feature_cut'
     
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
+    df = df.drop(columns=['weight', 'row_number'])
     train_dataset = torch.tensor(df.values, dtype=torch.float32)
 
     with open(f"{PATH_JSON}hyperparams.json", 'r') as json_file:
