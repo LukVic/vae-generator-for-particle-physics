@@ -20,17 +20,19 @@ import umap
 import confmatrix_prettyprint as cm
 
 from aux_functions import *
+from mlp_classifier import mlp_classifier
 
 def classify():
     
+    DEEP = True
     AUGMENT = False
-    LOOSE = False
+    LOOSE = True
     ONE_MASS = True
     MASS = 2
     
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
-    FILE_DATA_LOOSE = 'df_all_full_vec_pres_loose_feature_cut'
-    FILE_DATA_STRICT = 'df_all_full_vec_pres_feature_cut'
+    FILE_DATA_LOOSE = 'df_all_full_vec_pres_loose'
+    FILE_DATA_STRICT = 'df_all_full_vec_pres'
     PATH_MODEL =  f'{PATH_DATA}xgboost_model_trained_pres.pkl'
     
     
@@ -55,8 +57,8 @@ def classify():
     print(set(df_data_strict['sig_mass'].values))
     
     if ONE_MASS:
-        df_data_loose = df_data_loose[(df_data_loose['sig_mass'] == 0) | (df_data_loose['sig_mass'] == 2)]
-        df_data_strict = df_data_strict[(df_data_strict['sig_mass'] == 0) | (df_data_strict['sig_mass'] == 2)]
+        df_data_loose = df_data_loose[(df_data_loose['sig_mass'] == 0) | (df_data_loose['sig_mass'] == MASS)]
+        df_data_strict = df_data_strict[(df_data_strict['sig_mass'] == 0) | (df_data_strict['sig_mass'] == MASS)]
     
     print(set(df_data_loose['y'].values))
     print(set(df_data_strict['y'].values))
@@ -158,33 +160,36 @@ def classify():
     #     model = joblib.load(f'{PATH_DATA}xgboost_model_trained_pres.pkl')
     # else:
 
-    model = train_model(X_train, y_train, 'XGB')
-    
-    plot_feature_importnace(PATH_DATA, model, X_train)
-    
-    y_pred = model.predict(X_train)
-    y_pred_proba = model.predict_proba(X_train)
+    model = None
+    y_pred_train, y_pred_proba_train , y_pred_test, y_pred_proba_test = None, None, None, None
+    if DEEP:
+        y_pred_train, y_pred_proba_train, y_pred_test, y_pred_proba_test  = mlp_classifier(X_train, X_test, y_train, y_test)
+        y_pred_proba_train = y_pred_proba_train.numpy()
+        y_pred_proba_test = y_pred_proba_test.numpy()
+    else:
+        model = train_model(X_train, y_train, 'XGB')
+        plot_feature_importnace(PATH_DATA, model, X_train)
+        
+        y_pred_train = model.predict(X_train)
+        y_pred_proba_train = model.predict_proba(X_train)
+
+        y_pred_test = model.predict(X_test)
+        y_pred_proba_test = model.predict_proba(X_test)
     
     # Evaluate the model
-    accuracy = accuracy_score(y_train, y_pred)
-    f1_test = f1_score(y_train, y_pred, average='macro')
-    auc_test = roc_auc_score(y_train, y_pred_proba[:,0], average='macro')
+    accuracy = accuracy_score(y_train, y_pred_train)
+    f1_test = f1_score(y_train, y_pred_train, average='macro')
+    auc_test = roc_auc_score(y_train, y_pred_proba_train[:,0], average='macro')
     
     print("Accuracy:", accuracy)
     print("f1 test:", f1_test)
     print("AUC test:", auc_test)
     
     
-    y_pred = model.predict(X_test)
-    y_pred_proba = model.predict_proba(X_test)
-    
-    print(y_pred_proba[:,0])
-    print(y_pred)
-    
     # Evaluate the model
-    accuracy = accuracy_score(y_test, y_pred)
-    f1_test = f1_score(y_test, y_pred, average='macro')
-    auc_test = roc_auc_score(y_test, y_pred_proba[:,1], average='macro')
+    accuracy = accuracy_score(y_test, y_pred_test)
+    f1_test = f1_score(y_test, y_pred_test, average='macro')
+    auc_test = roc_auc_score(y_test, y_pred_proba_test[:,0], average='macro')
     
     print("Accuracy:", accuracy)
     print("f1 test:", f1_test)
@@ -192,16 +197,14 @@ def classify():
     
     joblib.dump(model,PATH_MODEL)
     
-    
-    plot_roc_multiclass('XGB'+'_%s test (20%% of %s)' % ('', 'tbH 800'), y_test, y_pred_proba, classes,
+    plot_roc_multiclass('XGB'+'_%s test (20%% of %s)' % ('', 'tbH 800'), y_test, y_pred_proba_test, classes,
                                     {'Accuracy': accuracy, 'F1 Weighted': f1_test, 'ROC AUC Weighted': auc_test}, PATH_DATA)
     
-    cm.plot_confusion_matrix_from_data(y_test, y_pred, weight,PATH_DATA, pred_val_axis='col')
-    
-    x_values, y_S, y_B, y_signif, y_signif_simp, y_signif_imp, best_significance_threshold, y_BB = calculate_significance_all_thresholds_new_method(y_pred_proba, y_test, weight, 0, 1/0.2)
+    cm.plot_confusion_matrix_from_data(y_test, y_pred_test, weight,PATH_DATA, pred_val_axis='col')
+
+    x_values, y_S, y_B, y_signif, y_signif_simp, y_signif_imp, best_significance_threshold, y_BB = calculate_significance_all_thresholds_new_method(y_pred_proba_test, y_test, weight, 0, 1/0.2)
     maxsignificance = max(y_signif)
     maxsignificance_simple = max(y_signif_simp)
-    
     # Signal to threshold
     plot_threshold(x_values, [y_S, y_B], ['max', 'min'], 'S & B to Threshold characteristics',
                     'Expected events',
@@ -214,6 +217,8 @@ def classify():
                     'Significance Approximation', ['darkred', 'r', 'purple'],
                     ['S/sqrt(S+B)', 'S/sqrt(B)', 'S/(3/2+sqrt(B))'],
                     savepath=f"{PATH_DATA}significance.png")
+    
+    plot_ouput(y_true=y_test, y_probs=y_pred_proba_test[:,0], PATH_RESULTS=PATH_DATA)
     print("FINISHED")
 
 def train_model(X, y, name=None, parameters={}, svd_components=0):
@@ -249,14 +254,20 @@ def train_model(X, y, name=None, parameters={}, svd_components=0):
             'random_state': random.randint(0, 1000)
 
         }
+        
+        grid_simple = {
+            'max_depth': 2,
+            # 'subsample': 0.1
+        }
+        
         clf = xgb.XGBClassifier()
 
-        clf.set_params(**grid_binary)
+        clf.set_params(**grid_simple)
 
         # XGBoost clssifier
         print('\t|-> training XGBoostClassifier')
         pipe = Pipeline([
-            ('standard_scaler', sc), 
+          #  ('standard_scaler', sc), 
         #  ('pca', PCA()), 
             ('clf', clf)
         ])

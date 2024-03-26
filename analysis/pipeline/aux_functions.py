@@ -17,6 +17,31 @@ import umap
             
 #         elif label == 0:
 
+def plot_ouput(PATH_RESULTS, y_true, y_probs):
+    
+    plt.clf()
+    y_probs_sig = y_probs[y_true == 0]
+    y_probs_bkg = y_probs[y_true == 1]
+
+    # Plot the first histogram
+    plt.hist(y_probs_sig, bins=20, color='skyblue', edgecolor='black', alpha=0.7, label='Signal')  
+
+    # Plot the second histogram
+    plt.hist(y_probs_bkg, bins=20, color='salmon', edgecolor='black', alpha=0.7, label='Background') 
+
+    plt.grid()
+    
+    # Add legend
+    plt.legend()
+
+    plt.xlabel('Classifier threshold')
+    plt.ylabel('Frequency')
+    plt.title('Outputs of the classifier for Signal and Background')
+    plt.grid(True)
+    
+    plt.savefig(f'{PATH_RESULTS}_classifier_ouput_hist.pdf')
+    
+
 def plot_roc_multiclass(title, y, y_probas, classes, scores, folder):
     """ Plots ROC curve for multi-class classification.
     @param title: Title of plot
@@ -222,17 +247,18 @@ def plot_threshold(x_values, y_values, optimums, title, ylabel, colors, labels, 
 
 def plot_feature_importnace(PATH_DATA, model, X_train):
     # Get feature importances
+    FEATURE_NUM = 10
     importances = model.named_steps['clf'].feature_importances_
 
     # Sort feature importances in descending order
-    indices = np.argsort(importances)[::-1][:5]  # Select the top 20 indices
+    indices = np.argsort(importances)[::-1][:FEATURE_NUM]  # Select the top 20 indices
 
     # Plot feature importances
     plt.figure(figsize=(10, 6))
     plt.title("Top 20 Feature Importances")
-    plt.bar(range(5), importances[indices], align="center")
-    plt.xticks(range(5), X_train.columns[indices], rotation=90)
-    plt.xlim([-1, 5])
+    plt.bar(range(FEATURE_NUM), importances[indices], align="center")
+    plt.xticks(range(FEATURE_NUM), X_train.columns[indices], rotation=90)
+    plt.xlim([-1, FEATURE_NUM])
     plt.tight_layout()
     plt.savefig(f'{PATH_DATA}feature_importance_top20.png')
     print(X_train.columns[indices])
