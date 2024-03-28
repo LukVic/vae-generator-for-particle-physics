@@ -247,7 +247,7 @@ def plot_threshold(x_values, y_values, optimums, title, ylabel, colors, labels, 
 
 def plot_feature_importnace(PATH_DATA, model, X_train):
     # Get feature importances
-    FEATURE_NUM = 10
+    FEATURE_NUM = 20
     importances = model.named_steps['clf'].feature_importances_
 
     # Sort feature importances in descending order

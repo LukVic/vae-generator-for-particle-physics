@@ -23,7 +23,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test):
 
 
     input_dim = X_train.shape[1]
-    hidden_dim = 32
+    hidden_dim = 16
     output_dim = len(set(y_train))
 
     # Initialize the model
@@ -35,10 +35,10 @@ def mlp_classifier(X_train, X_test, y_train, y_test):
 
     # Define data loaders
     train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
-    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True)
 
     # Training loop
-    epochs = 5
+    epochs = 50
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
@@ -81,5 +81,6 @@ class MLP(nn.Module):
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
         x = self.fc3(x)
         return x
