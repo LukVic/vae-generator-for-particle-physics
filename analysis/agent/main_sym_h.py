@@ -77,7 +77,7 @@ def main():
             x = x.view(-1, input_size)
             optimizer.zero_grad()
             variables = model(x.float(), 1)
-            loss1 = model.loss_function(x, variables, 1)
+            loss1 = model.loss_function(variables, 1)
             loss1.backward()
             optimizer.step()
             
@@ -85,12 +85,8 @@ def main():
             pz2_gauss = torch.distributions.Normal(torch.zeros((gen_params["batch_size"],gen_params["latent_size"])),
                                                   torch.ones((gen_params["batch_size"],gen_params["latent_size"])))
             z_2 = pz2_gauss.sample()
-            xhats_mu_gauss_1, xhats_sigma_gauss_1 = model.encoder_3(z_2.to('cuda'))
-            pz1z2 = torch.distributions.Normal(xhats_mu_gauss_1, torch.exp(xhats_sigma_gauss_1))
-            z = pz1z2.sample()
-            optimizer.zero_grad()
-            distr_grad = model(z_2.float(), 2)
-            loss2 = model.loss_function(z, distr_grad, 2)
+            variables = model(z_2.float(), 2)
+            loss2 = model.loss_function(variables, 2)
             loss2.backward()
             optimizer.step()
             #exit()

@@ -10,28 +10,28 @@ def feature_check(path):
     # Configure logging to output to console
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    EPOCHS_STD = 100
-    EPOCHS_SYM = 100
+    EPOCHS_STD = 1000
+    EPOCHS_SYM = 1000
     
-    # DATASET = 'df_no_zeros'
-    # FEATURES = 'low_features'
+    DATASET = 'df_no_zeros'
+    FEATURES = 'low_features'
     # DATASET = 'df_phi'
     # FEATURES = 'phi_features'
     #DATASET = 'df_8'
     #FEATURES = 'features_8'
     # DATASET = 'df_pt'
     # FEATURES = 'pt_features'
-    DATASET = 'df_tt_full_vec_pres_loose_feature_cut'
-    FEATURES = 'best_5'
+    # DATASET = 'df_tt_full_vec_pres_loose_feature_cut'
+    # FEATURES = 'best_5'
     
     data_original = np.array([])
     data_ganerated = np.array([])
     data_ganerated_sym = np.array([])
     
     
-    df_original = pd.read_csv(f'{path}data/tt_input/{DATASET}.csv')
-    df_generated = pd.read_csv(f'{path}data/tt_input/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_SYM}_std.csv')
-    df_generated_sym = pd.read_csv(f'{path}data/tt_input/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_SYM}_sym.csv')
+    df_original = pd.read_csv(f'{path}data/tt/{DATASET}.csv')
+    df_generated = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_SYM}_sym.csv')
+    df_generated_sym = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_SYM}_sym_h.csv')
 
     print(df_generated.shape)
     print(df_generated_sym.shape)

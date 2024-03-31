@@ -31,7 +31,7 @@ def classify():
     MASS = 2
     
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
-    FILE_DATA_LOOSE = 'df_all_pres_loose_lep_charge_only'
+    FILE_DATA_LOOSE = 'df_all_pres_loose_jets_only'
     FILE_DATA_STRICT = 'df_all_pres_strict'
     PATH_MODEL =  f'{PATH_DATA}xgboost_model_trained_pres.pkl'
     

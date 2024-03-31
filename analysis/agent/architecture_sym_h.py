@@ -115,7 +115,7 @@ class Deterministic_encoder(nn.Module):
                 layers.append(nn.Linear(arch[idx][0],self.r_size))
                 #init.xavier_uniform_(layers[-1].weight)
             
-            if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            # if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
             # if relu[idx] != 0: layers.append(nn.ReLU())
@@ -176,14 +176,14 @@ class VAE(nn.Module):
             qz_gauss_1 = torch.distributions.Normal(mu_new_1, sigma_new_1)
             z_1 = qz_gauss_1.sample()
             
-            return z_1, z_2
+            return z_1, z_2, x
         
         #! THE SECOND STEP
         elif step == 2:
             z_2 = sample.to(self.device)
             mu_1, sigma_1 = self.encoder_3(z_2.view(-1, self.zdim))
-            
             std_1 = torch.exp(sigma_1)
+            
             pz1z2 = torch.distributions.Normal(mu_1, std_1)
             z_1 = pz1z2.sample()
             
@@ -193,7 +193,7 @@ class VAE(nn.Module):
             x_gauss = pxz_gauss.sample()
             x_bernoulli = torch.bernoulli(p_bernoulli)
             x = torch.cat((x_gauss, x_bernoulli.view(-1,1)), dim=1)
-            return x
+            return z_1, z_2, x
 
     def count_params(self):
         return sum(p.numel() for p in self.encoder_1.parameters() if p.requires_grad)
@@ -210,31 +210,54 @@ class VAE(nn.Module):
         return E_log_pxz
 
 
-    def loss_function(self, x, variables, step):
-        if step == 1:
-            z_1 = variables[0]
-            z_2 = variables[1]
-            x_gauss = x[:, :-1]
-            x_bernoulli = x[:, -1].to(torch.float32).to(self.device)
+    def loss_function(self, variables, step):
+        z_1 = variables[0]
+        z_2 = variables[1]
+        x = variables[2]
+        x_gauss = x[:, :-1]
+        
+        pz_2 = torch.distributions.Normal(torch.zeros_like(z_2), torch.ones_like(z_2))
+        log_pz_2 = -pz_2.log_prob(z_2.to(self.device)).sum(dim=1)
+        
+        mu_z_1, sigma_z_1 = self.encoder_3(z_2)
+        std_z_1 = torch.exp(sigma_z_1)
+        pz_1z_2 = torch.distributions.Normal(mu_z_1, std_z_1)
+        
+        mu_x, sigma_x, p_x = self.decoder(z_1)
+        std_x = torch.exp(sigma_x)
+        pxz_1 = torch.distributions.Normal(mu_x, std_x)
+        
+        log_px_pz_1 = -pxz_1.log_prob(x_gauss.to(self.device)).sum(dim=1)
+        log_pz_1_pz_2 = -pz_1z_2.log_prob(z_1.to(self.device)).sum(dim=1)
+        
+        if step == 1:    
+            E_log_probs = torch.mean(log_px_pz_1) + torch.mean(log_pz_1_pz_2) + torch.mean(log_pz_2)
+            LOSS_G = E_log_probs
             
-            #! HERE WE HAVE X
-            
-            mu_z1, sigma_z1 = self.encoder_3(z_2)
-            mu_x, sigma_x, p_x = self.decoder(z_1)
-            pxz1 = torch.distributions.Normal(mu_x, torch.exp(sigma_x))
-            
-            E_log_pxz1 = -pxz1.log_prob(x_gauss.to(self.device)).sum(dim=1)
-            
-            LOSS_G = E_log_pxz1
-            
-            return torch.mean(LOSS_G) 
+            return LOSS_G   
+            #return torch.mean(LOSS_G)
+        
         elif step == 2:
-            r_1 = self.deterministic_encoder_1(variables.view(-1, self.input_size))
+            pz_2 = torch.distributions.Normal(torch.zeros_like(z_2),torch.ones_like(z_2))
+            log_pz_2 = -pz_2.log_prob(z_2.to(self.device)).sum(dim=1)
+            
+            mu_z_1, sigma_z_1 = self.encoder_3(z_2.view(-1, self.zdim))
+            std_z_1 = torch.exp(sigma_z_1)
+            pz_1z_2 = torch.distributions.Normal(mu_z_1, std_z_1)
+            log_pz_1_pz_2 = -pz_1z_2.log_prob(z_1.to(self.device)).sum(dim=1)
+            
+            # mu_x, sigma_x, p_x = self.decoder(z_1.view(-1, self.zdim*2))
+            # std_x = torch.exp(sigma_x)
+            # pxz_1 = torch.distributions.Normal(mu_x, std_x)
+            # log_px_pz_1 = -pxz_1.log_prob(x_gauss.to(self.device)).sum(dim=1)
+            
+            r_1 = self.deterministic_encoder_1(x.view(-1, self.input_size))
             r_2 = self.deterministic_encoder_2(r_1.view(-1, self.r_dim))
             delta_mu_1, delta_sigma_1 = self.encoder_1(r_1.view(-1, self.r_dim))
             delta_mu_2, delta_sigma_2 = self.encoder_2(r_2.view(-1, self.r_dim))
             delta_std_1 = torch.exp(delta_sigma_1)
             delta_std_2 = torch.exp(delta_sigma_2)
+            
             
             ones = torch.ones(delta_std_2.shape).to(self.device)
             sigma_new_2 = (1 * delta_std_2)/(ones + delta_std_2)
@@ -243,15 +266,19 @@ class VAE(nn.Module):
             qz_gauss_2 = torch.distributions.Normal(mu_new_2, sigma_new_2)
             z_2 = qz_gauss_2.sample()
             
-            mu_1, sigma_1 = self.encoder_3(z_2.view(-1, self.zdim))
-            std_1 = torch.exp(sigma_1)
-            sigma_new_1 = (delta_std_1 * std_1)/(delta_std_1 + std_1)
-            mu_new_1 = (delta_mu_1 * std_1 + mu_1 * delta_std_1)/(delta_std_1 + std_1)
+            qz_2_x = torch.distributions.Normal(mu_new_2, sigma_new_2)
+            log_pz_2_px = -qz_2_x.log_prob(z_2.to(self.device)).sum(dim=1)
             
-            qz_gauss_1 = torch.distributions.Normal(mu_new_1, sigma_new_1)
+            sigma_new_1 = (delta_std_1 * std_z_1)/(delta_std_1 + std_z_1)
+            mu_new_1 = (delta_mu_1 * std_z_1 + mu_z_1 * delta_std_1)/(delta_std_1 + std_z_1)
+            
+            qz_1z_2_x = torch.distributions.Normal(mu_new_1, sigma_new_1)
+            log_pz_1pz_2_px = -qz_1z_2_x.log_prob(z_1.to(self.device)).sum(dim=1)
 
-            E_log_qxz1 = -qz_gauss_1.log_prob(x.to(self.device)).sum(dim=1)
+            #E_log_probs = log_px_pz_1 + log_pz_1_pz_2 + log_pz_2 + log_pz_2_px #+ log_pz_1pz_2_px
+            E_log_probs = torch.mean(log_pz_2_px)# + 0.1*torch.mean(log_pz_1pz_2_px)
+            #E_log_probs = torch.mean(log_px_pz_1)  + torch.mean(log_pz_2) #+ log_pz_1_pz_2
+            LOSS_G = E_log_probs
             
-            LOSS_G = E_log_qxz1
-            
-            return torch.mean(LOSS_G)
+            return LOSS_G
+            #return torch.mean(LOSS_G)

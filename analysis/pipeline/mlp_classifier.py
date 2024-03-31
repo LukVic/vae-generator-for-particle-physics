@@ -1,4 +1,5 @@
 import torch
+from torch.autograd import grad
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
@@ -6,11 +7,11 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-
+import matplotlib.pyplot as plt
 
 def mlp_classifier(X_train, X_test, y_train, y_test):
 
-
+    features = X_train.columns.tolist()
     scaler = StandardScaler()
 
     X_train = scaler.fit_transform(X_train)
@@ -23,19 +24,20 @@ def mlp_classifier(X_train, X_test, y_train, y_test):
 
 
     input_dim = X_train.shape[1]
-    hidden_dim = 16
+    hidden_dim = 32
     output_dim = len(set(y_train))
 
     # Initialize the model
     model = MLP(input_dim, hidden_dim, output_dim).cuda()
 
+    class_weights = torch.tensor([1.0, 1.0]).cuda()
     # Define loss function and optimizer
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.BCELoss(weight=class_weights)#CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     # Define data loaders
     train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
-    train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=2048, shuffle=True)
 
     # Training loop
     epochs = 50
@@ -44,15 +46,40 @@ def mlp_classifier(X_train, X_test, y_train, y_test):
         running_loss = 0.0
         for inputs, labels in train_loader:
             inputs = inputs.cuda()
-            optimizer.zero_grad()
+            
             outputs = model(inputs)
-            loss = criterion(outputs, labels)
+            outputs = torch.sigmoid(outputs)
+            labels_one_hot = F.one_hot(labels, num_classes=2).float().cuda()
+            loss_1 = criterion(outputs, labels_one_hot)
+            loss_2 = signif_loss(inputs, outputs, labels)
+            
+            loss = loss_1 #loss_2
+            
+            optimizer.zero_grad()
+            
             loss.backward()
             optimizer.step()
             running_loss += loss.item() * inputs.size(0)
         epoch_loss = running_loss / len(train_dataset)
         print(f'Epoch [{epoch+1}/{epochs}], Loss: {epoch_loss:.4f}')
 
+    
+    # Compute gradients of the loss with respect to input features
+    inputs = X_train_tensor.requires_grad_(True)
+    outputs = model(inputs)
+    outputs = torch.sigmoid(outputs)
+    labels_one_hot = F.one_hot(y_train_tensor, num_classes=2).float().cuda()
+    loss = criterion(outputs, labels_one_hot)
+    grads = grad(loss, inputs)[0]
+
+    # Compute feature importance based on gradients
+    feature_vals = torch.abs(grads).mean(dim=0)
+
+    # Print feature importance values
+    print("Feature Importance:")
+    print(feature_vals)
+    feature_importance(feature_vals.cpu(), features)
+    
     # Evaluation
     model.eval()
     with torch.no_grad():
@@ -70,6 +97,38 @@ def mlp_classifier(X_train, X_test, y_train, y_test):
     print(predicted_train)
     print(predicted_test)
     return predicted_train.cpu(), F.softmax(outputs_train, dim=1).cpu(), predicted_test.cpu(), F.softmax(outputs_test, dim=1).cpu()
+    
+
+def signif_loss(inputs, outputs, labels):
+
+    y_pred_probs_normalized = outputs / torch.sum(outputs, dim=1, keepdim=True)
+    y_pred_labels_5 = (y_pred_probs_normalized[:, 1] > 0.5).long()
+    y_pred_labels_3 = (y_pred_probs_normalized[:, 1] > 0.3).long()
+    y_pred_labels_9 = (y_pred_probs_normalized[:, 1] > 0.9).long()
+
+    TP = torch.sum((y_pred_labels_5 == 1) & (labels == 1)).float()
+    FP = torch.sum((y_pred_labels_5 == 1) & (labels == 0)).float()
+    signif_5 = (TP/torch.sqrt(FP + 1e-10)).requires_grad_(True)
+    
+    TP = torch.sum((y_pred_labels_3 == 1) & (labels == 1)).float()
+    FP = torch.sum((y_pred_labels_3 == 1) & (labels == 0)).float()
+    signif_3 = (TP/torch.sqrt(FP + 1e-10)).requires_grad_(True)
+    
+    TP = torch.sum((y_pred_labels_9 == 1) & (labels == 1)).float()
+    FP = torch.sum((y_pred_labels_9 == 1) & (labels == 0)).float()
+    signif_9 = (TP/torch.sqrt(FP + 1e-10)).requires_grad_(True)
+    
+    return -torch.log(signif_3 + signif_5 + signif_9)
+
+def feature_importance(vals, features):
+    plt.figure(figsize=(8, 6))
+    plt.bar(features, sorted(vals, reverse=True), color='skyblue')
+    plt.xlabel('Feature')
+    plt.ylabel('Importance')
+    plt.title('Feature Importance')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.show()
     
 
 class MLP(nn.Module):
