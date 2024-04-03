@@ -1,3 +1,5 @@
+import csv
+import pandas as pd
 import torch
 from torch.autograd import grad
 import torch.nn as nn
@@ -10,7 +12,6 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 
 def mlp_classifier(X_train, X_test, y_train, y_test):
-
     features = X_train.columns.tolist()
     scaler = StandardScaler()
 
@@ -24,7 +25,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test):
 
 
     input_dim = X_train.shape[1]
-    hidden_dim = 32
+    hidden_dim = 64
     output_dim = len(set(y_train))
 
     # Initialize the model
@@ -40,7 +41,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test):
     train_loader = DataLoader(train_dataset, batch_size=2048, shuffle=True)
 
     # Training loop
-    epochs = 50
+    epochs = 30
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
@@ -77,8 +78,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test):
 
     # Print feature importance values
     print("Feature Importance:")
-    print(feature_vals)
-    feature_importance(feature_vals.cpu(), features)
+    feature_importance(feature_vals.cpu(), features, X_train, scaler)
     
     # Evaluation
     model.eval()
@@ -93,9 +93,6 @@ def mlp_classifier(X_train, X_test, y_train, y_test):
         accuracy_test = (predicted_test == y_test_tensor).sum().item() / len(y_test_tensor)
         print(f'Test Accuracy: {accuracy_test:.4f}')
     
-    
-    print(predicted_train)
-    print(predicted_test)
     return predicted_train.cpu(), F.softmax(outputs_train, dim=1).cpu(), predicted_test.cpu(), F.softmax(outputs_test, dim=1).cpu()
     
 
@@ -120,26 +117,58 @@ def signif_loss(inputs, outputs, labels):
     
     return -torch.log(signif_3 + signif_5 + signif_9)
 
-def feature_importance(vals, features):
+def feature_importance(vals, features, X_train, scaler):
+    n = 10 
+    df = pd.DataFrame(scaler.inverse_transform(X_train), columns=features)
+    top_features = sorted(zip(features, vals), key=lambda x: x[1], reverse=True)[:n]
+    top_feature_names = [feature[0] for feature in top_features]
+    top_feature_importance = [feature[1] for feature in top_features]
+    df_top_features = pd.DataFrame({'Feature': top_feature_names, 'Importance': top_feature_importance})
+    df_best = df[top_feature_names]
+    
     plt.figure(figsize=(8, 6))
-    plt.bar(features, sorted(vals, reverse=True), color='skyblue')
+    plt.bar(top_feature_names, top_feature_importance, color='skyblue')
     plt.xlabel('Feature')
     plt.ylabel('Importance')
     plt.title('Feature Importance')
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
-    plt.show()
+    #plt.show()
+    
+    # save_best_features(top_feature_names)
+    
+    print(df_best.columns)
+    
+    for column in df_best.columns:
+        print(f'{column}: {len(set(df[column]))}')
+    
+
+def save_best_features(top_features):
+    PATH = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/features/'
+    FILE = f'features_top_{len(top_features)}.csv'
+    helper_features = ['sig_mass', 'weight', 'row_number', 'file_number']
+    all_features = top_features + helper_features
+    
+    with open(PATH + FILE, 'w', newline='') as file:
+        writer = csv.writer(file)
+        for feature in all_features:
+            writer.writerow([feature])
+
+    print(f"The list has been saved to {PATH+FILE}.")
     
 
 class MLP(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(MLP, self).__init__()
         self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.bn1 = nn.BatchNorm1d(hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.bn2 = nn.BatchNorm1d(hidden_dim)
         self.fc3 = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
-        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc1(x))  
         x = torch.relu(self.fc2(x))
+        # x = torch.relu(self.fc2(x))
         x = self.fc3(x)
         return x

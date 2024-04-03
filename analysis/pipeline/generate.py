@@ -2,6 +2,7 @@ import sys
 sys.path.append("/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/support_scripts")
 sys.path.append("/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/agent")
 import os
+import csv
 
 import numpy as np
 import torch
@@ -20,28 +21,38 @@ from applications import *
 from sample import data_gen
 
 def main():
-    TRAIN = False
+    TRAIN = True
     #'tbh_all' 'tth' 'ttw' 'ttz' 'tt'
-    REACTION = 'tt'
+    REACTION = 'bkg_all'
     OPTIMIZE = False
     PATH_JSON = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/config/'
     PATH_DATA = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/{REACTION}_input/'
     PATH_MODEL = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/models/production/{REACTION}_input/'
     PATH_FEATURES = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/features/'
-    classes = {'tbh_all': 0, 'tth' : 1, 'ttw': 2, 'ttz' : 3, 'tt' : 4}
-    
+    #classes = {'tbh_800': 0, 'tth' : 1, 'ttw': 1, 'ttz' : 1, 'tt' : 1}
+    classes = {'tbh_800_new': 0, 'bkg_all': 1}
     #DATA_FILE = 'df_phi'
     #DATA_FILE = 'df_no_zeros'
     #DATA_FILE = 'df_8'
     #DATA_FILE = 'df_pt'
-    DATA_FILE = f'df_{REACTION}_full_vec_pres_loose_feature_cut'
-    FEATURES_FILE = f'best_5'
+    DATA_FILE = f'df_{REACTION}_pres_strict'
+    FEATURES_FILE = f'features_top_10'
     
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
     df = df.drop(columns=['weight', 'row_number'])
-    train_dataset = torch.tensor(df.values, dtype=torch.float32)
-    features = pd.read_csv(f'{PATH_FEATURES}{FEATURES_FILE}.csv')
     
+    features = []
+    
+    with open(f'{PATH_FEATURES}{FEATURES_FILE}.csv', 'r') as file:
+        csv_reader = csv.reader(file)
+        for row in csv_reader:
+            features.append(row[0])
+    df = df[features]
+    
+    train_dataset = torch.tensor(df.values, dtype=torch.float32)
+    # features = pd.read_csv(f'{PATH_FEATURES}{FEATURES_FILE}.csv')
+
+
     with open(f"{PATH_JSON}hyperparams.json", 'r') as json_file:
         conf_dict = json.load(json_file)
 
@@ -95,8 +106,8 @@ def main():
             if elbo_min > loss.item():
                 print("SAVING NEW BEST MODEL")
                 torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
-                data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE='std', scaler=scaler, reaction=classes[REACTION])
                 elbo_min = loss.item()
+        data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE='std', scaler=scaler, reaction=classes[REACTION])
     else:
         model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
         data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE='std', scaler=scaler, reaction=classes[REACTION])

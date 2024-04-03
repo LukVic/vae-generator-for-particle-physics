@@ -35,7 +35,8 @@ def classify():
     FILE_DATA_STRICT = 'df_all_pres_strict'
     PATH_MODEL =  f'{PATH_DATA}xgboost_model_trained_pres.pkl'
     
-    
+    helper_features = ['sig_mass', 'weight', 'row_number', 'file_number', 'y', 'class']
+    features_used = ['taus_pt_0', 'MtLepMet', 'met_met', 'DRll01', 'MLepMet', 'minDeltaR_LJ_0', 'jets_pt_0', 'HT', 'HT_lep', 'total_charge']
     # classes = {
     #     0: 'tbh_all',
     #     1: 'tth',
@@ -54,18 +55,17 @@ def classify():
     df_data_strict = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_STRICT}.pkl')
     df_data_loose = df_data_loose.sample(frac=1.0, random_state=42)
 
-    print(set(df_data_loose['sig_mass'].values))
-    print(set(df_data_strict['sig_mass'].values))
+    
+    df_data_loose = df_data_loose[features_used + helper_features]
+    df_data_strict = df_data_strict[features_used + helper_features]
     
     if ONE_MASS:
         df_data_loose = df_data_loose[(df_data_loose['sig_mass'] == 0) | (df_data_loose['sig_mass'] == MASS)]
         df_data_strict = df_data_strict[(df_data_strict['sig_mass'] == 0) | (df_data_strict['sig_mass'] == MASS)]
-    
-    print(set(df_data_loose['class'].values))
-    print(set(df_data_strict['class'].values))
+
     
     df_data_strict = df_data_strict[df_data_strict['weight'] >= 0]
-    df_data_strict.loc[df_data_strict['y'] == 0, 'weight'] *= 0.005
+    #df_data_strict.loc[df_data_strict['y'] == 0, 'weight'] *= 0.005
     y_strict = df_data_strict['y']
     X_strict = df_data_strict.drop(columns=['y'])
     # X_strict = X_strict.drop(columns=['total_charge'])
@@ -100,7 +100,7 @@ def classify():
     print(df_data_loose.shape)
     
     df_data_loose = df_data_loose[df_data_loose['weight'] >= 0]
-    df_data_loose.loc[df_data_loose['y'] == 0, 'weight'] *= 0.005
+    #df_data_loose.loc[df_data_loose['y'] == 0, 'weight'] *= 0.005
     y_loose = df_data_loose['y']
     
     X_loose = df_data_loose.drop(columns=['y'])
@@ -122,17 +122,23 @@ def classify():
     y_test = y_test_strict
     
     X_train = X_train.drop(columns=['sig_mass', 'row_number', 'weight', 'class', 'file_number'])
+    #X_train = X_train.drop(columns=['nJets_OR', 'sumPsbtag', 'lep_ID_0', 'lep_ID_1'])
     
     weight = X_test['weight']
     X_test = X_test.drop(columns=['sig_mass', 'row_number', 'weight', 'class', 'file_number'])
+    #X_test = X_test.drop(columns=['nJets_OR', 'sumPsbtag', 'lep_ID_0', 'lep_ID_1'])
     
+
     #! DATA AUGMENTATION
     if AUGMENT:
         df_train = pd.concat([X_train, y_train], axis=1)
         df_augment_train = pd.DataFrame()
-        for cl in classes.values():
+        for cl in ['tbh_800_new','bkg_all']:
             PATH_GEN_MODEL = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/{cl}_input/'
-            df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_pres_loose_feature_cut_E100_S100000_std.csv')
+            
+            df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_pres_strict_E100_S27611_std.csv')
+            if cl == 'tbh_800_new':
+                df_generated = df_generated.sample(frac=0.1, random_state=42)
             df_augment_train = pd.concat([df_augment_train, df_generated])
         
         df_train = pd.concat([df_train, df_augment_train])
@@ -207,9 +213,8 @@ def classify():
     plot_roc_multiclass('XGB'+'_%s test (20%% of %s)' % ('', 'tbH 800'), y_test, y_pred_proba_test, classes,
                                     {'Accuracy': accuracy, 'F1 Weighted': f1_test, 'ROC AUC Weighted': auc_test}, PATH_DATA)
     
-    cm.plot_confusion_matrix_from_data(y_test, y_pred_test, weight,PATH_DATA, pred_val_axis='col')
-
-    x_values, y_S, y_B, y_signif, y_signif_simp, y_signif_imp, best_significance_threshold, y_BB = calculate_significance_all_thresholds_new_method(y_pred_proba_test, y_test, weight, 0, 1/0.2)
+    
+    x_values, y_S, y_B, y_signif, y_signif_simp, y_signif_imp, best_significance_threshold, y_BB = calculate_significance_all_thresholds_new_method(y_pred_proba_test, y_test, weight, 0, 5)
     maxsignificance = max(y_signif)
     maxsignificance_simple = max(y_signif_simp)
     # Signal to threshold
@@ -224,6 +229,9 @@ def classify():
                     'Significance Approximation', ['darkred', 'r', 'purple'],
                     ['S/sqrt(S+B)', 'S/sqrt(B)', 'S/(3/2+sqrt(B))'],
                     savepath=f"{PATH_DATA}significance.png")
+    
+    cm.plot_confusion_matrix_from_data(y_test, calculate_class_predictions_basedon_decision_threshold(y_pred_proba_test, best_significance_threshold), weight*5,PATH_DATA, pred_val_axis='col')
+
     
     plot_ouput(y_true=y_test, y_probs=y_pred_proba_test[:,0], PATH_RESULTS=PATH_DATA)
     print("FINISHED")
@@ -256,7 +264,7 @@ def train_model(X, y, name=None, parameters={}, svd_components=0):
             'objective': 'binary:logistic',
             'eval_metric': 'logloss',
             'colsample_bytree': 1.0, 'gamma': 0.00025, 'learning_rate': 0.5, 'max_depth': 6, 'min_child_weight': 0.043,
-            'n_estimators': 80, 'reg_alpha': 0.0036000000000000003, 'scale_pos_weight': 10, 'subsample': 0.8,
+            'n_estimators': 2300, 'reg_alpha': 0.0036000000000000003, 'scale_pos_weight': 10, 'subsample': 0.8,
             'tree_method': 'gpu_hist',
             'random_state': random.randint(0, 1000)
 

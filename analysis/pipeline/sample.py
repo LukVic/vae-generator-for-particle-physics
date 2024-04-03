@@ -13,19 +13,16 @@ from feature_transform import tan_to_angle
 
 def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction):
     
-    SAMPLES = 100000
-    
+    SAMPLES = 27611
     with open(f"{PATH_JSON}", 'r') as json_file:
         conf_dict = json.load(json_file)
     gen_params = conf_dict["general"]
     
     model = torch.load(PATH_MODEL)
-    df_real = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
-    df_real = df_real.drop(columns=['weight', 'row_number'])
+    features_used = ['taus_pt_0', 'MtLepMet', 'met_met', 'DRll01', 'MLepMet', 'minDeltaR_LJ_0', 'jets_pt_0', 'HT', 'HT_lep', 'total_charge']
     
-    train_dataset = torch.tensor(df_real.values, dtype=torch.float32)
     
-    input_size = train_dataset.shape[1]
+    input_size = len(features_used)
     
     model.eval()
     latent_dimension = gen_params["latent_size"]
@@ -45,7 +42,16 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
         data_array = np.vstack((data_array, x_hats_denorm))
 
     # Create a DataFrame from the NumPy array
-    df_gen = pd.DataFrame(data_array,columns=df_real.columns)
+    df_gen = pd.DataFrame(data_array,columns=features_used)
+    lower_bound = 0.2
+    upper_bound = 0.3
+    replacement_lower = -2.0
+    replacement_upper = 2.0
+    
+    mask = (df_gen['total_charge'] >= lower_bound) & (df_gen['total_charge'] <= upper_bound)
+    df_gen.loc[mask, 'total_charge'] = replacement_lower
+    df_gen.loc[~mask, 'total_charge'] = replacement_upper
+    
     df_gen['y'] = reaction
 
     print("Processing completed.")
