@@ -14,6 +14,7 @@ from feature_transform import tan_to_angle
 def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction):
     
     SAMPLES = 27611
+    #SAMPLES = 10449
     with open(f"{PATH_JSON}", 'r') as json_file:
         conf_dict = json.load(json_file)
     gen_params = conf_dict["general"]
@@ -43,12 +44,11 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
 
     # Create a DataFrame from the NumPy array
     df_gen = pd.DataFrame(data_array,columns=features_used)
-    lower_bound = 0.2
-    upper_bound = 0.3
+    bound = 0.5
     replacement_lower = -2.0
     replacement_upper = 2.0
     
-    mask = (df_gen['total_charge'] >= lower_bound) & (df_gen['total_charge'] <= upper_bound)
+    mask = (df_gen['total_charge'] < bound)
     df_gen.loc[mask, 'total_charge'] = replacement_lower
     df_gen.loc[~mask, 'total_charge'] = replacement_upper
     

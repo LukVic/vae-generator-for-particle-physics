@@ -21,16 +21,18 @@ import confmatrix_prettyprint as cm
 
 from aux_functions import *
 from mlp_classifier import mlp_classifier
+from correlation import *
 
 def classify():
     
     DEEP = True
-    AUGMENT = False
-    LOOSE = True
+    AUGMENT = True
+    LOOSE = False
     ONE_MASS = True
     MASS = 2
     
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
+    PATH_LOGGING = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/'
     FILE_DATA_LOOSE = 'df_all_pres_loose_jets_only'
     FILE_DATA_STRICT = 'df_all_pres_strict'
     PATH_MODEL =  f'{PATH_DATA}xgboost_model_trained_pres.pkl'
@@ -63,9 +65,8 @@ def classify():
         df_data_loose = df_data_loose[(df_data_loose['sig_mass'] == 0) | (df_data_loose['sig_mass'] == MASS)]
         df_data_strict = df_data_strict[(df_data_strict['sig_mass'] == 0) | (df_data_strict['sig_mass'] == MASS)]
 
-    
     df_data_strict = df_data_strict[df_data_strict['weight'] >= 0]
-    #df_data_strict.loc[df_data_strict['y'] == 0, 'weight'] *= 0.005
+    #df_data_strict.loc[df_data_strict['y'] == 0, 'weight'] *= 0.1/0.11016105860471725
     y_strict = df_data_strict['y']
     X_strict = df_data_strict.drop(columns=['y'])
     # X_strict = X_strict.drop(columns=['total_charge'])
@@ -100,7 +101,11 @@ def classify():
     print(df_data_loose.shape)
     
     df_data_loose = df_data_loose[df_data_loose['weight'] >= 0]
-    #df_data_loose.loc[df_data_loose['y'] == 0, 'weight'] *= 0.005
+    #df_data_loose.loc[df_data_loose['y'] == 0, 'weight'] *= 0.1/0.11016105860471725
+    
+    filtered_values = df_data_loose.loc[df_data_loose['y'] == 0, 'weight']
+
+    # Print the filtered values
     y_loose = df_data_loose['y']
     
     X_loose = df_data_loose.drop(columns=['y'])
@@ -118,6 +123,13 @@ def classify():
     else:
         X_train = X_train_strict
         y_train = y_train_strict
+    
+    df_train = pd.concat([X_train, y_train], axis=1)
+    train_fraction = 0.99
+    df_train = df_train.sample(frac=train_fraction, random_state=42)
+    y_train = df_train['y']
+    X_train = df_train.drop(columns=['y'])
+    
     X_test = X_test_strict
     y_test = y_test_strict
     
@@ -135,17 +147,22 @@ def classify():
         df_augment_train = pd.DataFrame()
         for cl in ['tbh_800_new','bkg_all']:
             PATH_GEN_MODEL = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/{cl}_input/'
-            
-            df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_pres_strict_E100_S27611_std.csv')
             if cl == 'tbh_800_new':
-                df_generated = df_generated.sample(frac=0.1, random_state=42)
+                df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_pres_strict_E10000_S10449_std.csv')
+            else:
+                df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_pres_strict_E10000_S27611_std.csv')   
+            
+            df_generated = df_generated.sample(frac=0.5, random_state=42)
             df_augment_train = pd.concat([df_augment_train, df_generated])
         
-        df_train = pd.concat([df_train, df_augment_train])
+        df_train_all = pd.concat([df_train, df_augment_train])
+        #df_train_all = df_augment_train
         
-        # X_test_strict =X_test_strict.drop(columns=['sig_mass'])
-        # X_test_strict =X_test_strict.drop(columns=['row_number'])
-        # X_test_strict =X_test_strict.drop(columns=['weight'])
+        
+        X_test_strict =X_test_strict.drop(columns=['sig_mass'])
+        X_test_strict =X_test_strict.drop(columns=['row_number'])
+        X_test_strict =X_test_strict.drop(columns=['weight'])
+        X_test_strict =X_test_strict.drop(columns=['class'])
         
         # X_train_strict =X_train_strict.drop(columns=['sig_mass'])
         # X_train_strict =X_train_strict.drop(columns=['row_number'])
@@ -155,17 +172,19 @@ def classify():
         # X_train_loose =X_train_loose.drop(columns=['row_number'])
         # X_train_loose =X_train_loose.drop(columns=['weight'])
 
-        # df_augment_train =df_augment_train.drop(columns=['y'])
-        
-        #compute_embed(X_train_strict.values, df_augment_train.values, X_test_strict.values)
+        #df_augment_train =df_augment_train.drop(columns=['y'])
+        # compute_embed(X_test_strict.values, df_train.values, df_augment_train.values)
         # visualize_embed(PATH_DATA=PATH_DATA, PATH_RESULTS=PATH_DATA)
-        # exit()
 
-        df_train = df_train.sample(frac=1, random_state=42) 
-        df_train = df_train.reset_index(drop=True)
+        #wrap_prdc(X_test_strict, df_train)        
+        #wasserstein_dist(X_test_strict, df_augment_train, features_used)
+        chi2_test(X_test_strict, df_augment_train, features_used)
+        exit()
+        df_train_all = df_train_all.sample(frac=1.0, random_state=42) 
+        df_train_all = df_train_all.reset_index(drop=True)
         
-        y_train = df_train['y']
-        X_train = df_train.drop(columns='y')
+        y_train = df_train_all['y']
+        X_train = df_train_all.drop(columns='y')
     
     
     #! MODEL IS NOT TRAINED AGAIN IF EXISTS
@@ -229,6 +248,12 @@ def classify():
                     'Significance Approximation', ['darkred', 'r', 'purple'],
                     ['S/sqrt(S+B)', 'S/sqrt(B)', 'S/(3/2+sqrt(B))'],
                     savepath=f"{PATH_DATA}significance.png")
+    
+    print(best_signif_simp)
+    
+    # logging.basicConfig(filename=f'{PATH_LOGGING}data_reduction_signif.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    # logging.info(f'FRACTION: {train_fraction} | SIGNIFICANCE: {best_signif_simp}')
+    
     
     cm.plot_confusion_matrix_from_data(y_test, calculate_class_predictions_basedon_decision_threshold(y_pred_proba_test, best_significance_threshold), weight*5,PATH_DATA, pred_val_axis='col')
 

@@ -25,7 +25,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test):
 
 
     input_dim = X_train.shape[1]
-    hidden_dim = 64
+    hidden_dim = 512
     output_dim = len(set(y_train))
 
     # Initialize the model
@@ -169,6 +169,6 @@ class MLP(nn.Module):
     def forward(self, x):
         x = torch.relu(self.fc1(x))  
         x = torch.relu(self.fc2(x))
-        # x = torch.relu(self.fc2(x))
+        x = torch.relu(self.fc2(x))
         x = self.fc3(x)
         return x

@@ -17,7 +17,6 @@ import json
 
 #from architecture import VAE
 from architecture_std import VAE
-from applications import *
 from sample import data_gen
 
 def main():
