@@ -13,7 +13,6 @@ import json
 
 #from architecture import VAE
 from architecture_sym_h import VAE
-from applications import *
 from dataset_new_h import dataset_regen_h
 
 def main():
@@ -101,14 +100,14 @@ def main():
             print(f'2: OLD/NEW: {elbo_min2}/{loss2.item()}') 
 
             torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth')
-            elbo_plot(elbo_history1,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth', 'sym_1_h', f'{PATH_JSON}hyperparams.json')
-            elbo_plot(elbo_history2,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth', 'sym_2_h', f'{PATH_JSON}hyperparams.json')
+            # elbo_plot(elbo_history1,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth', 'sym_1_h', f'{PATH_JSON}hyperparams.json')
+            # elbo_plot(elbo_history2,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth', 'sym_2_h', f'{PATH_JSON}hyperparams.json')
             dataset_regen_h(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}_disc_{gen_params["num_epochs"]}_{epoch}_best.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', EPOCHS=epoch, TYPE='sym_h', scaler=scaler)
         if (elbo_min1 > loss1.item() and elbo_min2 > loss2.item()):
             print("SAVING NEW BEST MODEL")
             torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth')
-            elbo_plot(elbo_history1,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth', 'sym_1_h', f'{PATH_JSON}hyperparams.json')
-            elbo_plot(elbo_history2,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth', 'sym_2_h', f'{PATH_JSON}hyperparams.json')
+            # elbo_plot(elbo_history1,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth', 'sym_1_h', f'{PATH_JSON}hyperparams.json')
+            # elbo_plot(elbo_history2,f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth', 'sym_2_h', f'{PATH_JSON}hyperparams.json')
             dataset_regen_h(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}_disc_best.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', EPOCHS=gen_params["num_epochs"], TYPE='sym_h', scaler=scaler)  
             elbo_min1 = loss1.item()
             elbo_min2 = loss2.item()

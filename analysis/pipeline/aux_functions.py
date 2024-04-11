@@ -101,8 +101,6 @@ def calculate_significance_all_thresholds_new_method(predicted_probs_y: np.array
     for th in np.round(np.arange(threshold_start, 1, 0.01), 2):
         th = np.round(th, 3)
         x_values.append(th)
-        if th % 0.2 == 0:
-            logger.info('Threshold: {}'.format(th))
         y_pred = calculate_class_predictions_basedon_decision_threshold(predicted_probs_y, th)
         response = calculate_significance_one_threshold_new_method(true_y, y_pred, weights, other_bgr,
                                                                    test_set_scale_factor)
@@ -284,35 +282,35 @@ def compute_embed(restricted_list, loosened_list, generated_list):
     
     #trans_data = trans_feature
     
-    np.savetxt(f'{PATH_DATA}points_restricted.csv',trans_restricted, delimiter=',')
-    np.savetxt(f'{PATH_DATA}points_loosened.csv',trans_loosened, delimiter=',')
-    np.savetxt(f'{PATH_DATA}points_generated.csv',trans_generated, delimiter=',')
+    np.savetxt(f'{PATH_DATA}points_test.csv',trans_restricted, delimiter=',')
+    np.savetxt(f'{PATH_DATA}points_original.csv',trans_loosened, delimiter=',')
+    np.savetxt(f'{PATH_DATA}points_augmented.csv',trans_generated, delimiter=',')
         
 def visualize_embed(PATH_DATA, PATH_RESULTS):
-    files = ['points_restricted.csv', 'points_loosened.csv', 'points_generated.csv']
+    files = ['points_test.csv', 'points_original.csv', 'points_augmented.csv']
     
-    points_restricted = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
-    points_loosened = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
-    points_generated = np.genfromtxt(f'{PATH_DATA}{files[2]}', delimiter=',')
+    points_test = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
+    points_original = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
+    points_augmented = np.genfromtxt(f'{PATH_DATA}{files[2]}', delimiter=',')
 
     # sample_size = 3000
     # points_restricted = points_restricted[np.random.choice(points_restricted.shape[0], sample_size, replace=False)]
     # points_loosened = points_loosened[np.random.choice(points_loosened.shape[0], sample_size, replace=False)]
     # points_generated = points_generated[np.random.choice(points_generated.shape[0], sample_size, replace=False)]
     
-    embed_restricted_df = pd.DataFrame(data=points_restricted, columns=["UMAP_1", "UMAP_2"])
-    embed_restricted_df["Source"] = "Decoded Data ELBO"
-    embed_loosened_df = pd.DataFrame(data=points_loosened, columns=["UMAP_1", "UMAP_2"])
-    embed_loosened_df["Source"] = "Decoded Data SYMM"
-    embed_generated_df = pd.DataFrame(data=points_generated, columns=["UMAP_1", "UMAP_2"])
-    embed_generated_df["Source"] = "Simulated Data"
+    embed_test_df = pd.DataFrame(data=points_test, columns=["UMAP_1", "UMAP_2"])
+    embed_test_df["Source"] = "Decoded Data ELBO"
+    embed_original_df = pd.DataFrame(data=points_original, columns=["UMAP_1", "UMAP_2"])
+    embed_original_df["Source"] = "Decoded Data SYMM"
+    embed_augmented_df = pd.DataFrame(data=points_augmented, columns=["UMAP_1", "UMAP_2"])
+    embed_augmented_df["Source"] = "Simulated Data"
     
 
     # Plot the first point cloud (UMAP_1)
     plt.figure(figsize=(10, 10))
-    plt.scatter(embed_loosened_df["UMAP_1"], embed_loosened_df["UMAP_2"], c='red', label='2lSS1tau', s=1, alpha=0.1)
-    plt.scatter(embed_restricted_df["UMAP_1"], embed_restricted_df["UMAP_2"], c='blue', label='2l1tau + all jets', s=1, alpha=1.0)
-    plt.scatter(embed_generated_df["UMAP_1"], embed_generated_df["UMAP_2"], c='green', label='2l1tau + all jets generated', s=1, alpha=1.0)
+    plt.scatter(embed_test_df["UMAP_1"], embed_test_df["UMAP_2"], c='blue', label='Test', s=1, alpha=0.1)
+    plt.scatter(embed_original_df["UMAP_1"], embed_original_df["UMAP_2"], c='red', label='Original Train', s=1, alpha=1.0)
+    plt.scatter(embed_augmented_df["UMAP_1"], embed_augmented_df["UMAP_2"], c='green', label='Only augmented Train', s=1, alpha=1.0)
     plt.title(r"Comparison in the data space $\mathcal{X}$", fontsize=36)
     plt.xlabel("UMAP Component 1", fontsize=28)  # Increase label size
     plt.ylabel("UMAP Component 2", fontsize=28)  # Increase label size
@@ -322,5 +320,6 @@ def visualize_embed(PATH_DATA, PATH_RESULTS):
     legend2 = plt.legend(fontsize=28, scatterpoints=20)  # Increase legend size
     legend2.get_frame().set_alpha(0.8)
     plt.grid(True)
-    plt.savefig(f'{PATH_RESULTS}vae_data_umap_results.pdf')
+    plt.savefig(f'{PATH_RESULTS}vae_data_umap_results.png')
+    print("UMAP VISUALIZATION SAVED")
     # plt.show()
