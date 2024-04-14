@@ -242,18 +242,6 @@ class VAE(nn.Module):
             #return torch.mean(LOSS_G)
         
         elif step == 2:
-            # pz_2 = torch.distributions.Normal(torch.zeros_like(z_2),torch.ones_like(z_2))
-            # log_pz_2 = -pz_2.log_prob(z_2.to(self.device)).sum(dim=1)
-            
-            # mu_z_1, sigma_z_1 = self.encoder_3(z_2.view(-1, self.zdim))
-            # std_z_1 = torch.exp(sigma_z_1)
-            # pz_1z_2 = torch.distributions.Normal(mu_z_1, std_z_1)
-            # log_pz_1_pz_2 = -pz_1z_2.log_prob(z_1.to(self.device)).sum(dim=1)
-            
-            # mu_x, sigma_x, p_x = self.decoder(z_1.view(-1, self.zdim*2))
-            # std_x = torch.exp(sigma_x)
-            # pxz_1 = torch.distributions.Normal(mu_x, std_x)
-            # log_px_pz_1 = -pxz_1.log_prob(x_gauss.to(self.device)).sum(dim=1)
             
             r_1 = self.deterministic_encoder_1(x.view(-1, self.input_size))
             r_2 = self.deterministic_encoder_2(r_1.view(-1, self.r_dim))
@@ -262,15 +250,14 @@ class VAE(nn.Module):
             delta_std_1 = torch.exp(delta_sigma_1)
             delta_std_2 = torch.exp(delta_sigma_2)
             
+            #ones = torch.ones(delta_std_2.shape).to(self.device)
+            #std_new_2 = (1 * delta_std_2)/(ones + delta_std_2)
+            #mu_new_2 = (delta_std_2 * 0 + delta_mu_2 * 1)/(ones + delta_std_2)
             
-            ones = torch.ones(delta_std_2.shape).to(self.device)
-            sigma_new_2 = (1 * delta_std_2)/(ones + delta_std_2)
-            mu_new_2 = (0 * delta_std_2 + delta_mu_2 * 1)/(ones + delta_std_2)
+            std_new_2 = delta_std_2 + 0
+            mu_new_2 = delta_mu_2 + 0
             
-            qz_gauss_2 = torch.distributions.Normal(mu_new_2, sigma_new_2)
-            #z_2_tmp = qz_gauss_2.sample()
-            #print(z_2)
-            qz_2_x = torch.distributions.Normal(mu_new_2, sigma_new_2)
+            qz_2_x = torch.distributions.Normal(mu_new_2, std_new_2)
             log_pz_2_px = -qz_2_x.log_prob(z_2.to(self.device)).sum(dim=1)
             
             mu_z_1, sigma_z_1 = self.encoder_3(z_2)
@@ -279,14 +266,17 @@ class VAE(nn.Module):
             mu_z_1 = mu_z_1.detach().clone()
             std_z_1 = std_z_1.detach().clone()
             
-            std_new_1 = (delta_std_1 * std_z_1)/(delta_std_1 + std_z_1)
-            mu_new_1 = (delta_mu_1 * std_z_1 + mu_z_1 * delta_std_1)/(delta_std_1 + std_z_1)
+            #std_new_1 = (delta_std_1 * std_z_1)/(delta_std_1 + std_z_1)
+            #mu_new_1 = (delta_mu_1 * std_z_1 + delta_std_1 * mu_z_1)/(std_z_1 + delta_std_1)
+            
+            std_new_1 = std_z_1 + delta_std_1
+            mu_new_1 = mu_z_1 + delta_mu_1
             
             qz_1z_2_x = torch.distributions.Normal(mu_new_1, std_new_1)
             log_pz_1pz_2_px = -qz_1z_2_x.log_prob(z_1.to(self.device)).sum(dim=1)
 
             #E_log_probs = log_px_pz_1 + log_pz_1_pz_2 + log_pz_2 + log_pz_2_px #+ log_pz_1pz_2_px
-            E_log_probs = torch.mean(log_pz_2_px) #+ torch.mean(log_pz_1pz_2_px)
+            E_log_probs = torch.mean(log_pz_2_px) + torch.mean(log_pz_1pz_2_px)
             #E_log_probs = torch.mean(log_px_pz_1)  + torch.mean(log_pz_2) #+ log_pz_1_pz_2
             LOSS_G = E_log_probs
             

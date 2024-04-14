@@ -55,11 +55,11 @@ def classify():
     }
     
     model = None
-    #for frac in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]:
+    for frac in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]:
+    #for jdx in range(1):
     # for frac in [0.8,0.9,0.99]:
-    train_fraction = 0.0
-    aug_fraction = 0.99
-    for jdx in range(10):
+        train_fraction = 1.0
+        aug_fraction = frac
     
         df_data_loose = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_LOOSE}.pkl')
         df_data_strict = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_STRICT}.pkl')
@@ -167,8 +167,8 @@ def classify():
                 df_generated = df_generated.sample(frac=aug_fraction, random_state=42)
                 df_augment_train = pd.concat([df_augment_train, df_generated])
             
-            #df_train_all = pd.concat([df_train, df_augment_train])
-            df_train_all = df_augment_train
+            df_train_all = pd.concat([df_train, df_augment_train])
+            #df_train_all = df_augment_train
             
 
             # wrap_prdc(X_test_strict, df_train)        
@@ -212,7 +212,7 @@ def classify():
         model = None
         y_pred_train, y_pred_proba_train , y_pred_test, y_pred_proba_test = None, None, None, None
         if DEEP:
-            y_pred_train, y_pred_proba_train, y_pred_test, y_pred_proba_test  = mlp_classifier(X_train, X_test, y_train, y_test)
+            y_pred_train, y_pred_proba_train, y_pred_test, y_pred_proba_test  = mlp_classifier(X_train, X_test, y_train, y_test, train_fraction, aug_fraction)
             y_pred_proba_train = y_pred_proba_train.numpy()
             y_pred_proba_test = y_pred_proba_test.numpy()
         else:
@@ -269,7 +269,7 @@ def classify():
         print(best_signif_simp)
         
         logging.basicConfig(filename=f'{PATH_LOGGING}data_reduction_signif.log', level=logging.INFO, format='%(message)s')
-        logging.info(f'FRG: {aug_fraction} | ACC TR: {accuracy_train} | ACC TE: {accuracy_test} | SIG: {best_signif_simp}')
+        #logging.info(f'FRG: {aug_fraction} | ACC TR: {accuracy_train} | ACC TE: {accuracy_test} | SIG: {best_signif_simp}')
         
         
         cm.plot_confusion_matrix_from_data(y_test, calculate_class_predictions_basedon_decision_threshold(y_pred_proba_test, best_significance_threshold), weight*5,PATH_DATA, pred_val_axis='col')

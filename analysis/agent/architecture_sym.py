@@ -100,6 +100,8 @@ class VAE(nn.Module):
         self.encoder = Encoder(self.zdim, self.input_size, self.config).to(self.device)
         self.decoder = Decoder(self.zdim, self.input_size, self.config).to(self.device)
 
+        
+
     def forward(self, sample, step):
         if step == 1:
             #! THE FIRST STEP
@@ -153,8 +155,8 @@ class VAE(nn.Module):
             LOSS_G = E_log_pxz
             LOSS_B = F.binary_cross_entropy(x_bernoulli, p, reduction="sum")
             
-            #return torch.mean(LOSS_G + 0.1*LOSS_B)
-            return torch.mean(LOSS_G) 
+            return torch.mean(LOSS_G + 0.1*LOSS_B)
+            #return torch.mean(LOSS_G) 
         
         elif step == 2:
             

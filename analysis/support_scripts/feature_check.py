@@ -12,8 +12,8 @@ def feature_check(path):
     # Configure logging to output to console
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    EPOCHS_STD = 100
-    EPOCHS_SYM = 100
+    EPOCHS_STD = 500
+    EPOCHS_SYM = 500
     
     DATASET = 'df_no_zeros'
     FEATURES = 'low_features'
@@ -23,22 +23,22 @@ def feature_check(path):
     #FEATURES = 'features_8'
     # DATASET = 'df_pt'
     # FEATURES = 'pt_features'
-    # DATASET = 'df_bkg_all_pres_strict'
+    # DATASET = 'df_tbh_800_new_pres_strict'
     # FEATURES = 'features_top_10'
     
     data_original = np.array([])
     data_ganerated = np.array([])
     data_ganerated_sym = np.array([])
     
-    #EVENTS = 10449
-    EVENTS = 27611
+    EVENTS = 10449
+    #EVENTS = 27611
     df_original = pd.read_csv(f'{path}data/tt/{DATASET}.csv')
     df_generated = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_STD}_std_h.csv')
     df_generated_sym = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_SYM}_{EPOCHS_SYM}_sym_h.csv')
     
-    # df_original = pd.read_csv(f'{path}data/bkg_all_input/{DATASET}.csv')
-    # df_generated = pd.read_csv(f'{path}data/bkg_all_input/generated_df_bkg_all_pres_strict_E10000_S{EVENTS}_std.csv')
-    # df_generated_sym = pd.read_csv(f'{path}data/bkg_all_input/generated_df_bkg_all_pres_strict_E10000_S{EVENTS}_std.csv')
+    # df_original = pd.read_csv(f'{path}data/tbh_800_new_input/{DATASET}.csv')
+    # df_generated = pd.read_csv(f'{path}data/tbh_800_new_input/generated_df_tbh_800_new_pres_strict_E{EPOCHS_STD}_S{EVENTS}_std.csv')
+    # df_generated_sym = pd.read_csv(f'{path}data/tbh_800_new_input/generated_df_tbh_800_new_pres_strict_E{EPOCHS_SYM}_S{EVENTS}_std_h.csv')
 
 
 
@@ -227,16 +227,16 @@ def feature_check(path):
         
         
         # Perform the chi-square test
-        h_feature_original.Chi2TestX(h_feature_generated_std, chi2_statistic, ndf, igood, "P WW")
-        result_std = chi2_statistic.value / ndf.value
-        chi2_sum_std += result_std
+        # h_feature_original.Chi2TestX(h_feature_generated_std, chi2_statistic, ndf, igood, "P WW")
+        # result_std = chi2_statistic.value / ndf.value
+        # chi2_sum_std += result_std
         
         
-        h_feature_original.Chi2TestX(h_feature_generated_sym, chi2_statistic, ndf, igood, "P WW")
-        result_sym = chi2_statistic.value / ndf.value
-        chi2_sum_sym += result_sym
+        # h_feature_original.Chi2TestX(h_feature_generated_sym, chi2_statistic, ndf, igood, "P WW")
+        # result_sym = chi2_statistic.value / ndf.value
+        # chi2_sum_sym += result_sym
         
-        print(f"Chi2 test {feature}: {result_std}")
+        #print(f"Chi2 test {feature}: {result_std}")
         
         
         # logging.info(f'CURRENT FEATURE: {feature}')

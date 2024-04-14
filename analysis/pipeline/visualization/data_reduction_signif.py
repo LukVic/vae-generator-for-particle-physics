@@ -738,6 +738,8 @@ signif_frac_big_30_augmented_only = [
 'FRG: 0.99 | ACC TR: 0.8830944798301487 | ACC TE: 0.8734424260621528 | SIG: 3.88827551351699',
 ]
 
+PATH_SAVE = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/mlp_output/classification_plots/'
+
 signif_frac_big_30_processed = process_data(signif_frac_big_30)
 signif_frac_big_300_processed = process_data(signif_frac_big_300)
 signif_frac_small_30_processed = process_data(signif_frac_small_30)
@@ -750,23 +752,28 @@ signif_frac_small_300_augmented_only_processed = process_data(signif_frac_small_
 signif_frac_big_30_augmented_only_processed = process_data(signif_frac_big_30_augmented_only)
 # Data
 
-# datasets = [
-#     ("Architecture: Big, Epochs 30", signif_frac_big_30_processed[0]),
-#     ("Architecture: Big, Epochs 300", signif_frac_big_300_processed[0]),
-#     ("Architecture: Small, Epochs 30", signif_frac_small_30_processed[0]),
-#     ("Architecture: Small, Epochs 300", signif_frac_small_300_processed[0])
-# ]
-
-mean_small_augment_only = np.mean(signif_frac_small_300_augmented_only_processed[2])
-std_dev_small_augment_only = np.std(signif_frac_small_300_augmented_only_processed[2])
-
-mean_big_augment_only = np.mean(signif_frac_big_30_augmented_only_processed[2])
-std_dev_big_augment_only = np.std(signif_frac_big_30_augmented_only_processed[2])
+variant = 2
+options = {0: 'Train_Accuaracy', 1: 'Test_Accuracy', 2: 'Significance'}
 
 datasets = [
-    ("Architecture: 3 Layers, 512 Neurons, Epochs 30",  signif_frac_big_30_processed[2] + signif_frac_big_30_augmented_processed[2]),
-    ("Architecture: 1 Layer, 64 Neurons, Epochs 300", signif_frac_small_300_processed[2] + signif_frac_small_300_augmented_processed[2])
+    ("Architecture: Big, Epochs 30", signif_frac_big_30_processed[variant]),
+    ("Architecture: Big, Epochs 300", signif_frac_big_300_processed[variant]),
+    ("Architecture: Small, Epochs 30", signif_frac_small_30_processed[variant]),
+    ("Architecture: Small, Epochs 300", signif_frac_small_300_processed[variant])
 ]
+
+# datasets = [
+#     ("Architecture: 3 Layers, 512 Neurons, Epochs 30",  signif_frac_big_30_processed[variant] + signif_frac_big_30_augmented_processed[variant]),
+#     ("Architecture: 1 Layer, 64 Neurons, Epochs 300", signif_frac_small_300_processed[variant] + signif_frac_small_300_augmented_processed[variant])
+# ]
+
+mean_small_augment_only = np.mean(signif_frac_small_300_augmented_only_processed[variant])
+std_dev_small_augment_only = np.std(signif_frac_small_300_augmented_only_processed[variant])
+
+mean_big_augment_only = np.mean(signif_frac_big_30_augmented_only_processed[variant])
+std_dev_big_augment_only = np.std(signif_frac_big_30_augmented_only_processed[variant])
+
+
 
 # Initialize plot
 plt.figure(figsize=(10, 6))
@@ -776,7 +783,7 @@ for label, data in datasets:
     # Calculate mean and standard deviation for each fraction
     means = [np.mean(fraction) for fraction in data]
     std_devs = [np.std(fraction) for fraction in data]
-    fractions = np.arange(0.1, 2.1, 0.1)
+    fractions = np.arange(0.1, 1.1, 0.1)
     
     print(std_devs)
     
@@ -788,27 +795,29 @@ for label, data in datasets:
 region1 = np.arange(0.0, 1.1, 0.1)
 region2 = np.arange(1.0, 2.1, 0.1)
 
-# Fill the area for region 1
-plt.fill_between(region1, 3.25, 4.7, color='green', alpha=0.3)
-plt.text(0.5, 3.7, 'Not augmented', horizontalalignment='center', verticalalignment='center', fontsize=12)
+# if variant == 2:
+#     # Fill the area for region 1
+#     plt.fill_between(region1, 3.25, 4.7, color='green', alpha=0.3)
+#     plt.text(0.5, 3.7, 'Not augmented', horizontalalignment='center', verticalalignment='center', fontsize=12)
 
 
-# plt.text(4, 4, 'No augmentation', horizontalalignment='center', verticalalignment='center', fontsize=12)
-# Fill the area for region 2
-plt.fill_between(region2, 3.25, 4.7, color='blue', alpha=0.3)
-plt.text(1.5, 3.7, 'With augmentation', horizontalalignment='center', verticalalignment='center', fontsize=12)
+#     # plt.text(4, 4, 'No augmentation', horizontalalignment='center', verticalalignment='center', fontsize=12)
+#     # Fill the area for region 2
+#     plt.fill_between(region2, 3.25, 4.7, color='blue', alpha=0.3)
+#     plt.text(1.5, 3.7, 'With augmentation', horizontalalignment='center', verticalalignment='center', fontsize=12)
 
-plt.axhline(y=mean_big_augment_only, color='red', linestyle='--', label='Significance without simulated data (Big)')
-plt.axhline(y=mean_small_augment_only, color='purple', linestyle='--', label='Significance without simulated data (Small)')
+#     plt.axhline(y=mean_big_augment_only, color='red', linestyle='--', label=f'{options[variant]} without simulated data (Big)')
+#     plt.axhline(y=mean_small_augment_only, color='purple', linestyle='--', label=f'{options[variant]} without simulated data (Small)')
 
 # Add labels and title
 plt.xlabel('Fraction')
-plt.ylabel('Mean Significance')
-plt.title('Mean Significance vs. Fraction with Error Bars')
+plt.ylabel(f'Mean {options[variant]}')
+plt.title(f'Mean {options[variant]} vs. Fraction with Error Bars')
 
 # Add legend
 plt.legend()
 
 # Show plot
 plt.grid(True)
-plt.show()
+plt.savefig(f'{PATH_SAVE}{options[variant]}_basic.png')
+#plt.show()

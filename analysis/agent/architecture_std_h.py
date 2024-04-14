@@ -30,8 +30,8 @@ class Encoder(nn.Module):
                 layers.append(nn.Linear(arch[idx][0],arch[idx][1]))
                 #init.xavier_uniform_(layers[-1].weight)
             
-            if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
-            #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
             #if relu[idx] != 0: layers.append(nn.ReLU())
             if relu[idx] != 0: layers.append(nn.GELU())
@@ -70,8 +70,8 @@ class Decoder(nn.Module):
                 layers.append(nn.Linear(arch[idx][0],arch[idx][1]))
                 #init.xavier_uniform_(layers[-1].weight)
             
-            if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
-            #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
             #if relu[idx] != 0: layers.append(nn.ReLU())
             if relu[idx] != 0: layers.append(nn.GELU())
@@ -115,8 +115,8 @@ class Deterministic_encoder(nn.Module):
                 layers.append(nn.Linear(arch[idx][0],self.r_size))
                 #init.xavier_uniform_(layers[-1].weight)
             
-            if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
-            #if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
+            #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
+            if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
             if relu[idx] != 0: layers.append(nn.ReLU())
             #if relu[idx] != 0: layers.append(nn.GELU())
@@ -143,10 +143,10 @@ class VAE(nn.Module):
          
         self.deterministic_encoder_1 = Deterministic_encoder(self.input_size, self.r_dim, self.config).to(self.device)
         self.deterministic_encoder_2 = Deterministic_encoder(self.r_dim, self.r_dim, self.config).to(self.device)    
-        self.encoder_1 = Encoder(self.zdim * 2, self.r_dim, self.config).to(self.device)
+        self.encoder_1 = Encoder(self.zdim, self.r_dim, self.config).to(self.device) #zdim*2
         self.encoder_2 = Encoder(self.zdim, self.r_dim, self.config).to(self.device)
-        self.encoder_3 = Encoder(self.zdim * 2, self.zdim, self.config).to(self.device)
-        self.decoder = Decoder(self.zdim * 2, self.input_size, self.config).to(self.device)
+        self.encoder_3 = Encoder(self.zdim, self.zdim, self.config).to(self.device) #zdim*2
+        self.decoder = Decoder(self.zdim, self.input_size, self.config).to(self.device) #zdim*2
 
     def forward(self, x):
         #! ENCODER
@@ -163,25 +163,26 @@ class VAE(nn.Module):
         #delta_sigma_2 = F.hardtanh(delta_sigma_2, -7., 2.)
         delta_std_1 = torch.exp(delta_sigma_1)
         delta_std_2 = torch.exp(delta_sigma_2)
-        #qz_gauss_2 = torch.distributions.Normal(0 + delta_mu_2, 0 + delta_std_2)
+        qz_gauss_2 = torch.distributions.Normal(0 + delta_mu_2, 0 + delta_std_2)
         
-        ones = torch.ones(delta_std_2.shape).to(self.device)
-        sigma_new_2 = (1 * delta_std_2)/(ones + delta_std_2)
-        mu_new_2 = (0 * delta_std_2 + delta_mu_2 * 1)/(ones + delta_std_2)
+        # ones = torch.ones(delta_std_2.shape).to(self.device)
+        # sigma_new_2 = (1 * delta_std_2)/(ones + delta_std_2)
+        # mu_new_2 = (0 * delta_std_2 + delta_mu_2 * 1)/(ones + delta_std_2)
         
-        qz_gauss_2 = torch.distributions.Normal(mu_new_2, sigma_new_2)
+        # qz_gauss_2 = torch.distributions.Normal(mu_new_2, sigma_new_2)
         
         z_2 = qz_gauss_2.rsample()
         
         mu_1, sigma_1 = self.encoder_3(z_2.view(-1, self.zdim))
         std_1 = torch.exp(sigma_1)
         
-        #qz_gauss_1 = torch.distributions.Normal(mu_1 + delta_mu_1, std_1 + delta_std_1)
+        qz_gauss_1 = torch.distributions.Normal(mu_1 + delta_mu_1, std_1 + delta_std_1)
         
-        sigma_new_1 = (delta_std_1 * std_1)/(delta_std_1 + std_1)
-        mu_new_1 = (delta_mu_1 * std_1 + mu_1 * delta_std_1)/(delta_std_1 + std_1)
+        # sigma_new_1 = (delta_std_1 * std_1)/(delta_std_1 + std_1)
+        # mu_new_1 = (delta_mu_1 * std_1 + mu_1 * delta_std_1)/(delta_std_1 + std_1)
         
-        qz_gauss_1 = torch.distributions.Normal(mu_new_1, sigma_new_1)
+        
+        # qz_gauss_1 = torch.distributions.Normal(mu_new_1, sigma_new_1)
         
         z_1 = qz_gauss_1.rsample()
         
