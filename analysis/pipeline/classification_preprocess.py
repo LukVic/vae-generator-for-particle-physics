@@ -3,7 +3,7 @@ import numpy as np
 
 
 def classification_preprocess():
-    classes = {'tbh_all': 0, 'tth' : 1, 'ttw': 1, 'ttz' : 1, 'tt' : 1}
+    classes = {'tbh_all': 0, 'tth' : 1, 'ttw': 2, 'ttz' : 3, 'tt' : 4}
     #classes = {'tth' : 0, 'ttw': 1, 'ttz' : 1, 'tt' : 1}
     df_all = pd.DataFrame()
     

@@ -17,6 +17,7 @@ LOAD_EXTERN = False
 
 
 def correlation_matrix(df_1, df_2, feature_list, path=None, cls='BOTH'):
+    PATH = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/metrics/'
     
     # Configure logging to output to console
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -49,9 +50,9 @@ def correlation_matrix(df_1, df_2, feature_list, path=None, cls='BOTH'):
 
     # Adjust layout
     plt.tight_layout()
-
+    plt.savefig(f'{PATH}correlations_std_elbo_{cls}')
     # Show the plot
-    plt.show()
+    #plt.show()
     
 def wasserstein_dist(df_1, df_2, feature_list, path=None, cls='both'):
     # Configure logging to output to console

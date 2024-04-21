@@ -97,11 +97,11 @@ class Deterministic_encoder(nn.Module):
         self.input_size = input_size
         self.config = config
         
-        layer_num = config["encoder_deterministic"]["layer_num"]
-        arch = config["encoder_deterministic"]["architecture"]
-        bNorm = config["encoder_deterministic"]["batchNorm"]
-        relu = config["encoder_deterministic"]["relu"]
-        drop = config["encoder_deterministic"]["dropout"]
+        layer_num = config["decoder"]["layer_num"]
+        arch = config["decoder"]["architecture"]
+        bNorm = config["decoder"]["batchNorm"]
+        relu = config["decoder"]["relu"]
+        drop = config["decoder"]["dropout"]
         
         layers = []
         for idx in range(layer_num):
@@ -118,8 +118,8 @@ class Deterministic_encoder(nn.Module):
             #if bNorm[idx] != 0: layers.append(nn.BatchNorm1d(num_features=bNorm[idx]))
             if bNorm[idx] != 0:layers.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
             #if bNorm[idx] != 0:layers.append(nn.InstanceNorm1d(num_features=bNorm[idx]))
-            #if relu[idx] != 0: layers.append(nn.ReLU())
-            if relu[idx] != 0: layers.append(nn.GELU())
+            if relu[idx] != 0: layers.append(nn.ReLU())
+            #if relu[idx] != 0: layers.append(nn.GELU())
             #if relu[idx] != 0: layers.append(nn.Sigmoid())
             #if drop[idx] != 0: layers.append(nn.Dropout(drop[idx]))
         
@@ -140,7 +140,7 @@ class VAE(nn.Module):
         self.config = config
         self.r_dim = config['general']['r_size']
 
-        
+         
         self.deterministic_encoder_1 = Deterministic_encoder(self.input_size, self.r_dim, self.config).to(self.device)
         self.deterministic_encoder_2 = Deterministic_encoder(self.r_dim, self.r_dim, self.config).to(self.device)    
         self.encoder_1 = Encoder(self.zdim, self.r_dim, self.config).to(self.device) #zdim*2
@@ -154,8 +154,8 @@ class VAE(nn.Module):
         
         
         #!DETERMINISTIC PATH
-        r_1 = self.deterministic_encoder_1(x)
-        r_2 = self.deterministic_encoder_2(r_1)
+        r_1 = self.deterministic_encoder_1(x.view(-1, self.input_size))
+        r_2 = self.deterministic_encoder_2(r_1.view(-1, self.r_dim))
         
         delta_mu_1, delta_sigma_1 = self.encoder_1(r_1.view(-1, self.r_dim))
         #delta_sigma_1 = F.hardtanh(delta_sigma_1, -7., 2.)
@@ -163,13 +163,11 @@ class VAE(nn.Module):
         #delta_sigma_2 = F.hardtanh(delta_sigma_2, -7., 2.)
         delta_std_1 = torch.exp(delta_sigma_1)
         delta_std_2 = torch.exp(delta_sigma_2)
-        qz_gauss_2 = torch.distributions.Normal(0 + delta_mu_2, 1 * delta_std_2)
+        qz_gauss_2 = torch.distributions.Normal(0 + delta_mu_2, 0 + delta_std_2)
         
-        #ones = torch.ones(delta_std_2.shape).to(self.device)
-        # print(ones[0])
-        # exit()
-        # sigma_new_2 = (1 * delta_std_2.pow(2))/(ones + delta_std_2.pow(2))
-        # mu_new_2 = (0 * delta_std_2.pow(2) + delta_mu_2.pow(2) * 1)/(ones + delta_std_2.pow(2))
+        # ones = torch.ones(delta_std_2.shape).to(self.device)
+        # sigma_new_2 = (1 * delta_std_2)/(ones + delta_std_2)
+        # mu_new_2 = (0 * delta_std_2 + delta_mu_2 * 1)/(ones + delta_std_2)
         
         # qz_gauss_2 = torch.distributions.Normal(mu_new_2, sigma_new_2)
         
@@ -178,10 +176,10 @@ class VAE(nn.Module):
         mu_1, sigma_1 = self.encoder_3(z_2.view(-1, self.zdim))
         std_1 = torch.exp(sigma_1)
         
-        qz_gauss_1 = torch.distributions.Normal(mu_1 + delta_mu_1, std_1 * delta_std_1)
+        qz_gauss_1 = torch.distributions.Normal(mu_1 + delta_mu_1, std_1 + delta_std_1)
         
-        # sigma_new_1 = (delta_std_1.pow(2) * std_1.pow(2))/(delta_std_1.pow(2) + std_1.pow(2))
-        # mu_new_1 = (delta_mu_1 * std_1.pow(2) + mu_1 * delta_std_1.pow(2))/(delta_std_1.pow(2) + std_1.pow(2))
+        # sigma_new_1 = (delta_std_1 * std_1)/(delta_std_1 + std_1)
+        # mu_new_1 = (delta_mu_1 * std_1 + mu_1 * delta_std_1)/(delta_std_1 + std_1)
         
         
         # qz_gauss_1 = torch.distributions.Normal(mu_new_1, sigma_new_1)

@@ -12,33 +12,38 @@ def feature_check(path):
     # Configure logging to output to console
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    EPOCHS_STD = 500
-    EPOCHS_SYM = 500
+    EPOCHS_STD = 20000
+    EPOCHS_SYM = 20000
     
-    DATASET = 'df_no_zeros'
-    FEATURES = 'low_features'
+    reaction = 'bkg_all'
+    
+    # DATASET = 'df_no_zeros'
+    # FEATURES = 'low_features'
     # DATASET = 'df_phi'
     # FEATURES = 'phi_features'
     #DATASET = 'df_8'
     #FEATURES = 'features_8'
     # DATASET = 'df_pt'
     # FEATURES = 'pt_features'
-    # DATASET = 'df_tbh_800_new_pres_strict'
-    # FEATURES = 'features_top_10'
+    DATASET = f'df_{reaction}_pres_strict'
+    FEATURES = 'features_top_10'
     
     data_original = np.array([])
     data_ganerated = np.array([])
     data_ganerated_sym = np.array([])
     
-    EVENTS = 10449
-    #EVENTS = 27611
-    df_original = pd.read_csv(f'{path}data/tt/{DATASET}.csv')
-    df_generated = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_STD}_std_h.csv')
-    df_generated_sym = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_SYM}_{EPOCHS_SYM}_sym_h.csv')
+    #EVENTS = 10449
+    EVENTS = 27611
+    # df_original = pd.read_csv(f'{path}data/tt/{DATASET}.csv')
+    # df_generated = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_STD}_std_h.csv')
+    # df_generated_sym = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_SYM}_{EPOCHS_SYM}_sym_h.csv')
     
-    # df_original = pd.read_csv(f'{path}data/tbh_800_new_input/{DATASET}.csv')
-    # df_generated = pd.read_csv(f'{path}data/tbh_800_new_input/generated_df_tbh_800_new_pres_strict_E{EPOCHS_STD}_S{EVENTS}_std.csv')
-    # df_generated_sym = pd.read_csv(f'{path}data/tbh_800_new_input/generated_df_tbh_800_new_pres_strict_E{EPOCHS_SYM}_S{EVENTS}_std_h.csv')
+    TYPE_1 = 'std'
+    TYPE_2 = 'std'
+    
+    df_original = pd.read_csv(f'{path}data/{reaction}_input/{DATASET}.csv')
+    df_generated = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_STD}_S{EVENTS}_{TYPE_1}.csv')
+    df_generated_sym = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_SYM}_S{EVENTS}_{TYPE_2}.csv')
 
 
 
@@ -161,8 +166,8 @@ def feature_check(path):
 
             # Add entries to the legend
             legend.AddEntry(h_feature_original, "Simulated", "l")
-            legend.AddEntry(h_feature_generated_std, "Generated ELBO", "l")
-            legend.AddEntry(h_feature_generated_sym, "Generated Symmetric", "l")
+            legend.AddEntry(h_feature_generated_std, f"Generated {TYPE_1}", "l")
+            legend.AddEntry(h_feature_generated_sym, f"Generated {TYPE_2}", "l")
             
             h_feature_original.GetXaxis().SetTitleSize(0.048)
             h_feature_original.GetYaxis().SetTitleSize(0.048)
@@ -189,8 +194,8 @@ def feature_check(path):
 
             # Add entries to the legend
             legend.AddEntry(h_feature_original, "Simulated", "l")
-            legend.AddEntry(h_feature_generated_std, "Generated ELBO", "l")
-            legend.AddEntry(h_feature_generated_sym, "Generated Symmetric", "l")
+            legend.AddEntry(h_feature_generated_std, f"Generated {TYPE_1}", "l")
+            legend.AddEntry(h_feature_generated_sym, f"Generated {TYPE_2}", "l")
             
             h_feature_original.GetXaxis().SetTitleSize(0.048)
             h_feature_original.GetYaxis().SetTitleSize(0.048)

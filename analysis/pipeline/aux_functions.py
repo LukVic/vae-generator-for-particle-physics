@@ -50,6 +50,7 @@ def plot_roc_multiclass(title, y, y_probas, classes, scores, folder):
     @param classes: Dictionary with classes
     @param scores: Dictionary with scores
     """
+    plt.clf()
     y_probas[:, [1, 0]] = y_probas[:, [0, 1]]
     y_bin = label_binarize(y, classes=list(classes.keys()))
     n_classes = y_bin.shape[1]
@@ -59,7 +60,7 @@ def plot_roc_multiclass(title, y, y_probas, classes, scores, folder):
     for i in range(n_classes):
         fprs[i], tprs[i], _ = roc_curve(y_bin[:, i], y_probas[:, i])
         aucs[i] = auc(fprs[i], tprs[i])
-    plt.figure()
+    #plt.figure()
     for key in scores:
         plt.plot([0, 0], [0, 0], color='k', linestyle='-', label='{}: {}'.format(key, np.round(scores[key], 2)))
     plt.plot([0, 1], [0, 1], color='darkblue', linestyle='--', label='Chance')
@@ -74,6 +75,7 @@ def plot_roc_multiclass(title, y, y_probas, classes, scores, folder):
     # plt.show()
     # plt.draw()
     y_probas[:, [1, 0]] = y_probas[:, [0, 1]]
+    plt.grid()
     plt.savefig(folder + 'roc.png')
 
 def calculate_significance_all_thresholds_new_method(predicted_probs_y: np.array, true_y: np.array,
@@ -87,12 +89,14 @@ def calculate_significance_all_thresholds_new_method(predicted_probs_y: np.array
     @param other_bgr: Number of events in other background in real data used for comparison
     @return: Graph data, best threshold
     """
+    plt.clf()
     x_values = list()
     y_S = list()
     y_B = list()
     y_signif = list()
     y_signif_simp = list()
     y_signif_imp = list()
+    y_signif_true = list()
     y_BB = list()
     max_sig = 0
     best_th = 0
@@ -110,12 +114,13 @@ def calculate_significance_all_thresholds_new_method(predicted_probs_y: np.array
         y_signif.append(response['significance'])
         y_signif_simp.append(response['significance_simple'])
         y_signif_imp.append(response['significance_improved'])
+        y_signif_true.append(response['significance_true'])
         y_BB.append(response['BB'])
 
         if response['significance_simple'] > max_sig:
             max_sig = response['significance_simple']
             best_th = th
-    return x_values, y_S, y_B, y_signif, y_signif_simp, y_signif_imp, best_th, y_BB
+    return x_values, y_S, y_B, y_signif, y_signif_simp, y_signif_imp, y_signif_true, best_th, y_BB
 
 def calculate_class_predictions_basedon_decision_threshold(predicted_probs_y: np.array, threshold: float):
     """ Outputs an array with predicted classes based on predicted class probabilities and decision threshold
@@ -126,7 +131,7 @@ def calculate_class_predictions_basedon_decision_threshold(predicted_probs_y: np
     @return: Predicted classes
 
     """
-
+    plt.clf()
     length = np.shape(predicted_probs_y)[0]
     width = np.shape(predicted_probs_y)[1]
     y_pred = list()
@@ -155,7 +160,7 @@ def calculate_significance_one_threshold_new_method(true_y: np.array, predicted_
     @param verbose: Turn on displaying information about computation
     @return: List containing efficiencies, S, B, and two significances (norml & simplified)
     """
-
+    plt.clf()
     cm = confusion_matrix(true_y, predicted_y, sample_weight=weights)
     
     cm_len = np.shape(cm)[0]
@@ -175,6 +180,8 @@ def calculate_significance_one_threshold_new_method(true_y: np.array, predicted_
     signif = S / np.sqrt(S + B)
     signif_simple = S / np.sqrt(B)
     signif_improved = S / (np.sqrt(B) + 3/2)
+    signif_true = np.sqrt(2*(S+B)*np.log2(1+S/B)-2*S)
+    
     if signif_simple == float('+inf'):
         signif_simple = 0
     result = {'S': S,
@@ -182,6 +189,7 @@ def calculate_significance_one_threshold_new_method(true_y: np.array, predicted_
               'significance': signif,
               'significance_simple': signif_simple,
               'significance_improved': signif_improved,
+              'significance_true': signif_true,
               'BB': BB}
     return result
 
@@ -197,11 +205,12 @@ def plot_threshold(x_values, y_values, optimums, title, ylabel, colors, labels, 
     @param force_threshold_value: Value of forced vertical line value (if None, vertical line is computed with usage of
     optimums parameter)
     """
+    plt.clf()
     best_score_final = 0
-    plt.figure()
-    for values, optimum, color, label in zip(y_values, optimums, colors, labels):
+    best_scores_final = []
+    #plt.figure()
+    for idx, (values, optimum, color, label) in enumerate(zip(y_values, optimums, colors, labels)):
         plt.plot(x_values, values, color=color, label=label, linewidth=2)
-
         if force_threshold_value is None:
             best_index = 0
             if optimum == 'max':
@@ -220,7 +229,7 @@ def plot_threshold(x_values, y_values, optimums, title, ylabel, colors, labels, 
         else:
             best_index = int(force_threshold_value * 100)
             best_score = values[best_index]
-
+        
         # Plot a dotted vertical line at the best score for that scorer marked by x
         plt.plot([x_values[best_index], ] * 2 , [0, best_score],
                 linestyle='-.', color=color, marker='x', markeredgewidth=3, ms=8)
@@ -228,8 +237,12 @@ def plot_threshold(x_values, y_values, optimums, title, ylabel, colors, labels, 
         # Annotate the best score for that scorer
         plt.annotate("%0.3f" % best_score,
                     (x_values[best_index], best_score + 0.005))
-        if best_score > best_score_final:
-            best_score_final = best_score
+        if len(y_values) == 4:    
+            if idx == 1 or idx == 3:
+                best_scores_final.append(best_score)
+        else:
+            if best_score > best_score_final:
+                best_score_final = best_score
 
     plt.xticks(np.arange(0.0, 1.0, step=0.1))
     plt.xlabel('Threshold')
@@ -238,13 +251,19 @@ def plot_threshold(x_values, y_values, optimums, title, ylabel, colors, labels, 
     #     plt.yscale('log')
     plt.title(title)
     plt.legend(loc="best")
+    plt.grid()
     plt.savefig(savepath)
     # plt.show()
     # plt.close()
-    return best_score_final
+    print(best_scores_final)
+    if len(y_values) == 4:
+        return best_scores_final
+    else:
+        return best_score_final
 
 def plot_feature_importnace(PATH_DATA, model, X_train):
     # Get feature importances
+    plt.clf()
     FEATURE_NUM = 20
     importances = model.named_steps['clf'].feature_importances_
 
@@ -252,7 +271,7 @@ def plot_feature_importnace(PATH_DATA, model, X_train):
     indices = np.argsort(importances)[::-1][:FEATURE_NUM]  # Select the top 20 indices
 
     # Plot feature importances
-    plt.figure(figsize=(10, 6))
+    #plt.figure(figsize=(10, 6))
     plt.title("Top 20 Feature Importances")
     plt.bar(range(FEATURE_NUM), importances[indices], align="center")
     plt.xticks(range(FEATURE_NUM), X_train.columns[indices], rotation=90)
@@ -287,6 +306,7 @@ def compute_embed(restricted_list, loosened_list, generated_list):
     np.savetxt(f'{PATH_DATA}points_augmented.csv',trans_generated, delimiter=',')
         
 def visualize_embed(PATH_DATA, PATH_RESULTS):
+    plt.clf()
     files = ['points_test.csv', 'points_original.csv', 'points_augmented.csv']
     
     points_test = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
@@ -307,7 +327,7 @@ def visualize_embed(PATH_DATA, PATH_RESULTS):
     
 
     # Plot the first point cloud (UMAP_1)
-    plt.figure(figsize=(10, 10))
+    #plt.figure(figsize=(10, 10))
     plt.scatter(embed_test_df["UMAP_1"], embed_test_df["UMAP_2"], c='blue', label='Test', s=1, alpha=0.1)
     plt.scatter(embed_original_df["UMAP_1"], embed_original_df["UMAP_2"], c='red', label='Original Train', s=1, alpha=1.0)
     plt.scatter(embed_augmented_df["UMAP_1"], embed_augmented_df["UMAP_2"], c='green', label='Only augmented Train', s=1, alpha=1.0)
