@@ -15,7 +15,7 @@ def feature_check(path):
     EPOCHS_STD = 20000
     EPOCHS_SYM = 20000
     
-    reaction = 'bkg_all'
+    reaction = 'tbh_800_new'
     
     # DATASET = 'df_no_zeros'
     # FEATURES = 'low_features'
@@ -32,14 +32,14 @@ def feature_check(path):
     data_ganerated = np.array([])
     data_ganerated_sym = np.array([])
     
-    #EVENTS = 10449
-    EVENTS = 27611
+    EVENTS = 10449
+    #EVENTS = 27611
     # df_original = pd.read_csv(f'{path}data/tt/{DATASET}.csv')
     # df_generated = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_STD}_std_h.csv')
     # df_generated_sym = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_SYM}_{EPOCHS_SYM}_sym_h.csv')
     
-    TYPE_1 = 'std'
-    TYPE_2 = 'std'
+    TYPE_1 = 'sym'
+    TYPE_2 = 'sym'
     
     df_original = pd.read_csv(f'{path}data/{reaction}_input/{DATASET}.csv')
     df_generated = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_STD}_S{EVENTS}_{TYPE_1}.csv')
@@ -254,7 +254,7 @@ def feature_check(path):
             os.makedirs(f'{path}results/feature_plots_comparison/{directory}')
         
 
-        c1.SaveAs(f"{path}results/feature_plots_comparison/{directory}vae_std_sym_{feature[0]}_comparison.pdf")
+        c1.SaveAs(f"{path}results/feature_plots_comparison/{directory}vae_std_sym_{feature[0]}_comparison_{TYPE_1}_{TYPE_2}.pdf")
 
     logging.info(f'SUMMED CHI2 ELBO: {chi2_sum_std}')
     logging.info(f'SUMMED CHI2 SYMM: {chi2_sum_sym}')

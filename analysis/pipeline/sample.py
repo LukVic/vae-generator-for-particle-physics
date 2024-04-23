@@ -16,9 +16,9 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     SAMPLING = 'generate' #regenerate
     print(dataset.shape)
     if reaction == 'bkg_all':
-        SAMPLES_NUM = dataset.shape[0]*5
+        SAMPLES_NUM = dataset.shape[0]
     else:
-        SAMPLES_NUM = dataset.shape[0]*5
+        SAMPLES_NUM = dataset.shape[0]
         
     with open(f"{PATH_JSON}", 'r') as json_file:
         conf_dict = json.load(json_file)

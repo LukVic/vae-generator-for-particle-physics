@@ -19,8 +19,8 @@ from sample import data_gen
 
 import matplotlib.pyplot as plt
 def main():
-    APPROACH = 'std' # 'std', 'sym', 'std_h', 'sym_h' 
-    TRAIN = False
+    APPROACH = 'sym' # 'std', 'sym', 'std_h', 'sym_h' 
+    TRAIN = True
     #'tbh_all' 'tth' 'ttw' 'ttz' 'tt'
     REACTION = 'bkg_all'
     PATH_JSON = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/config/'

@@ -14,7 +14,7 @@ import xgboost as xgb
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import label_binarize
-from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix, auc, roc_curve
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix, auc, roc_curve, precision_score
 import umap
 
 import confmatrix_prettyprint as cm
@@ -30,10 +30,10 @@ def classify():
     LOOSE = False
     ONE_MASS = True
     MASS = 2
-    SPLIT_SEED = [62, 20, 54, 16, 8, 3, 71, 94, 27, 68]
+    SPLIT_SEED = [3, 71, 94, 27, 68]
     
-    #sim_fractions = [0.2, 0.4, 0.6, 0.8, 0.99]
-    sim_fractions = [0.99]
+    sim_fractions = [0.2, 0.4, 0.6, 0.8, 0.99]
+    #sim_fractions = [0.99]
     #aug_fractions = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]
     aug_fractions = [0.2, 0.4, 0.6, 0.8, 0.99]
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
@@ -63,10 +63,10 @@ def classify():
     for ids, seed in enumerate(SPLIT_SEED):
         if ids != 0:
             with open(log_file_path, 'a') as file:
-                file.write('\n')
+                file.write(f'NEW SEED: {seed}\n')
         for frac_sim in sim_fractions:
             if frac_sim != 0.99: aug_fractions = [0.0]
-            else: aug_fractions = [0.2, 0.4, 0.6, 0.8, 0.99]
+            else: aug_fractions = [0.0, 0.2, 0.4, 0.6, 0.8, 0.99]
             for frac_aug in aug_fractions:
                 for deep in [True]:
                     df_data_loose = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_LOOSE}.pkl')
@@ -176,8 +176,8 @@ def classify():
                             df_generated = df_generated.sample(frac=frac_aug, random_state=seed)
                             df_augment_train = pd.concat([df_augment_train, df_generated])
                         
-                        #df_train_all = pd.concat([df_train, df_augment_train])
-                        df_train_all = df_augment_train
+                        df_train_all = pd.concat([df_train, df_augment_train])
+                        #df_train_all = df_augment_train
                         
 
                         # wrap_prdc(X_test_strict, df_train)        
@@ -221,8 +221,9 @@ def classify():
                     y_pred_train, y_pred_proba_train , y_pred_test, y_pred_proba_test = None, None, None, None
                     
                     accuracy_test = 0
+                    params = 0
                     if deep:
-                        y_pred_train, y_pred_proba_train, y_pred_test, y_pred_proba_test, accuracy_test  = mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_aug)
+                        y_pred_train, y_pred_proba_train, y_pred_test, y_pred_proba_test, accuracy_test, params  = mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_aug)
                         y_pred_proba_train = y_pred_proba_train.numpy()
                         y_pred_proba_test = y_pred_proba_test.numpy()
                     else:
@@ -236,22 +237,25 @@ def classify():
                         
                     # Evaluate the model
                     accuracy_train = accuracy_score(y_train, y_pred_train)
-                    f1_test = f1_score(y_train, y_pred_train, average='macro')
-                    auc_test = roc_auc_score(y_train, y_pred_proba_train[:,0], average='macro')
+                    f1_train = f1_score(y_train, y_pred_train, average='macro')
+                    auc_train = roc_auc_score(y_train, y_pred_proba_train[:,0], average='macro')
+                    precision_train = precision_score(y_train, y_pred_train)
                     
-                    print("Accuracy:", accuracy_train)
-                    print("f1 test:", f1_test)
-                    print("AUC test:", auc_test)
-                    
+                    print("Accuracy train:", accuracy_train)
+                    print("f1 train:", f1_train)
+                    print("AUC train:", auc_train)
+                    print("Precision train:", precision_train)
                     
                     # Evaluate the model
                     accuracy_test = accuracy_score(y_test, y_pred_test)
                     f1_test = f1_score(y_test, y_pred_test, average='macro')
                     auc_test = roc_auc_score(y_test, y_pred_proba_test[:,0], average='macro')
+                    precision_test = precision_score(y_test, y_pred_test)
                     
-                    print("Accuracy:", accuracy_test)
+                    print("Accuracy test:", accuracy_test)
                     print("f1 test:", f1_test)
                     print("AUC test:", auc_test)
+                    print("Precision test:", precision_test)
                     
                     joblib.dump(model,PATH_MODEL)
                     
@@ -290,7 +294,7 @@ def classify():
 
                     # Open the file in append mode and write the line
                     with open(log_file_path, 'a') as file:
-                        line_to_write = f'DEEP: {deep} | FRS: {frac_sim} | FRG: {frac_aug} | ACC TR: {accuracy_train} | ACC TE: {accuracy_test} | SIGT: {best_signif_true}| SIGS: {best_signif_simp}\n'
+                        line_to_write = f'DEEP: {deep} | FRS: {frac_sim:.1f} | FRG: {frac_aug:.1f} | PREC TR: {precision_train:.5f} | PREC TE: {precision_test:.5f} | ACC TR: {accuracy_train:.5f} | ACC TE: {accuracy_test:.5f} | SIGT: {best_signif_true:.5f} | SIGS: {best_signif_simp:.5f} | PARAMS: {params}\n'
                         file.write(line_to_write)
 
                     print("FINISHED")

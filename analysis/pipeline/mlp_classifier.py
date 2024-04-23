@@ -35,17 +35,18 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen):
     # Initialize the model
     model = MLP(input_dim, hidden_dim, output_dim).cuda()
 
-    #class_weights = torch.tensor([1.0, 1.0]).cuda()
+    class_weights = torch.tensor([1.0, 1.0]).cuda()
     # Define loss function and optimizer
-    criterion = nn.BCELoss()#CrossEntropyLoss()
+    criterion = nn.BCELoss(class_weights)#CrossEntropyLoss()
     
-    print(f'NUMBER OF PARAMETERS: {count_parameters(model)}')
-    
-    optimizer = optim.Adam(model.parameters(), lr=1e-05)
+    params = count_parameters(model)
+    print(f'NUMBER OF PARAMETERS: {params}')
+    exit()
+    optimizer = optim.Adam(model.parameters(), lr=1e-04)
     best_val_loss = np.inf
     epochs_without_improvement = 0
-    patience = 5
-    eps = 1e-4
+    patience = 3
+    eps = 1e-3
 
     # Define data loaders
     train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
@@ -132,14 +133,14 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen):
         val_acc_history.append(accuracy_val)
         
         
-        if val_loss + eps < best_val_loss:
-            best_val_loss = val_loss
-            epochs_without_improvement = 0
-        else:
-            epochs_without_improvement += 1
-            if epochs_without_improvement >= patience:
-                print(f'Early stopping at epoch {epoch+1}')
-                break
+        # if val_loss + eps < best_val_loss:
+        #     best_val_loss = val_loss
+        #     epochs_without_improvement = 0
+        # else:
+        #     epochs_without_improvement += 1
+        #     if epochs_without_improvement >= patience:
+        #         print(f'Early stopping at epoch {epoch+1}')
+        #         break
         
         print(f'Epoch [{epoch+1}/{epochs}], Loss TRN: {trn_loss:.4f} | Loss VAL: {val_loss:.4f}')
     
@@ -177,9 +178,11 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen):
         accuracy_test = (predicted_test == y_test_tensor).sum().item() / len(y_test_tensor)
         print(f'Test Accuracy: {accuracy_test:.4f}')
     
-    return predicted_train.cpu(), F.softmax(outputs_train, dim=1).cpu(), predicted_test.cpu(), F.softmax(outputs_test, dim=1).cpu(), best_accuracy
+    return predicted_train.cpu(), F.softmax(outputs_train, dim=1).cpu(), predicted_test.cpu(), F.softmax(outputs_test, dim=1).cpu(), best_accuracy, params
 
 def count_parameters(model):
+    for p in model.parameters():
+        print(p.numel())
     return sum(p.numel() for p in model.parameters() if p.requires_grad) 
 
 def signif_loss(inputs, outputs, labels):
@@ -277,20 +280,59 @@ def save_best_features(top_features):
 class MLP(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(MLP, self).__init__()
+        # self.layers = nn.Sequential(
+        #     nn.Linear(input_dim, 512),
+        #     nn.BatchNorm1d(512),
+        #     nn.ReLU(),
+        #     nn.Linear(512, 1024),
+        #     nn.BatchNorm1d(1024),
+        #     nn.ReLU(),
+        #     nn.Linear(1024, 2048),
+        #     nn.BatchNorm1d(2048),
+        #     nn.ReLU(),
+        #     nn.Linear(2048, 1024),
+        #     nn.BatchNorm1d(1024),
+        #     nn.ReLU(),
+        #     nn.Linear(1024, output_dim)
+        # )
+        # self.layers = nn.Sequential(
+        #     nn.Linear(input_dim, 512),
+        #     nn.BatchNorm1d(512),
+        #     nn.ReLU(),
+        #     nn.Linear(512, 1024),
+        #     nn.BatchNorm1d(1024),
+        #     nn.ReLU(),
+        #     nn.Linear(1024, output_dim)
+        # )
+        # self.layers = nn.Sequential(
+        #     nn.Linear(input_dim, 64),
+        #     nn.BatchNorm1d(64),
+        #     nn.ReLU(),
+        #     nn.Linear(64, output_dim)
+        # )
+        # self.layers = nn.Sequential(
+        #     nn.Linear(input_dim, 256),
+        #     nn.BatchNorm1d(256),
+        #     nn.ReLU(),
+        #     nn.Linear(256, 256),
+        #     nn.BatchNorm1d(256),
+        #     nn.ReLU(),
+        #     nn.Linear(256, output_dim)
+        # )
         self.layers = nn.Sequential(
             nn.Linear(input_dim, 512),
             nn.BatchNorm1d(512),
             nn.ReLU(),
-            nn.Linear(512, 1024),
-            nn.BatchNorm1d(1024),
+            nn.Linear(512, 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(),
-            nn.Linear(1024, 2048),
-            nn.BatchNorm1d(2048),
+            nn.Linear(512, 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(),
-            nn.Linear(2048, 1024),
-            nn.BatchNorm1d(1024),
+            nn.Linear(512, 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(),
-            nn.Linear(1024, output_dim)
+            nn.Linear(512, output_dim)
         )
 
     def forward(self, x):
