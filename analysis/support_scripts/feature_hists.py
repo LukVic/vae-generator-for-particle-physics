@@ -22,15 +22,11 @@ def main():
         margin = 5*(max_val - min_val)/num_bins
         hist_range = (min_val - margin, max_val + margin)
         
-        # Create a 1D histogram using ROOT.TH1F
         histogram = ROOT.TH1F(f"{column_name}", f"{column_name} {EPOCHS};X-axis Label;Y-axis Label", num_bins, hist_range[0], hist_range[1])
 
-        # Fill the histogram with data
         for value in column_array:
             histogram.Fill(value)
 
-        # You can also draw the histogram if needed
-        #canvas = ROOT.TCanvas("canvas", "Histogram Canvas", 800, 600)
         histogram.Draw()
         
         

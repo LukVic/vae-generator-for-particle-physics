@@ -216,7 +216,7 @@ class VAE(nn.Module):
         ])
         
         self.decoders = nn.ModuleList([
-            Encoder_Linear(self.zdim, self.zdim, self.config).to(self.device),       
+            Encoder(self.zdim, self.zdim, self.config).to(self.device),       
             Decoder(self.zdim, self.input_size, self.config).to(self.device)
         ])
         
@@ -255,16 +255,16 @@ class VAE(nn.Module):
             z_1 = z_1.detach()
             
 
-            # mu_1 = mu_1.detach().clone()
-            # std_1 = std_1.detach().clone()
+            mu_1 = mu_1.detach().clone()
+            std_1 = std_1.detach().clone()
             
             #! LEARN
             mu_z, std_z = self.decoders[0].encode(z_2)
             mu_x, std_x, p_x = self.decoders[1].decode(z_1)
             
             
-            # mu_z = mu_z.detach().clone()
-            # std_z = std_z.detach().clone()
+            #mu_z = mu_z.detach().clone()
+            #std_z = std_z.detach().clone()
 
             
             logp_pxz_1, _ = self.decoders[1].log_prob(x_gauss, mu_x, std_x)
@@ -315,9 +315,9 @@ class VAE(nn.Module):
             mu_1_shifted, std_1_shifted = self.distr_shift(mu_z_1, std_z_1, delta_mu_1, delta_std_1,'easy')
             logp_pz_1z_2x, _ = self.encoders[0].log_prob(z_1, mu_1_shifted, std_1_shifted)
             
-            #E_LOSS = torch.mean(logp_pz_1z_2x)
+            E_LOSS = torch.mean(logp_pz_1z_2x)
             #E_LOSS = torch.mean(logp_pz_2x)
-            E_LOSS = torch.mean(logp_pz_2x +logp_pz_1z_2x)
+            #E_LOSS = torch.mean(logp_pz_2x +logp_pz_1z_2x)
             
             return E_LOSS 
 

@@ -101,7 +101,6 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
         tsne_instance = TSNE(n_components=2, perplexity=30, n_jobs=12, random_state=random_state)
         
 
-        # # Fit TSNE transformation arrays separately
         # trans_encoded_std = tsne_instance.fit_transform(np.array(encoded_arrs[0]))
         # trans_prior_std = tsne_instance.fit_transform(np.array(prior_arrs[0]))
         # trans_data_std = tsne_instance.fit_transform(np.array(data_arrs[0]))
@@ -157,7 +156,6 @@ def dataset_regen(PATH_DATA, DATA_FILE, PATH_MODEL, EPOCHS):
         random_state = 42
         umap_instance = UMAP(n_components=2, n_neighbors=30, min_dist=0.1)
 
-        # Fit UMAP transformation arrays separately
         trans_latent = umap_instance.fit_transform(np.array(latent_list))
         trans_feature = umap_instance.fit_transform(np.array(data_list))
 
@@ -184,10 +182,6 @@ def find_overlap(PATH_DATA, PATH_RESULTS):
     #files = ['points_encoded_std.csv', 'points_prior_std.csv', 'points_data_std.csv', 'points_decoded_std.csv']
     files = ['points_encoded_std.csv', 'points_encoded_sym.csv', 'points_prior.csv', 'points_decoded_std.csv', 'points_decoded_sym.csv', 'points_data.csv']
     
-    # points_encoded = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
-    # points_prior = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
-    # points_data = np.genfromtxt(f'{PATH_DATA}{files[2]}', delimiter=',')
-    # points_decoded = np.genfromtxt(f'{PATH_DATA}{files[3]}', delimiter=',')
     
     points_encoded_std = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
     points_encoded_sym = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
@@ -195,91 +189,6 @@ def find_overlap(PATH_DATA, PATH_RESULTS):
     points_decoded_std = np.genfromtxt(f'{PATH_DATA}{files[3]}', delimiter=',')
     points_decoded_sym = np.genfromtxt(f'{PATH_DATA}{files[4]}', delimiter=',')
     points_data = np.genfromtxt(f'{PATH_DATA}{files[5]}', delimiter=',')
-    
-    
-    # # Initialize sets to keep track of points
-    # points_encoded_set = set(map(tuple, points_encoded))
-    # points_latent_set = set(map(tuple, points_prior))
-    # points_data_set = set(map(tuple, points_data))
-    # points_decoded_set = set(map(tuple, points_decoded))
-
-    # TH = 0.1
-
-    # # Initialize lists to store overlapping points
-    # overlap_encoded = []
-    # overlap_latent = []
-    # overlap_data = []
-    # overlap_decoded = []
-
-    # print("COMPUTING THE OVERLAPING")
-
-    # for idx, point1 in enumerate(points_encoded):
-    #     if tuple(point1) in points_encoded_set:
-    #         points_encoded_set.remove(tuple(point1))
-
-    #     # Calculate the absolute differences between point1 and all points in points_latent
-    #     differences = np.abs(points_latent - point1)
-    #     #differences = (points_latent - point1)**2
-
-    #     # Calculate the Manhattan distances (sum of absolute differences)
-    #     distances = np.sum(differences, axis=1)
-
-    #     # Find the indices of points in points_latent within the threshold
-    #     overlapping_indices = np.where(distances < TH)[0]
-
-    #     if len(overlapping_indices) > 0:
-    #         for i in overlapping_indices:
-    #             if tuple(points_latent[i]) in points_latent_set:
-    #                 overlap_encoded.append(point1)
-    #                 overlap_latent.append(points_latent[i])
-    #                 #points_latent_set.remove(tuple(points_latent[i]))
-    #     # print(idx)
-        
-    # for idx, point1 in enumerate(points_data):
-    #     if tuple(point1) in points_data_set:
-    #         points_data_set.remove(tuple(point1))
-
-    #     differences = np.abs(points_decoded - point1)
-
-    #     distances = np.sum(differences, axis=1)
-
-    #     overlapping_indices = np.where(distances < TH)[0]
-
-    #     if len(overlapping_indices) > 0:
-    #         for i in overlapping_indices:
-    #             if tuple(points_decoded[i]) in points_decoded_set:
-    #                 overlap_data.append(point1)
-    #                 overlap_decoded.append(points_decoded[i])
-    #                 #points_latent_set.remove(tuple(points_latent[i]))
-    #     # print(idx)  
-
-    # # Convert overlap_encoded and overlap_latent to sets to remove duplicates
-    # overlap_encoded_set = set(map(tuple, overlap_encoded))
-    # overlap_latent_set = set(map(tuple, overlap_latent))
-    # overlap_data_set = set(map(tuple, overlap_data))
-    # overlap_decoded_set = set(map(tuple, overlap_decoded))
-
-    # # Convert sets back to NumPy arrays
-    # overlap_encoded = np.array(list(overlap_encoded_set))
-    # overlap_latent = np.array(list(overlap_latent_set))
-    # overlap_data = np.array(list(overlap_data_set))
-    # overlap_decoded = np.array(list(overlap_decoded_set))
-    
-    
-    # # Create DataFrames for UMAP results
-    # umap_encoded_df = pd.DataFrame(data=points_encoded, columns=["t-SNE_1", "t-SNE_2"])
-    # umap_encoded_df["Source"] = "Encoded Data"
-    # umap_latent_df = pd.DataFrame(data=points_prior, columns=["t-SNE_1", "t-SNE_2"])
-    # umap_latent_df["Source"] = "Latent Data"
-    # umap_overlap_latent_df = pd.DataFrame(data=overlap_encoded, columns=["t-SNE_1", "t-SNE_2"])
-    # umap_overlap_latent_df["Source"] = "Overlapping Data"
-
-    # umap_data_df = pd.DataFrame(data=points_data, columns=["t-SNE_1", "t-SNE_2"])
-    # umap_data_df["Source"] = "Original Data"
-    # umap_decoded_df = pd.DataFrame(data=points_decoded, columns=["t-SNE_1", "t-SNE_2"])
-    # umap_decoded_df["Source"] = "Decoded Data"
-    # umap_overlap_data_df = pd.DataFrame(data=overlap_data, columns=["t-SNE_1", "t-SNE_2"])
-    # umap_overlap_data_df["Source"] = "Overlapping Data"
 
     tsne_encoded_std_df = pd.DataFrame(data=points_encoded_std, columns=["t-SNE_1", "t-SNE_2"])
     tsne_encoded_std_df["Source"] = "Encoded Data ELBO"
@@ -296,63 +205,37 @@ def find_overlap(PATH_DATA, PATH_RESULTS):
     tsne_data_df["Source"] = "Simulated Data"
     
 
-
-    # print("OVERLAPING COMPUTED")
-    
-    # # Combine the DataFrames
-    # combined_latent_umap_df = pd.concat([umap_encoded_df, umap_latent_df, umap_overlap_latent_df], axis=0)
-    
-    # combined_data_umap_df = pd.concat([umap_data_df, umap_decoded_df, umap_overlap_data_df], axis=0)
-
-
-
-    # # Create a 2D scatter plot using Plotly Express for the first dataset
-    # fig1 = px.scatter(combined_latent_umap_df, x="t-SNE_1", y="t-SNE_2", color="Source",
-    #                 title="t-SNE Visualization in 2D (Encoded vs. Latent Data)", opacity=1)
-
-    # fig2 = px.scatter(combined_data_umap_df, x="t-SNE_1", y="t-SNE_2", color="Source",
-    #                     title="t-SNE Visualization in 2D (Original vs. Decoded Data)", opacity=1)
-
-    # # Show the modified 2D plot for the first dataset
-    # fig1.show()
-    # fig2.show()
     
 
-    # Plot for the first dataset
-    # Plot the first point cloud (t-SNE_1)
     plt.figure(figsize=(10, 10))
     plt.scatter(tsne_encoded_sym_df["t-SNE_1"], tsne_encoded_sym_df["t-SNE_2"], c='red', label='Encoded SYM', s=4, alpha=1.0)
     plt.scatter(tsne_encoded_std_df["t-SNE_1"], tsne_encoded_std_df["t-SNE_2"], c='blue', label='Encoded ELBO', s=4, alpha=1.0)
     plt.scatter(tsne_prior_df["t-SNE_1"], tsne_prior_df["t-SNE_2"], c='green', label='Prior', s=4, alpha=1.0)
     plt.title(r"Comparison in the latent space $\mathcal{Z}$", fontsize=36)
-    plt.xlabel("t-SNE Component 1", fontsize=28)  # Increase label size
-    plt.ylabel("t-SNE Component 2", fontsize=28)  # Increase label size
+    plt.xlabel("t-SNE Component 1", fontsize=28)
+    plt.ylabel("t-SNE Component 2", fontsize=28) 
     plt.xticks(fontsize=20)
     plt.yticks(fontsize=20)
 
-    legend1 = plt.legend(fontsize=28, scatterpoints=20)  # Increase legend size
+    legend1 = plt.legend(fontsize=28, scatterpoints=20) 
     legend1.get_frame().set_alpha(0.8)
     plt.grid(True)
     plt.savefig(f'{PATH_RESULTS}vae_latent_tsne_{15000}_30_old.pdf')
-    # plt.show()
 
-    # Plot the first point cloud (t-SNE_1)
     plt.figure(figsize=(10, 10))
     plt.scatter(tsne_decoded_sym_df["t-SNE_1"], tsne_decoded_sym_df["t-SNE_2"], c='red', label='Decoded SYM', s=4, alpha=1.0)
     plt.scatter(tsne_decoded_std_df["t-SNE_1"], tsne_decoded_std_df["t-SNE_2"], c='blue', label='Decoded ELBO', s=4, alpha=1.0)
     plt.scatter(tsne_data_df["t-SNE_1"], tsne_data_df["t-SNE_2"], c='green', label='Simulated data', s=4, alpha=1.0)
     plt.title(r"Comparison in the data space $\mathcal{X}$", fontsize=36)
-    plt.xlabel("t-SNE Component 1", fontsize=28)  # Increase label size
-    plt.ylabel("t-SNE Component 2", fontsize=28)  # Increase label size
+    plt.xlabel("t-SNE Component 1", fontsize=28)  
+    plt.ylabel("t-SNE Component 2", fontsize=28)  
     plt.xticks(fontsize=20)
     plt.yticks(fontsize=20)
 
-    legend2 = plt.legend(fontsize=28, scatterpoints=20)  # Increase legend size
+    legend2 = plt.legend(fontsize=28, scatterpoints=20) 
     legend2.get_frame().set_alpha(0.8)
     plt.grid(True)
     plt.savefig(f'{PATH_RESULTS}vae_data_tsne_{15000}_30_old.pdf')
-    # plt.show()
-    
     
     
 

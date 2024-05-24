@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 
 
-# Separates only needed features and saves the dataset into a file.
 def feature_cutter(path):
     
     classes = {'tbh_all'}

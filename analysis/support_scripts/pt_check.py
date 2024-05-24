@@ -42,7 +42,6 @@ def pt_check(path):
             h_ht_lep_generated.Fill(event_g)
             h_ht_lep_generated_sym.Fill(event_g_s)
     
-     # Activate storage of sum of squares of weights for automatic error calculation
     #h_ht_lep_original.Sumw2()
 
 
@@ -56,38 +55,33 @@ def pt_check(path):
     
     c1 = ROOT.TCanvas("c1", "Canvas", 800, 600)
     
-    # Set histogram style
+    
     h_ht_lep_original.SetLineColor(ROOT.kGreen)
-    h_ht_lep_original.SetMarkerStyle(0)  # Adjust marker style for better visibility
+    h_ht_lep_original.SetMarkerStyle(0)  
 
-    # Set histogram style
+    
     h_ht_lep_generated.SetLineColor(ROOT.kBlue)
     h_ht_lep_generated.SetMarkerStyle(1)
     
-    # Set histogram style
+    
     h_ht_lep_generated_sym.SetLineColor(ROOT.kRed)
     h_ht_lep_generated_sym.SetMarkerStyle(1)
     
-    
-    # Perform the chi-square test
     result1 = h_ht_lep_original.Chi2Test(h_ht_lep_generated, "P WW")
     result2 = h_ht_lep_original.Chi2Test(h_ht_lep_generated_sym, "P WW")
     
-
-    # Output the chi-square value and p-value
     #print("Chi-square value:", result)
     # print("Degrees of freedom:", result[1])
     # print("P-value:", result[2])
     
     
-    # Draw the histogram without error bars
-    h_ht_lep_generated.Draw("HIST E")  # "HIST" specifies histogram drawing style without error bars
-
-    # Draw the histogram without error bars
-    h_ht_lep_generated_sym.Draw("SAME HIST E")  # "HIST" specifies histogram drawing style without error bars
     
-    # Draw the histogram with error bars
-    h_ht_lep_original.Draw("SAME HIST")  # "E" specifies error bars
+    h_ht_lep_generated.Draw("HIST E")  
+
+    
+    h_ht_lep_generated_sym.Draw("SAME HIST E")  
+    
+    h_ht_lep_original.Draw("SAME HIST")
     
    
     h_ht_lep_original.GetXaxis().SetTitleSize(0.048)
@@ -101,28 +95,26 @@ def pt_check(path):
     h_ht_lep_generated.GetYaxis().SetTitleOffset(1.0) 
     h_ht_lep_generated_sym.GetYaxis().SetTitleOffset(1.0) 
 
-        # Create a legend
-    legend = ROOT.TLegend(0.48, 0.6, 0.92, 0.9)  # Define legend position (x1, y1, x2, y2)
+     
+    legend = ROOT.TLegend(0.48, 0.6, 0.92, 0.9) 
 
-    # Add entries to the legend
+    
     legend.AddEntry(h_ht_lep_original, "Simulated", "l")
     legend.AddEntry(h_ht_lep_generated, "Generated ELBO", "l")
     legend.AddEntry(h_ht_lep_generated_sym, "Generated Symmetric", "l")
     
     latex = ROOT.TLatex()
-    latex.SetTextSize(0.052)  # Set text size
+    latex.SetTextSize(0.052)
     latex.SetTextFont(52)
     latex.DrawLatexNDC(0.49, 0.52, "ATLAS Work in Progress") 
     
-    # Set legend style
+    
     legend.SetBorderSize(0)
     legend.SetFillStyle(0)
 
-    # Draw the legend
+    
     legend.Draw("SAME")
 
-
-    # # Show the canvas
     # ROOT.gPad.Update()
     # ROOT.gPad.WaitPrimitive()  
 

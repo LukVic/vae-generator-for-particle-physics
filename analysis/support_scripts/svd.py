@@ -11,16 +11,12 @@ def main():
     # U, S, Vh = np.linalg.svd(X)
     # print(S)
     
-    # Assuming train_data is your training dataset
-    k = 22  # Number of top singular values/vectors to keep
+    k = 22 
 
-    # Create the TruncatedSVD object
     svd = TruncatedSVD(n_components=k, algorithm='randomized')
 
-    # Fit and transform the dataset
     svd.fit(X)
 
-    # Get the truncated singular values and vectors
     U_k = svd.transform(X)
     S_k = svd.singular_values_
     VT_k = svd.components_

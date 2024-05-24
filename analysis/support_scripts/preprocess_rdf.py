@@ -78,7 +78,6 @@ if __name__ == "__main__":
                 
                 rdf = rdf.Define("row_number", "rdfentry_")
 
-                # filtering events and printing the info
                 if PREPROCESS == 1:
                     rdf = filter_events(rdf, year, ntuple)
                 passing_events += rdf.Count().GetValue()

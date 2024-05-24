@@ -9,13 +9,13 @@ from scipy.stats import chisquare
 
 def feature_check(path):
     
-    # Configure logging to output to console
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    EPOCHS_STD = 20000
-    EPOCHS_SYM = 20000
+    EPOCHS_STD = 40000
+    EPOCHS_SYM = 40000
     
-    reaction = 'tbh_800_new'
+    #reaction = 'tbh_800_new'
+    reaction = 'bkg_all'
     
     # DATASET = 'df_no_zeros'
     # FEATURES = 'low_features'
@@ -32,8 +32,11 @@ def feature_check(path):
     data_ganerated = np.array([])
     data_ganerated_sym = np.array([])
     
-    EVENTS = 10449
-    #EVENTS = 27611
+    ch_test_1 = []
+    ch_test_2 = []
+    
+    #EVENTS = 10449
+    EVENTS = 27611
     # df_original = pd.read_csv(f'{path}data/tt/{DATASET}.csv')
     # df_generated = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_STD}_std_h.csv')
     # df_generated_sym = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_SYM}_{EPOCHS_SYM}_sym_h.csv')
@@ -45,11 +48,14 @@ def feature_check(path):
     df_generated = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_STD}_S{EVENTS}_{TYPE_1}.csv')
     df_generated_sym = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_SYM}_S{EVENTS}_{TYPE_2}.csv')
 
-
+    print(df_generated['total_charge'])
 
     #! adjust df_original
-    # features_used = ['taus_pt_0', 'MtLepMet', 'met_met', 'DRll01', 'MLepMet', 'minDeltaR_LJ_0', 'jets_pt_0', 'HT', 'HT_lep', 'total_charge']
-    # df_original = df_original[features_used]
+    features_used = ['taus_pt_0', 'MtLepMet', 'met_met', 'DRll01', 'MLepMet', 'minDeltaR_LJ_0', 'jets_pt_0', 'HT', 'HT_lep', 'total_charge']
+    #features_used = ['HT', 'minDeltaR_LJ_0', 'MtLepMet', 'DRll01', 'jets_pt_0', 'met_met', 'taus_pt_0', 'MLepMet', 'HT_lep', 'total_charge']
+    df_original = df_original[features_used]
+    df_generated = df_generated[features_used]
+    df_generated_sym = df_generated_sym[features_used]
 
     print(df_original.shape)
     print(df_generated.shape)
@@ -84,6 +90,8 @@ def feature_check(path):
         h_feature_generated_std = ROOT.TH1F(f"h_{feature[0]}_generated",f";{feature[0]}; events (normalized)",100, min_all, max_all)
         h_feature_generated_sym = ROOT.TH1F(f"h_{feature[0]}_generated_sym",f";{feature[0]}; events (normalized)",100, min_all, max_all)
         
+
+        
         # if feature == 'total_charge':
         #     print(set(data_ganerated))
         #     exit()
@@ -96,6 +104,7 @@ def feature_check(path):
                 h_feature_generated_std.Fill(event_g)
                 h_feature_generated_sym.Fill(event_g_s)
             else:
+                print(event_g)
                 if event_g < 0.1: event_g = -2
                 else: event_g = 2
                 if event_g_s < 0.1: event_g_s = -2
@@ -114,26 +123,20 @@ def feature_check(path):
         
         c1 = ROOT.TCanvas("c1", "Canvas", 800, 600)
         
-        # Set histogram style
         h_feature_original.SetLineColor(ROOT.kGreen)
-        h_feature_original.SetMarkerStyle(0)  # Adjust marker style for better visibility
+        h_feature_original.SetMarkerStyle(0)
 
-        # Set histogram style
         h_feature_generated_std.SetLineColor(ROOT.kBlue)
         h_feature_generated_std.SetMarkerStyle(0)
         
-        # Set histogram style
         h_feature_generated_sym.SetLineColor(ROOT.kRed)
         h_feature_generated_sym.SetMarkerStyle(0)
         
-        # Find the bin with the maximum entries for each histogram
         max_bin_original = h_feature_original.GetMaximumBin()
         max_bin_generated = h_feature_generated_std.GetMaximumBin()
         max_bin_generated_sym = h_feature_generated_sym.GetMaximumBin()
 
 
-        
-        # Print the number of entries for the bin with the maximum entries
         print(f"Max Bin Entries (Original): {h_feature_original.GetBinContent(max_bin_original)}")
         print(f"Max Bin Entries (Generated): {h_feature_generated_std.GetBinContent(max_bin_generated)}")
         print(f"Max Bin Entries (Generated Sym): {h_feature_generated_sym.GetBinContent(max_bin_generated_sym)}")
@@ -144,27 +147,27 @@ def feature_check(path):
         
         
         if num_original > num_generated and num_original > num_generated_sym:
-            h_feature_original.Draw("HIST")  # "E" specifies error bars
-            h_feature_generated_std.Draw("SAME HIST E")  # "HIST" specifies histogram drawing style without error bars
-            h_feature_generated_sym.Draw("SAME HIST E")  # "HIST" specifies histogram drawing style without error bars
+            h_feature_original.Draw("HIST")  
+            h_feature_generated_std.Draw("SAME HIST E")  
+            h_feature_generated_sym.Draw("SAME HIST E")  
         elif num_generated > num_original and num_generated > num_generated_sym:
-            h_feature_generated_std.Draw("HIST E")  # "HIST" specifies histogram drawing style without error bars
-            h_feature_original.Draw("SAME HIST")  # "E" specifies error bars
-            h_feature_generated_sym.Draw("SAME HIST E")  # "HIST" specifies histogram drawing style without error bars
+            h_feature_generated_std.Draw("HIST E")  
+            h_feature_original.Draw("SAME HIST")  
+            h_feature_generated_sym.Draw("SAME HIST E")  
         elif num_generated_sym > num_original and num_generated_sym > num_generated:
-            h_feature_generated_sym.Draw("HIST E")  # "HIST" specifies histogram drawing style without error bars
-            h_feature_original.Draw("SAME HIST")  # "E" specifies error bars
-            h_feature_generated_std.Draw("SAME HIST E")  # "HIST" specifies histogram drawing style without error bars
+            h_feature_generated_sym.Draw("HIST E")  
+            h_feature_original.Draw("SAME HIST")  
+            h_feature_generated_std.Draw("SAME HIST E")  
         else:
-            h_feature_original.Draw("HIST")  # "E" specifies error bars
-            h_feature_generated_std.Draw("SAME HIST E")  # "HIST" specifies histogram drawing style without error bars
-            h_feature_generated_sym.Draw("SAME HIST E")  # "HIST" specifies histogram drawing style without error bars
-            
+            h_feature_original.Draw("HIST")  
+            h_feature_generated_std.Draw("SAME HIST E")  
+            h_feature_generated_sym.Draw("SAME HIST E")  
+        
+        ROOT.gStyle.SetOptStat(0)   
         if feature != 'total_charge':
-            # Create a legend
-            legend = ROOT.TLegend(0.48, 0.6, 0.92, 0.9)  # Define legend position (x1, y1, x2, y2)
+            
+            legend = ROOT.TLegend(0.48, 0.6, 0.92, 0.9)
 
-            # Add entries to the legend
             legend.AddEntry(h_feature_original, "Simulated", "l")
             legend.AddEntry(h_feature_generated_std, f"Generated {TYPE_1}", "l")
             legend.AddEntry(h_feature_generated_sym, f"Generated {TYPE_2}", "l")
@@ -185,14 +188,14 @@ def feature_check(path):
             h_feature_generated_sym.GetYaxis().SetTitleOffset(1.0) 
             
             latex = ROOT.TLatex()
-            latex.SetTextSize(0.052)  # Set text size
+            latex.SetTextSize(0.052) 
             latex.SetTextFont(52)
             latex.DrawLatexNDC(0.49, 0.52, "ATLAS Work in Progress")
         else:
-            # Create a legend
-            legend = ROOT.TLegend(0.42, 0.6, 0.86, 0.9)  # Define legend position (x1, y1, x2, y2)
+            
+            legend = ROOT.TLegend(0.42, 0.6, 0.86, 0.9) 
 
-            # Add entries to the legend
+            
             legend.AddEntry(h_feature_original, "Simulated", "l")
             legend.AddEntry(h_feature_generated_std, f"Generated {TYPE_1}", "l")
             legend.AddEntry(h_feature_generated_sym, f"Generated {TYPE_2}", "l")
@@ -213,40 +216,43 @@ def feature_check(path):
             h_feature_generated_sym.GetYaxis().SetTitleOffset(1.0) 
             
             latex = ROOT.TLatex()
-            latex.SetTextSize(0.052)  # Set text size
+            latex.SetTextSize(0.052) 
             latex.SetTextFont(52)
             latex.DrawLatexNDC(0.43, 0.52, "ATLAS Work in Progress")
 
         
-        # Set legend style
         legend.SetBorderSize(0)
         legend.SetFillStyle(0)
 
-        # Draw the legend
         legend.Draw("SAME")
         
-        # Define variables to store chi-square statistic and other information
         chi2_statistic = ctypes.c_double(0.0)
         ndf = ctypes.c_int(0)
         igood = ctypes.c_int(0)
         
+        h_feature_original.Chi2TestX(h_feature_generated_std, chi2_statistic, ndf, igood, "P WW")
+        result_std = chi2_statistic.value / ndf.value
+        chi2_sum_std += result_std
         
-        # Perform the chi-square test
-        # h_feature_original.Chi2TestX(h_feature_generated_std, chi2_statistic, ndf, igood, "P WW")
-        # result_std = chi2_statistic.value / ndf.value
-        # chi2_sum_std += result_std
-        
-        
-        # h_feature_original.Chi2TestX(h_feature_generated_sym, chi2_statistic, ndf, igood, "P WW")
-        # result_sym = chi2_statistic.value / ndf.value
-        # chi2_sum_sym += result_sym
-        
-        #print(f"Chi2 test {feature}: {result_std}")
+        # if result_std < 1:
+        #     print(chi2_statistic.value)
+        #     print(ndf.value)
+        #     print(igood)
+        #     exit()
         
         
-        # logging.info(f'CURRENT FEATURE: {feature}')
-        # logging.info(f'ELBO VAE: {result_std}')
-        # logging.info(f'SYMM VAE: {result_sym}')
+        h_feature_original.Chi2TestX(h_feature_generated_sym, chi2_statistic, ndf, igood, "P WW")
+        result_sym = chi2_statistic.value / ndf.value
+        chi2_sum_sym += result_sym
+        
+        print(f"Chi2 test 1: {feature}: {result_std}")
+        print(f"Chi2 test 2: {feature}: {result_sym}")
+        ch_test_1.append(result_std)
+        ch_test_2.append(result_sym)
+        
+        logging.info(f'CURRENT FEATURE: {feature}')
+        logging.info(f'ELBO VAE: {result_std}')
+        logging.info(f'SYMM VAE: {result_sym}')
         
         directory = f'{EPOCHS_STD}_{EPOCHS_SYM}_epochs_histogram_comparison/'
 
@@ -255,7 +261,8 @@ def feature_check(path):
         
 
         c1.SaveAs(f"{path}results/feature_plots_comparison/{directory}vae_std_sym_{feature[0]}_comparison_{TYPE_1}_{TYPE_2}.pdf")
-
+    print(ch_test_1)
+    print(ch_test_2)
     logging.info(f'SUMMED CHI2 ELBO: {chi2_sum_std}')
     logging.info(f'SUMMED CHI2 SYMM: {chi2_sum_sym}')
 

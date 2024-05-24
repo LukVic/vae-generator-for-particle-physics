@@ -1,6 +1,8 @@
 import sys
 sys.path.append("/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/support_scripts")
 
+import time
+
 import torch
 import numpy as np
 import pandas as pd
@@ -15,11 +17,10 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     
     SAMPLING = 'generate' #regenerate
     print(dataset.shape)
-    if reaction == 'bkg_all':
-        SAMPLES_NUM = dataset.shape[0]
-    else:
-        SAMPLES_NUM = dataset.shape[0]
-        
+
+    #SAMPLES_NUM = dataset.shape[0]
+    SAMPLES_NUM = 5000000
+    
     with open(f"{PATH_JSON}", 'r') as json_file:
         conf_dict = json.load(json_file)
     gen_params = conf_dict["general"]
@@ -32,18 +33,35 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     
     data_array = np.empty((0, dataset.shape[1]), dtype=np.float32)
     
+    
+    batch_size = 50000
+    latent_samples = []
+    
+    start_time = time.time()
+    
     with torch.no_grad():
         if TYPE == 'std' or TYPE == 'sym':
-            latent_samples = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,dataset)
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
-            xhats_mu_gauss, xhats_std_gauss, xhats_bernoulli = model.decoder.decode(latent_samples.to('cuda'))
-            px_gauss = torch.distributions.Normal(xhats_mu_gauss, xhats_std_gauss)
-            xhat_gauss = px_gauss.sample()
-            xhat_bernoulli = torch.bernoulli(xhats_bernoulli)
-            xhats = torch.cat((xhat_gauss, xhat_bernoulli.view(-1,1)), dim=1)
-            x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
-            #x_hats_denorm = tan_to_angle(conf_dict['angle_convert']['indices'], torch.tensor(x_hats_denorm)).numpy()
-            data_array = np.vstack((data_array, x_hats_denorm))      
+            
+            for i in range(0, SAMPLES_NUM, batch_size):
+                latent_samples_batch = generate_latents(batch_size, latent_dimension, SAMPLING, model, dataset)
+                latent_samples.append(latent_samples_batch)
+            
+            latent_samples = torch.cat(latent_samples, dim=0)
+
+            latent_samples = latent_samples.to('cuda')
+            
+            decoded_samples = []
+            for i in range(0, latent_samples.size(0), batch_size):
+                print(i)
+                xhats_mu_gauss, xhats_std_gauss, xhats_bernoulli = model.decoder.decode(latent_samples[i:i+batch_size])
+                px_gauss = torch.distributions.Normal(xhats_mu_gauss, xhats_std_gauss)
+                xhat_gauss = px_gauss.sample()
+                xhat_bernoulli = torch.bernoulli(xhats_bernoulli)
+                xhats = torch.cat((xhat_gauss, xhat_bernoulli.view(-1,1)), dim=1)
+                x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
+                decoded_samples.append(torch.tensor(x_hats_denorm))
+            data_array =  torch.cat(decoded_samples, dim=0)
         elif TYPE == 'std_h':
             z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,dataset)
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
@@ -76,18 +94,20 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             #x_hats_denorm = tan_to_angle(conf_dict['angle_convert']['indices'], torch.tensor(x_hats_denorm)).numpy()
             data_array = np.vstack((data_array, x_hats_denorm))
     
-    # Create a DataFrame from the NumPy array
     df_gen = pd.DataFrame(data_array,columns=features_used)
+    print(set(df_gen['total_charge']))
+    print((df_gen['total_charge'] > 0.5).sum())
     bound = 0.5
     replacement_lower = -2.0
     replacement_upper = 2.0
-    
     mask = (df_gen['total_charge'] < bound)
     df_gen.loc[mask, 'total_charge'] = replacement_lower
     df_gen.loc[~mask, 'total_charge'] = replacement_upper
     
     df_gen['y'] = reaction
 
+    end_time = time.time()
+    print("Time taken:", end_time - start_time, "seconds")
     print("Processing completed.")
     print(f'{PATH_DATA}generated_{DATA_FILE}_E{gen_params["num_epochs"]}_S{SAMPLES_NUM}_{TYPE}.csv')
     df_gen.to_csv(f'{PATH_DATA}generated_{DATA_FILE}_E{gen_params["num_epochs"]}_S{SAMPLES_NUM}_{TYPE}.csv', index=False)

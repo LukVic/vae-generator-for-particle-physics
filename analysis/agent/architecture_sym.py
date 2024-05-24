@@ -140,10 +140,9 @@ class VAE(nn.Module):
             x_bernoulli = torch.sigmoid(x_bernoulli)   
             
             LOSS_G = logp_pxz
-            LOSS_B = F.binary_cross_entropy(x_bernoulli, p, reduction="sum")
-            
-            #return torch.mean(LOSS_G + 0.1*LOSS_B)
-            return torch.mean(LOSS_G) 
+            LOSS_B = F.binary_cross_entropy_with_logits(p, x_bernoulli, reduction="sum")
+            return torch.mean(LOSS_G ) + 0.0000000000001*LOSS_B
+            #return torch.mean(LOSS_G) 
             
         elif step == 2:
             mu_gauss, std_gauss, p_bernoulli = self.decoder.decode(sample)
@@ -153,10 +152,9 @@ class VAE(nn.Module):
             mu, std = self.encoder.encode(x.view(-1, self.input_size))
 
             logp_qzx, qzx = self.encoder.log_prob(sample, mu, std)
-
-            LOSS = logp_qzx
+            LOSS = logp_qzx 
             
-            return torch.mean(LOSS)
+            return torch.mean(LOSS) 
 
     def count_params(self):
         return sum(p.numel() for p in self.encoder.parameters() if p.requires_grad)

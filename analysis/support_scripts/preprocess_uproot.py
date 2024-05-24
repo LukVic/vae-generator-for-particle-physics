@@ -3,7 +3,6 @@ import awkward as ak
 import pandas as pd
 from root_pandas import to_root
 import ROOT
-# Specify the path to the ROOT file
 
 PATH_DATA = 'data/'
 

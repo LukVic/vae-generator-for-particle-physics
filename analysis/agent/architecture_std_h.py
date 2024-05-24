@@ -165,7 +165,7 @@ class VAE(nn.Module):
         delta_std_2 = torch.exp(delta_sigma_2)
         qz_gauss_2 = torch.distributions.Normal(0 + delta_mu_2, 1 * delta_std_2)
         
-        #ones = torch.ones(delta_std_2.shape).to(self.device)
+        ones = torch.ones(delta_std_2.shape).to(self.device)
         # print(ones[0])
         # exit()
         # sigma_new_2 = (1 * delta_std_2.pow(2))/(ones + delta_std_2.pow(2))
@@ -233,6 +233,6 @@ class VAE(nn.Module):
         
         beta = 1.0
 
-        return torch.mean(REC_G + beta*(KLD_G_1 + KLD_G_2)) 
+        return torch.mean(REC_G + beta*(KLD_G_1 + KLD_G_2)) + 0.001*BCE_B 
         #return torch.mean(REC_G + beta*(BCE_B + KLD_G))
     

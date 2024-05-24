@@ -11,20 +11,14 @@ def main():
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/'
     
     X = pd.read_csv(f'{PATH_DATA}df_continuous.csv')
-    # checking shape
     print('Original Dataframe shape :',X.shape)
 
-    # Mean
     X_mean = X.mean()
-    # Standard deviation
     X_std = X.std()
-    # Standardization
     Z = (X - X_mean) / X_std
     
-    # covariance
     c = Z.cov()
     
-    # Plot the covariance matrix
     sns.heatmap(c)
     plt.show()
     
@@ -37,11 +31,9 @@ def main():
     n_components = np.argmax(explained_var >= 0.50) + 1
     print(f"Number of components: {n_components}")
     
-    # PCA component or unit matrix
     u = eigenvectors[:,:n_components]
     pca_component = pd.DataFrame(u)
     
-    # plotting heatmap
     plt.figure(figsize =(5, 7))
     sns.heatmap(pca_component)
     plt.title('PCA Component')

@@ -16,10 +16,9 @@ from prdc import *
 LOAD_EXTERN = False
 
 
-def correlation_matrix(df_1, df_2, feature_list, path=None, cls='BOTH'):
+def correlation_matrix(df_1, df_2, feature_list, path=None, cls='BOTH', TYPE='std'):
     PATH = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/metrics/'
     
-    # Configure logging to output to console
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     
     
@@ -33,29 +32,22 @@ def correlation_matrix(df_1, df_2, feature_list, path=None, cls='BOTH'):
     corr_org = df_1[feature_list].corr(method='pearson')
     corr_std = df_2[feature_list].corr(method='pearson')
     
-    # Create a figure and subplots
     fig, axes = plt.subplots(1, 2, figsize=(14, 10))
 
-    #Plot the first map on the left subplot
     sns.heatmap(corr_org.round(2), ax=axes[0], annot=True, cmap='coolwarm', annot_kws={"size": 12})
     axes[0].set_title(f'Correlations - Simulated ({cls})')
-
-    # # Plot the second map on the right subplot
+    
     sns.heatmap(corr_std.round(2), ax=axes[1], annot=True, cmap='coolwarm', annot_kws={"size": 12})
     axes[1].set_title(f'Correlations - Standard ELBO generated ({cls})')
     
-    # # Plot the second map on the right subplot
     # sns.heatmap(corr_sym.round(2), ax=axes[1], annot=True, cmap='coolwarm', annot_kws={"size": 6})
     # axes[1].set_title('Correlations - SYM')
 
-    # Adjust layout
     plt.tight_layout()
-    plt.savefig(f'{PATH}correlations_std_elbo_{cls}')
-    # Show the plot
+    plt.savefig(f'{PATH}correlations_{TYPE}_{cls}')
     #plt.show()
     
 def wasserstein_dist(df_1, df_2, feature_list, path=None, cls='both'):
-    # Configure logging to output to console
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     if LOAD_EXTERN:
@@ -66,12 +58,12 @@ def wasserstein_dist(df_1, df_2, feature_list, path=None, cls='both'):
         data_1 = df_1[feature].values
         data_2 = df_2[feature].values
         
-        hist_1, bins_1 = np.histogram(data_1, bins=100, density=True)
-        hist_2, bins_2 = np.histogram(data_2, bins=100, density=True)
+        hist_1, bins_1 = np.histogram(data_1, bins=50, density=True)
+        hist_2, bins_2 = np.histogram(data_2, bins=50, density=True)
     
         wasserstein = wasserstein_distance(hist_1, hist_2)
 
-        print(f"Wasserstein Distance ({cls}): {feature}", wasserstein)
+        print(f"{feature}", wasserstein)
         
         wass_sum += wasserstein
 
@@ -104,30 +96,22 @@ def chi2_test(df_1, df_2, features, path=None):
     print(f"Chi2 test (SUM): {chi2_sum}")
 
 def wrap_prdc(df_1, df_2, path=None):
-    # Configure logging to output to console
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     
     if LOAD_EXTERN:
         df_original, df_generated_std, df_generated_sym, _ = load_data(path=path)
-    
-    
-    
+        
     result = compute_prdc(df_1, df_2, nearest_k=5)
     print(result)
     
 
-    
-    
-# Compute mmd
 def compute_mmd(path):
     
-    # Configure logging to output to console
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     
     if LOAD_EXTERN:
         df_original, df_generated_std, df_generated_sym, _ = load_data(path=path)
     
-    # Normalize the data
     scaler = StandardScaler()
     original_data_normalized = scaler.fit_transform(df_original.iloc[0:1000])
     generated_data_std_normalized = scaler.transform(df_generated_std.iloc[0:1000])
@@ -168,29 +152,22 @@ def mmd(source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None):
 
 
 def compute_fid(path):
-    # Configure logging to output to console
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     if LOAD_EXTERN:
         df_original, df_generated_std, df_generated_sym, feature_list = load_data(path=path)
     
-    # Normalize the data
     scaler = StandardScaler()
     original_data_normalized = scaler.fit_transform(df_original.iloc[0:100])
     generated_data_std_normalized = scaler.transform(df_generated_std.iloc[0:100])
     generated_data_sym_normalized = scaler.transform(df_generated_sym.iloc[0:100])
     
-    # calculate mean and covariance statistics
     mu1, sigma1 = original_data_normalized.mean(axis=0), np.cov(original_data_normalized, rowvar=False)
     mu2, sigma2 = generated_data_sym_normalized.mean(axis=0), np.cov(generated_data_sym_normalized, rowvar=False)
-    # calculate sum squared difference between means
     ssdiff = np.sum((mu1 - mu2)**2.0)
-    # calculate sqrt of product between cov
     covmean = sqrtm(sigma1.dot(sigma2))
-    # check and correct imaginary numbers from sqrt
     if np.iscomplexobj(covmean):
         covmean = covmean.real
-    # calculate score
     fid = ssdiff + np.trace(sigma1 + sigma2 - 2.0 * covmean)
     
     
@@ -224,95 +201,3 @@ def main():
     
 if __name__ == "__main__":
     main()
-    
-# MMD alternative implementations
-# def gaussian_mmd(X, Y, gamma):
-    
-    
-#     # Compute squared Euclidean distances between samples
-#     XX = np.sum(X ** 2, axis=1, keepdims=True)
-#     YY = np.sum(Y ** 2, axis=1, keepdims=True)
-#     XY = np.dot(X, Y.T)
-    
-#     # Compute Gaussian kernel evaluations
-#     XX_sum = np.sum(XX) / (X.shape[0] ** 2)
-#     YY_sum = np.sum(YY) / (Y.shape[0] ** 2)
-#     XY_sum = np.sum(XY) / (X.shape[0] * Y.shape[0])
-
-#     mmd = np.exp(-gamma * (XX_sum - 2 * XY_sum + YY_sum))
-    
-#     return mmd
-
-# def MMD(x, y, kernel):
-    
-#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-#     """Emprical maximum mean discrepancy. The lower the result
-#        the more evidence that distributions are the same.
-
-#     Args:
-#         x: first sample, distribution P
-#         y: second sample, distribution Q
-#         kernel: kernel type such as "multiscale" or "rbf"
-#     """
-#     xx, yy, zz = torch.mm(x, x.t()), torch.mm(y, y.t()), torch.mm(x, y.t())
-#     rx = (xx.diag().unsqueeze(0).expand_as(xx))
-#     ry = (yy.diag().unsqueeze(0).expand_as(yy))
-    
-#     dxx = rx.t() + rx - 2. * xx # Used for A in (1)
-#     dyy = ry.t() + ry - 2. * yy # Used for B in (1)
-#     dxy = rx.t() + ry - 2. * zz # Used for C in (1)
-    
-#     XX, YY, XY = (torch.zeros(xx.shape).to(device),
-#                   torch.zeros(xx.shape).to(device),
-#                   torch.zeros(xx.shape).to(device))
-    
-#     if kernel == "multiscale":
-        
-#         bandwidth_range = [0.2, 0.5, 0.9, 1.3]
-#         for a in bandwidth_range:
-#             XX += a**2 * (a**2 + dxx.to(device))**-1
-#             YY += a**2 * (a**2 + dyy.to(device))**-1
-#             XY += a**2 * (a**2 + dxy.to(device))**-1
-            
-#     if kernel == "rbf":
-        
-#         bandwidth_range = [10, 15, 20, 50]
-#         for a in bandwidth_range:
-#             XX += torch.exp(-0.5*dxx.to(device)/a)
-#             YY += torch.exp(-0.5*dyy.to(device)/a)
-#             XY += torch.exp(-0.5*dxy.to(device)/a)
-
-#     return torch.mean(XX + YY - 2. * XY)
-
-# Coverage Outdated
-# def compute_coverage(path):
-    
-#     # Configure logging to output to console
-#     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-#     df_original, df_generated_std, df_generated_sym, _ = load_data(path=path)
-
-#     k = 5
-#     metric = 'euclidean'
-    
-#     # Normalize the data
-#     scaler = StandardScaler()
-#     original_data_normalized = scaler.fit_transform(df_original)
-#     generated_data_std_normalized = scaler.transform(df_generated_std)
-#     generated_data_sym_normalized = scaler.transform(df_generated_sym)
-    
-#     # Fit a k-nearest neighbors model on the original data
-#     knn_original = NearestNeighbors(n_neighbors=k, metric=metric)
-#     knn_original.fit(original_data_normalized)
-
-#     # Find the nearest neighbors of each generated sample in the original data
-#     distances_std, _ = knn_original.kneighbors(generated_data_std_normalized)
-#     distances_sym, _ = knn_original.kneighbors(generated_data_sym_normalized)
-    
-#     # Compute coverage: proportion of generated samples with at least one neighbor in the original data
-#     coverage_std = np.mean(np.any(distances_std < 3, axis=1))
-#     coverage_sym = np.mean(np.any(distances_sym < 3, axis=1))
-    
-#     print(f"Coverage for ELBO: {coverage_std}")
-#     print(f"Coverage for SYM: {coverage_sym}")

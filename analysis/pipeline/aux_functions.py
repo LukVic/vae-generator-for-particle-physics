@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix, auc, roc_curve
 import umap
-
+from sklearn.manifold import TSNE
+import csv
 
 # def plot_output(y_pred_proba, y_test):
 #     print(y_pred_proba)
@@ -17,29 +18,63 @@ import umap
             
 #         elif label == 0:
 
-def plot_ouput(PATH_RESULTS, y_true, y_probs):
-    
+def plot_ouput(weight, y_true, y_probs, PATH_RESULTS):
+    print(weight)
     plt.clf()
-    y_probs_sig = y_probs[y_true == 0]
-    y_probs_bkg = y_probs[y_true == 1]
+    plt.figure(figsize=(10, 8))
+    df_weight_prob = pd.DataFrame()
+    df_weight_prob.insert(0, 'prob', y_probs, True)
+    df_weight_prob.insert(1, 'weight', weight.values, True)
+    df_weight_prob.insert(2, 'y', y_true.values, True)
+    bins_sig = []
+    bins_bkg = []
+    
+    df_weight_prob_sig =  df_weight_prob[df_weight_prob['y'] == 0]
+    df_weight_prob_bkg =  df_weight_prob[df_weight_prob['y'] == 1]
+    # print(df_weight_prob_sig)
+    # print(df_weight_prob_bkg)
+    ths = []
+    for idx in range(0, 20 ,1):
+        print(idx*0.05)
+        th = idx*0.05
+        bin_sig = df_weight_prob_sig[(df_weight_prob_sig['prob'] < th + 0.05) & (df_weight_prob_sig['prob'] > (th))]['weight'].sum()
+        bin_bkg = df_weight_prob_bkg[(df_weight_prob_bkg['prob'] < th + 0.05) & (df_weight_prob_bkg['prob'] > (th))]['weight'].sum()
+        print(bin_sig)
+        bins_sig.append(bin_sig)
+        bins_bkg.append(bin_bkg)
+        ths.append(th)
+    
+    print(bins_sig)
+    print(bins_bkg)
 
-    # Plot the first histogram
-    plt.hist(y_probs_sig, bins=20, color='skyblue', edgecolor='black', alpha=0.7, label='Signal')  
+    y_probs_sig = y_probs[df_weight_prob['y'] == 0]
+    y_probs_bkg = y_probs[df_weight_prob['y'] == 1]
+    
+    print((df_weight_prob_bkg).sum())
+    print((df_weight_prob_bkg['prob'] <= 0.05).sum())
+    
+    print(ths)
 
-    # Plot the second histogram
-    plt.hist(y_probs_bkg, bins=20, color='salmon', edgecolor='black', alpha=0.7, label='Background') 
+    # plt.bar(ths, bins_sig, color='dodgerblue',edgecolor='black', width=0.05, align='edge', alpha=0.7, label='Signal')
+    # plt.bar(ths, bins_bkg, color='mediumvioletred',edgecolor='black', width=0.05, align='edge', alpha=0.7, label='Background')
+    
+    plt.hist(y_probs_sig, bins=20, color='royalblue', edgecolor='black', alpha=0.7, label='Signal')  
+
+    plt.hist(y_probs_bkg, bins=20, color='crimson', edgecolor='black', alpha=0.7, label='Background') 
 
     plt.grid()
     
-    # Add legend
-    plt.legend()
+    plt.legend(fontsize=20)
+    plt.xticks(fontsize=20)
 
-    plt.xlabel('Classifier threshold')
-    plt.ylabel('Frequency')
-    plt.title('Outputs of the classifier for Signal and Background')
+    plt.yticks(fontsize=20)
+
+    plt.xlabel('Classifier threshold', fontsize=20)
+    plt.ylabel('Number of events', fontsize=20)
+    #plt.title('Outputs of the classifier for Signal and Background', fontsize=18)
     plt.grid(True)
     
-    plt.savefig(f'{PATH_RESULTS}_classifier_ouput_hist.pdf')
+    plt.savefig(f'{PATH_RESULTS}classifier_ouput_hist_normal.pdf')
     
 
 def plot_roc_multiclass(title, y, y_probas, classes, scores, folder):
@@ -111,16 +146,17 @@ def calculate_significance_all_thresholds_new_method(predicted_probs_y: np.array
         
         y_S.append(response['S'])
         y_B.append(response['B'])
-        y_signif.append(response['significance'])
-        y_signif_simp.append(response['significance_simple'])
-        y_signif_imp.append(response['significance_improved'])
         y_signif_true.append(response['significance_true'])
+        y_signif_simp.append(response['significance_simple'])
+        y_signif.append(response['significance'])
+        y_signif_imp.append(response['significance_improved'])
+        
         y_BB.append(response['BB'])
 
-        if response['significance_simple'] > max_sig:
-            max_sig = response['significance_simple']
+        if response['significance_true'] > max_sig:
+            max_sig = response['significance_true']
             best_th = th
-    return x_values, y_S, y_B, y_signif, y_signif_simp, y_signif_imp, y_signif_true, best_th, y_BB
+    return x_values, y_S, y_B, y_signif_true,y_signif_simp, y_signif,y_signif_imp,  best_th, y_BB
 
 def calculate_class_predictions_basedon_decision_threshold(predicted_probs_y: np.array, threshold: float):
     """ Outputs an array with predicted classes based on predicted class probabilities and decision threshold
@@ -162,7 +198,6 @@ def calculate_significance_one_threshold_new_method(true_y: np.array, predicted_
     """
     plt.clf()
     cm = confusion_matrix(true_y, predicted_y, sample_weight=weights)
-    
     cm_len = np.shape(cm)[0]
     signal_total = cm[0, 0] #0,0
     background_total = 0
@@ -171,9 +206,9 @@ def calculate_significance_one_threshold_new_method(true_y: np.array, predicted_
     S = signal_total * test_set_scale_factor
     B = background_total * test_set_scale_factor
     B += other_background
-    if B < 1:
+    if B < 0.1:
         S = 0
-        B = 1
+        B = 0.1
 
     BB = cm[1,1]
 
@@ -186,10 +221,10 @@ def calculate_significance_one_threshold_new_method(true_y: np.array, predicted_
         signif_simple = 0
     result = {'S': S,
               'B': B,
-              'significance': signif,
-              'significance_simple': signif_simple,
-              'significance_improved': signif_improved,
               'significance_true': signif_true,
+              'significance_simple': signif_simple,
+              'significance': signif,
+              'significance_improved': signif_improved,
               'BB': BB}
     return result
 
@@ -206,6 +241,7 @@ def plot_threshold(x_values, y_values, optimums, title, ylabel, colors, labels, 
     optimums parameter)
     """
     plt.clf()
+    plt.figure(figsize=(10, 8))
     best_score_final = 0
     best_scores_final = []
     #plt.figure()
@@ -230,27 +266,28 @@ def plot_threshold(x_values, y_values, optimums, title, ylabel, colors, labels, 
             best_index = int(force_threshold_value * 100)
             best_score = values[best_index]
         
-        # Plot a dotted vertical line at the best score for that scorer marked by x
         plt.plot([x_values[best_index], ] * 2 , [0, best_score],
                 linestyle='-.', color=color, marker='x', markeredgewidth=3, ms=8)
 
-        # Annotate the best score for that scorer
         plt.annotate("%0.3f" % best_score,
-                    (x_values[best_index], best_score + 0.005))
+                    (x_values[best_index], best_score + 0.005),fontsize=20)
         if len(y_values) == 4:    
-            if idx == 1 or idx == 3:
+            if idx == 0 or idx == 1:
                 best_scores_final.append(best_score)
         else:
+            print('Here')
             if best_score > best_score_final:
-                best_score_final = best_score
-
+                best_scores_final.append(best_score)
+    
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
     plt.xticks(np.arange(0.0, 1.0, step=0.1))
-    plt.xlabel('Threshold')
-    plt.ylabel(ylabel)
+    plt.xlabel('Threshold', fontsize=20)
+    plt.ylabel(ylabel, fontsize=20)
     # if len(y_values) == 2:
     #     plt.yscale('log')
-    plt.title(title)
-    plt.legend(loc="best")
+    #plt.title(title)
+    plt.legend(loc="best",fontsize=20)
     plt.grid()
     plt.savefig(savepath)
     # plt.show()
@@ -259,18 +296,15 @@ def plot_threshold(x_values, y_values, optimums, title, ylabel, colors, labels, 
     if len(y_values) == 4:
         return best_scores_final
     else:
-        return best_score_final
+        return best_scores_final
 
 def plot_feature_importnace(PATH_DATA, model, X_train):
-    # Get feature importances
     plt.clf()
-    FEATURE_NUM = 20
+    FEATURE_NUM = 30
     importances = model.named_steps['clf'].feature_importances_
 
-    # Sort feature importances in descending order
-    indices = np.argsort(importances)[::-1][:FEATURE_NUM]  # Select the top 20 indices
+    indices = np.argsort(importances)[::-1][:FEATURE_NUM]  
 
-    # Plot feature importances
     #plt.figure(figsize=(10, 6))
     plt.title("Top 20 Feature Importances")
     plt.bar(range(FEATURE_NUM), importances[indices], align="center")
@@ -278,68 +312,71 @@ def plot_feature_importnace(PATH_DATA, model, X_train):
     plt.xlim([-1, FEATURE_NUM])
     plt.tight_layout()
     plt.savefig(f'{PATH_DATA}feature_importance_top20.png')
-    print(X_train.columns[indices])
+    top_features = X_train.columns[indices]
+    PATH = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/'
+    FILE = f'features_top_{len(top_features)}.log'
+    top_features = list(top_features)
+    with open(PATH + FILE, 'a') as file:
+        file.write('[')
+        for idx, top_feature in enumerate(top_features):
+            if idx != len(top_features)-1:
+                file.write(f'"{top_feature}", ')
+            else: file.write(f'"{top_feature}"')
+        file.write(']')
+        file.write('\n')
     
 
-def compute_embed(restricted_list, loosened_list, generated_list):
-    PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
-    print("RUNNING UMAP")
+def compute_embed(simulated_list, generated_list, TYPE, sample_size=3000):
+    plt.clf()
+    PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/metrics/'
+    print("RUNNING t-SNE")
+
     random_state = 42
-    #embed_instance = embed(n_components=2, perplexity=30, n_jobs=12, random_state=random_state)
-    umap_instance = umap.UMAP(n_components=2, n_neighbors=30, min_dist=0.1)
     
-    n_restricted = len(restricted_list)
-    n_loosened = len(loosened_list)
+    simulated_list = simulated_list[np.random.choice(simulated_list.shape[0], sample_size, replace=False)]
+    generated_list = generated_list[np.random.choice(generated_list.shape[0], sample_size, replace=False)]
+    
+    t_sne_instance = TSNE(n_components=2, random_state=random_state)
+    
+    n_simulated = len(simulated_list)
     n_generated = len(generated_list)
     
-    lists = list(restricted_list) + list(loosened_list) + list(generated_list)
-    trans_lists = umap_instance.fit_transform(np.array(lists))
+    lists = np.concatenate((simulated_list, generated_list))
+    trans_lists = t_sne_instance.fit_transform(lists)
     
-    trans_restricted = trans_lists[:n_restricted]
-    trans_loosened = trans_lists[n_restricted:(n_restricted + n_loosened)]
-    trans_generated = trans_lists[(n_restricted + n_loosened):]
+    trans_simulated = trans_lists[:n_simulated]
+    trans_generated = trans_lists[n_simulated:]
     
-    #trans_data = trans_feature
-    
-    np.savetxt(f'{PATH_DATA}points_test.csv',trans_restricted, delimiter=',')
-    np.savetxt(f'{PATH_DATA}points_original.csv',trans_loosened, delimiter=',')
-    np.savetxt(f'{PATH_DATA}points_augmented.csv',trans_generated, delimiter=',')
+    np.savetxt(f'{PATH_DATA}points_simulated_{TYPE}.csv', trans_simulated, delimiter=',')
+    np.savetxt(f'{PATH_DATA}points_generated_{TYPE}.csv', trans_generated, delimiter=',')
         
-def visualize_embed(PATH_DATA, PATH_RESULTS):
+def visualize_embed(TYPE):
+    options = {'std': 'Standard ELBO', 'sym': 'Standard SEL', 'std_h' : 'Ladder ELBO', 'sym_h' : 'Ladder SEL'}
+    PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/metrics/'
+
+    files = [f'points_simulated_{TYPE}.csv', f'points_generated_{TYPE}.csv']
+    
+    points_simulated = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
+    points_generated = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
+
+    embed_simulated_df = pd.DataFrame(data=points_simulated, columns=["t-SNE Component 1", "t-SNE Component 2"])
+    embed_simulated_df["Source"] = "Simulated Data"
+    embed_generated_df = pd.DataFrame(data=points_generated, columns=["t-SNE Component 1", "t-SNE Component 2"])
+    embed_generated_df["Source"] = f"Generated {TYPE}"
+
     plt.clf()
-    files = ['points_test.csv', 'points_original.csv', 'points_augmented.csv']
-    
-    points_test = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
-    points_original = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
-    points_augmented = np.genfromtxt(f'{PATH_DATA}{files[2]}', delimiter=',')
-
-    # sample_size = 3000
-    # points_restricted = points_restricted[np.random.choice(points_restricted.shape[0], sample_size, replace=False)]
-    # points_loosened = points_loosened[np.random.choice(points_loosened.shape[0], sample_size, replace=False)]
-    # points_generated = points_generated[np.random.choice(points_generated.shape[0], sample_size, replace=False)]
-    
-    embed_test_df = pd.DataFrame(data=points_test, columns=["UMAP_1", "UMAP_2"])
-    embed_test_df["Source"] = "Decoded Data ELBO"
-    embed_original_df = pd.DataFrame(data=points_original, columns=["UMAP_1", "UMAP_2"])
-    embed_original_df["Source"] = "Decoded Data SYMM"
-    embed_augmented_df = pd.DataFrame(data=points_augmented, columns=["UMAP_1", "UMAP_2"])
-    embed_augmented_df["Source"] = "Simulated Data"
-    
-
-    # Plot the first point cloud (UMAP_1)
-    #plt.figure(figsize=(10, 10))
-    plt.scatter(embed_test_df["UMAP_1"], embed_test_df["UMAP_2"], c='blue', label='Test', s=1, alpha=0.1)
-    plt.scatter(embed_original_df["UMAP_1"], embed_original_df["UMAP_2"], c='red', label='Original Train', s=1, alpha=1.0)
-    plt.scatter(embed_augmented_df["UMAP_1"], embed_augmented_df["UMAP_2"], c='green', label='Only augmented Train', s=1, alpha=1.0)
-    plt.title(r"Comparison in the data space $\mathcal{X}$", fontsize=36)
-    plt.xlabel("UMAP Component 1", fontsize=28)  # Increase label size
-    plt.ylabel("UMAP Component 2", fontsize=28)  # Increase label size
+    plt.figure(figsize=(10, 8))
+    plt.scatter(embed_simulated_df["t-SNE Component 1"], embed_simulated_df["t-SNE Component 2"], c='blue', label='Simulated Data', s=3, alpha=1.0)
+    plt.scatter(embed_generated_df["t-SNE Component 1"], embed_generated_df["t-SNE Component 2"], c='red', label='Generated Data', s=3, alpha=1.0)
+    plt.title(r"Data space $\mathcal{X}$" + f' - {options[TYPE]}', fontsize=36)
+    plt.xlabel("t-SNE Component 1", fontsize=28) 
+    plt.ylabel("t-SNE Component 2", fontsize=28)
     plt.xticks(fontsize=20)
     plt.yticks(fontsize=20)
 
-    legend2 = plt.legend(fontsize=28, scatterpoints=20)  # Increase legend size
+    legend2 = plt.legend(fontsize=28, scatterpoints=20)  
     legend2.get_frame().set_alpha(0.8)
     plt.grid(True)
-    plt.savefig(f'{PATH_RESULTS}vae_data_umap_results.png')
-    print("UMAP VISUALIZATION SAVED")
-    # plt.show()
+    
+    plt.savefig(f'{PATH_DATA}vae_data_tsne_results_{TYPE}.pdf')
+    print("t-SNE VISUALIZATION SAVED")

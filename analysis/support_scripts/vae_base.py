@@ -83,7 +83,6 @@ class VAE(nn.Module):
         return sum(p.numel() for p in self.encoder.parameters() if p.requires_grad)
 
 
-    # Computes reconstruction loss
     def recon(self, x_hat, x):
         
         pxz = Normal(x_hat, torch.ones_like(x_hat))
@@ -104,7 +103,6 @@ class VAE(nn.Module):
         return torch.mean(LOSS + beta*KLD)
     
 
-# Define hyperparameters
 batch_size = 8
 input_size = 71
 latent_size = 10
@@ -112,18 +110,15 @@ lr = 0.001
 num_epochs = 15
 elbo_history = []
 
-# Create dataloader
 # train_dataset = MNIST(root='./data', train=True, download=True, transform=ToTensor())
 # train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
 df = pd.read_csv('/home/lucas/Documents/KYR/msc_thesis/analysis/data/df_tt.csv')
 train_dataset = torch.tensor(df.values, dtype=torch.float32)
 train_dataloader = DataLoader(train_dataset, batch_size=8, shuffle=True)
-# Create model and optimizer
 model = VAE(latent_size).to(DEVICE)
 optimizer = optim.Adam(model.parameters(), lr=lr)
 
-# Train the model
 start_time = time.time()
 model.train()
 for epoch in range(num_epochs):
@@ -144,7 +139,6 @@ end_time = time.time()
 elapsed_time = end_time - start_time
 print("Elapsed time: {:.2f} seconds".format(elapsed_time))
 
-# Generate some samples and their reconstructions
 model.eval()
 with torch.no_grad():
     x_sample, _ = next(iter(train_dataloader))
@@ -172,7 +166,6 @@ idxs = sorted(udxs)
 plt.show()
 
 
-# Posterior collapse
 with torch.no_grad():
     kl_divs = []
     for batch_idx, (data, _) in enumerate(train_dataloader):
@@ -187,7 +180,6 @@ with torch.no_grad():
     kl_divs = torch.cat(kl_divs, dim=0)
     kl_divs_mean = kl_divs.mean(dim=0)
     
-    # plot histogram of averaged kl divergences for each latent space component
     kl_divs_mean = kl_divs_mean.cpu().numpy()
     plt.figure()
     plt.xlabel('Latent vector component')
@@ -198,7 +190,6 @@ with torch.no_grad():
     plt.show()
         
 
-# ELBO graph
 plt.figure()
 plt.plot(elbo_history)
 plt.xlabel('Batch number')

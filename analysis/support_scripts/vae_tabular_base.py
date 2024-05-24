@@ -79,7 +79,6 @@ class VAE(nn.Module):
         return sum(p.numel() for p in self.encoder.parameters() if p.requires_grad)
 
 
-    # Computes reconstruction loss
     def recon(self, x_hat, x):
         
         pxz = Normal(x_hat, torch.ones_like(x_hat))
@@ -111,7 +110,6 @@ class VAE(nn.Module):
         return torch.mean(LOSS + beta*KLD)
     
 
-# Define hyperparameters
 batch_size = 512
 input_size = 71
 latent_size = 20
@@ -119,7 +117,6 @@ lr = 0.001
 num_epochs = 100
 elbo_history = []
 
-# Create dataloader
 # train_dataset = MNIST(root='./data', train=True, download=True, transform=ToTensor())
 # train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
@@ -131,11 +128,10 @@ scaler = StandardScaler()
 train_dataset_norm = scaler.fit_transform(train_dataset)
 
 train_dataloader = DataLoader(train_dataset_norm, batch_size=batch_size, shuffle=True)
-# Create model and optimizer
+
 model = VAE(latent_size).to('cpu')
 optimizer = optim.Adam(model.parameters(), lr=lr)
 
-# Train the model
 
 model.train()
 for epoch in range(num_epochs):
@@ -151,7 +147,6 @@ for epoch in range(num_epochs):
             print('Epoch [{}/{}], Step [{}/{}], Loss: {:.3f}'
                   .format(epoch + 1, num_epochs, i + 1, len(train_dataset) // batch_size, loss.item()))
 
-# Generate some samples and their reconstructions
 model.eval()
 with torch.no_grad():
     x_sample = next(iter(train_dataloader))
@@ -179,7 +174,6 @@ print(idxs)
 plt.show()
 
 
-# Posterior collapse
 with torch.no_grad():
     kl_divs = []
     for batch_idx, data in enumerate(train_dataloader):
@@ -194,7 +188,6 @@ with torch.no_grad():
     kl_divs = torch.cat(kl_divs, dim=0)
     kl_divs_mean = kl_divs.mean(dim=0)
     
-    # plot histogram of averaged kl divergences for each latent space component
     kl_divs_mean = kl_divs_mean.cpu().numpy()
     plt.figure()
     plt.xlabel('Latent vector component')
@@ -205,7 +198,6 @@ with torch.no_grad():
     plt.show()
         
 
-# ELBO graph
 plt.figure()
 plt.plot(elbo_history)
 plt.xlabel('Batch number')

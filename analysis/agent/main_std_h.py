@@ -62,7 +62,6 @@ def main():
     train_dataset_norm = scaler.fit_transform(train_dataset)
     train_dataloader = DataLoader(train_dataset_norm, batch_size=gen_params["batch_size"], shuffle=True)
 
-    # Create model and optimizer
     model = VAE(gen_params["latent_size"], device, input_size, conf_dict)
     optimizer = optim.Adam(model.parameters(), lr=gen_params["lr"])
 
@@ -71,7 +70,6 @@ def main():
     if not os.path.exists(f'{PATH_MODEL}{directory}'):
         os.makedirs(f'{PATH_MODEL}{directory}')
 
-    # Train the model
     model.train()
     for epoch in range(gen_params["num_epochs"]):
         

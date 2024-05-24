@@ -145,6 +145,7 @@ class VAE(nn.Module):
         #KL = - self.prior.log_prob(z) + self.encoder.log_prob(z, mu, std)[0]
         
         BC = F.binary_cross_entropy(x_bernoulli, p_bernoulli, reduction='sum')
+        #BC = F.binary_cross_entropy_with_logits(x_bernoulli,p_bernoulli, reduction="sum")
         beta = 0.01
 
         #return torch.mean(RE + beta*KL) 
@@ -194,11 +195,9 @@ class MoGPrior(nn.Module):
 
         multiplier = 1
 
-        # params
         self.means = nn.Parameter(torch.randn(num_components, self.L)*multiplier)
         self.logvars = nn.Parameter(torch.randn(num_components, self.L))
 
-        # mixing weights
         self.w = nn.Parameter(torch.zeros(num_components, 1, 1))
 
     def get_params(self):
@@ -208,14 +207,11 @@ class MoGPrior(nn.Module):
         # mu, lof_var
         means, logvars = self.get_params()
 
-        # mixing probabilities
         w = F.softmax(self.w, dim=0)
         w = w.squeeze()
 
-        # pick components
         indexes = torch.multinomial(w, batch_size, replacement=True)
 
-        # means and logvars
         eps = torch.randn(batch_size, self.L)
         for i in range(batch_size):
             indx = indexes[i]
@@ -226,19 +222,16 @@ class MoGPrior(nn.Module):
         return z
 
     def log_prob(self, z):
-        # mu, lof_var
         means, logvars = self.get_params()
 
-        # mixing probabilities
         w = F.softmax(self.w, dim=0)
 
-        # log-mixture-of-Gaussians
-        z = z.unsqueeze(0) # 1 x B x L
-        means = means.unsqueeze(1) # K x 1 x L
-        logvars = logvars.unsqueeze(1) # K x 1 x L
+        z = z.unsqueeze(0) 
+        means = means.unsqueeze(1) 
+        logvars = logvars.unsqueeze(1) 
 
         log_p = self.log_normal_diag(z.to('cuda'), means.to('cuda'), logvars.to('cuda')) + torch.log(w).to('cuda') # K x B x L
-        log_prob = torch.logsumexp(log_p, dim=0, keepdim=False) # B x L
+        log_prob = torch.logsumexp(log_p, dim=0, keepdim=False) 
         return -log_prob.T
 
     def log_normal_diag(self, x, mu, log_var, reduction=None, dim=None):
@@ -252,80 +245,3 @@ class MoGPrior(nn.Module):
             return torch.sum(log_p, dim)
         else:
             return log_p
-
-
-# class VampPrior(nn.Module):
-#     def __init__(self, L, D, num_vals, encoder, num_components, data=None):
-#         super(VampPrior, self).__init__()
-
-#         self.L = L
-#         self.D = D
-#         self.num_vals = num_vals
-
-#         self.encoder = encoder
-
-#         # pseudoinputs
-#         u = torch.rand(num_components, D) * self.num_vals
-#         self.u = nn.Parameter(u)
-
-#         # mixing weights
-#         self.w = nn.Parameter(torch.zeros(self.u.shape[0], 1, 1)) # K x 1 x 1
-
-#     def get_params(self):
-#         # u->encoder->mu, lof_var
-#         mean_vampprior, logvar_vampprior = self.encoder.encode(self.u.to('cuda')) #(K x L), (K x L)
-#         return mean_vampprior, logvar_vampprior
-
-#     def sample(self, batch_size):
-#         # u->encoder->mu, lof_var
-#         mean_vampprior, logvar_vampprior = self.get_params()
-
-#         # mixing probabilities
-#         w = F.softmax(self.w, dim=0) # K x 1 x 1 
-#         w = w.squeeze()
-
-#         # pick components
-#         indexes = torch.multinomial(w, batch_size, replacement=True)
-
-#         # means and logvars
-#         eps = torch.randn(batch_size, self.L)
-#         for i in range(batch_size):
-#             indx = indexes[i]
-#             if i == 0:
-#                 z = mean_vampprior[[indx]] + eps[[i]] * torch.exp(logvar_vampprior[[indx]])
-#             else:
-#                 z = torch.cat((z, mean_vampprior[[indx]] + eps[[i]] * torch.exp(logvar_vampprior[[indx]])), 0)
-#         return z
-
-#     def log_prob(self, z):
-#         # u->encoder->mu, lof_var
-#         mean_vampprior, logvar_vampprior = self.get_params() # (K x L) & (K x L)
-#         # mixing probabilities
-#         w = F.softmax(self.w, dim=0) # K x 1 x 1
-
-#         # log-mixture-of-Gaussians
-#         z = z.unsqueeze(0) # 1 x B x L
-#         mean_vampprior = mean_vampprior.unsqueeze(1) # K x 1 x L
-#         logvar_vampprior = logvar_vampprior.unsqueeze(1) # K x 1 x L
-
-        
-#         log_p = self.log_normal_diag(z, mean_vampprior, logvar_vampprior) + torch.log(w.to('cuda')) # K x B x L
-#         log_prob = torch.logsumexp(log_p, dim=0, keepdim=False) # B x L
-        
-#         #pxz = Normal(mean_vampprior,  logvar_vampprior)
-        
-        
-#         #og_prob = pxz.log_prob(z).sum(dim=1)
-#         return log_prob.T # B 
-    
-#     def log_normal_diag(self, x, mu, log_var, reduction=None, dim=None):
-#         PI = torch.from_numpy(np.asarray(np.pi))
-#         log_p_1 = -0.5 * torch.log(2. * PI) - 0.5 * log_var
-#         log_p_2 = - 0.5 * torch.exp(-log_var) * (x - mu)**2.
-#         log_p = log_p_1 + log_p_2
-#         if reduction == 'avg':
-#             return torch.mean(log_p, dim)
-#         elif reduction == 'sum':
-#             return torch.sum(log_p, dim)
-#         else:
-#             return log_p

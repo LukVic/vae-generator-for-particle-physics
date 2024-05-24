@@ -20,9 +20,10 @@ from sample import data_gen
 import matplotlib.pyplot as plt
 def main():
     APPROACH = 'sym' # 'std', 'sym', 'std_h', 'sym_h' 
-    TRAIN = True
+    TRAIN = False
     #'tbh_all' 'tth' 'ttw' 'ttz' 'tt'
     REACTION = 'bkg_all'
+    #REACTION = 'tbh_800_new'
     PATH_JSON = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/config/'
     PATH_DATA = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/{REACTION}_input/'
     PATH_MODEL = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/models/production/{REACTION}_input/'
@@ -37,8 +38,12 @@ def main():
     FEATURES_FILE = f'features_top_10'
     
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
-    df = df.drop(columns=['weight', 'row_number'])
+    #df['tau_lep_charge_diff'] = df['total_charge'] * df['taus_charge_0']
     
+
+    df.to_csv(f'{PATH_DATA}{DATA_FILE}.csv')
+    df = df.drop(columns=['weight', 'row_number'])
+    print(set(df['tau_lep_charge_diff'].values))
     features = []
     
     with open(f'{PATH_FEATURES}{FEATURES_FILE}.csv', 'r') as file:
@@ -75,7 +80,6 @@ def main():
         elbo_history = []
         elbo_min = np.inf
 
-        # Create model and optimizer
         model = VAE(gen_params["latent_size"], device, input_size, conf_dict)
         optimizer = optim.Adam(model.parameters(), lr=gen_params["lr"])
 
@@ -85,7 +89,6 @@ def main():
             os.makedirs(f'{PATH_MODEL}{directory}')
 
         if TRAIN:
-            # Train the model
             model.train()
             for epoch in range(gen_params["num_epochs"]):
                 progress_bar = tqdm(total=len(train_dataloader))
@@ -120,7 +123,6 @@ def main():
         elbo_min1 = np.inf
         elbo_min2 = np.inf
             
-        # Create model and optimizer
         model = VAE(gen_params["latent_size"], device, input_size, conf_dict)
         optimizer = optim.Adam(model.parameters(), lr=gen_params["lr"])
             
@@ -130,7 +132,6 @@ def main():
             os.makedirs(f'{PATH_MODEL}{directory}')
 
         if TRAIN:
-            # Train the model
             model.train()
             for epoch in range(gen_params["num_epochs"]):
                 progress_bar = tqdm(total=len(train_dataloader))
@@ -175,7 +176,6 @@ def main():
         elbo_history = []
         elbo_min = np.inf
             
-        # Create model and optimizer
         model = VAE(gen_params["latent_size"], device, input_size, conf_dict)
         optimizer = optim.Adam(model.parameters(), lr=gen_params["lr"])
 
@@ -221,7 +221,6 @@ def main():
         elbo_min1 = np.inf
         elbo_min2 = np.inf
             
-        # Create model and optimizer
         model = VAE(gen_params["latent_size"], device, input_size, conf_dict)
         
         optim_encoder_params = list(model.deterministic_encoders.parameters()) + list(model.encoders.parameters()) 
@@ -238,7 +237,6 @@ def main():
         if not os.path.exists(f'{PATH_MODEL}{directory}'):
             os.makedirs(f'{PATH_MODEL}{directory}')
         if TRAIN:
-            # Train the model
             model.train()
             for epoch in range(gen_params["num_epochs"]):
                 progress_bar = tqdm(total=len(train_dataloader))
