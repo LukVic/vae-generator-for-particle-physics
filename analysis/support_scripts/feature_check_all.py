@@ -228,7 +228,7 @@ def feature_check(path):
             h_feature_generated_std_h.GetYaxis().SetTitleOffset(1.0)
             # h_feature_generated_sym_h.GetYaxis().SetTitleOffset(1.0) 
         else:
-            legend = ROOT.TLegend(0.42, 0.6, 0.86, 0.9)  # Define legend position (x1, y1, x2, y2)
+            legend = ROOT.TLegend(0.42, 0.6, 0.86, 0.9) 
 
             legend.AddEntry(h_feature_original, "Simulated", "l")
             legend.AddEntry(h_feature_generated_std, f"Gen. ELBO Standard", "l")

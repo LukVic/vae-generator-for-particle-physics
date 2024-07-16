@@ -1,22 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import ROOT
-import array
-
-def LoadStyle():
-    ROOT.gStyle.SetPadLeftMargin(0.15)
-    ROOT.gStyle.SetPadBottomMargin(0.15)
-    ROOT.gStyle.SetPadTopMargin(0.05)
-    ROOT.gStyle.SetPadRightMargin(0.05)
-    ROOT.gStyle.SetEndErrorSize(0.0)
-    ROOT.gStyle.SetTitleSize(0.05,"X")
-    ROOT.gStyle.SetTitleSize(0.045,"Y")
-    ROOT.gStyle.SetLabelSize(0.045,"X")
-    ROOT.gStyle.SetLabelSize(0.045,"Y")
-    ROOT.gStyle.SetTitleOffset(1.2,"X")
-    ROOT.gStyle.SetTitleOffset(1.35,"Y")
-    ROOT.gStyle.SetOptStat(0)
-    ROOT.gStyle.SetHatchesSpacing(0.3)
 
 seed_32_params_0 = [
 'DEEP: False | FRS: 0.2 | FRG: 0.0 | PREC TR: 0.99406 | PREC TE: 0.87710 | ACC TR: 0.99376 | ACC TE: 0.83973 | SIGT: 10.63497 | SIGS: 13.82286 | BS: 30.10096 | BB: 7.73586 | PARAMS: 0',
@@ -2714,9 +2697,12 @@ def process_data(data):
     means_all = []
     stds_all = []
     
+    trials_all = []
+    
     for lst in all_lists:
         means = []
         stds = []
+        trials = []
         for i in range(10):
             #print(lst[i::10])
             every_10th = lst[i::10]  # Adjust the starting index
@@ -2724,22 +2710,19 @@ def process_data(data):
             std = np.std(every_10th)
             means.append(mean)
             stds.append(std)
+            trials.append(every_10th)
             # print(mean)
             # print(std)
         # for i in range(10):
         #     print(f"Mean of every 10th value starting from index {i}: {means[i]}")
         #     print(f"Variance of every 10th value starting from index {i}: {variances[i]}")
-        #     print()     
+        #     print()
+        trials_all.append(trials)
         means_all.append(means)
         stds_all.append(stds)
-    return means_all, stds_all
+    return means_all, stds_all, trials_all
 PATH_SAVE = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/mlp_output/classification_result/'
 
-LoadStyle()
-letexTitle = ROOT.TLatex()
-letexTitle.SetTextSize(0.05)
-letexTitle.SetNDC()
-letexTitle.SetTextFont(42)
 
 
 seeds_0 = [seed_32_params_0, seed_56_params_0, seed_17_params_0, seed_98_params_0, seed_42_params_0, seed_73_params_0, seed_5_params_0, seed_61_params_0, seed_89_params_0, seed_25_params_0, seed_10_params_0, seed_3_params_0, seed_12_params_0, seed_93_params_0, seed_45_params_0, seed_7_params_0,  seed_68_params_0, seed_27_params_0, seed_94_params_0, seed_71_params_0]
@@ -2748,139 +2731,42 @@ seeds_962 = [seed_32_params_962, seed_56_params_962, seed_17_params_962, seed_98
 seeds_70146 = [seed_32_params_70146, seed_56_params_70146, seed_17_params_70146, seed_98_params_70146, seed_42_params_70146, seed_73_params_70146, seed_5_params_70146, seed_61_params_70146, seed_89_params_70146, seed_25_params_70146, seed_10_params_70146, seed_3_params_70146, seed_12_params_70146, seed_93_params_70146, seed_45_params_70146, seed_7_params_70146,  seed_68_params_70146, seed_27_params_70146, seed_94_params_70146, seed_71_params_70146]
 
 
-means_all_0, vars_all_0 = process_data(seeds_0)
-means_all_1, vars_all_1 = process_data(seeds_1)
-means_all_962, vars_all_962 = process_data(seeds_962)
-means_all_70146, vars_all_70146 = process_data(seeds_70146)
+means_all_0, vars_all_0, trials_0 = process_data(seeds_0)
+means_all_1, vars_all_1, trials_1 = process_data(seeds_1)
+means_all_962, vars_all_962, trials_962 = process_data(seeds_962)
+means_all_70146, vars_all_70146, trials_70146 = process_data(seeds_70146)
 
 
 options = {0: 'Train_Precision', 1: 'Test_Precision',2: 'Train_Accuaracy', 3: 'Test_Accuracy', 4: 'Significance_True', 5: 'Significance_Simple'}
 labels = {0: 'Train precision', 1: 'Test precision',2: 'Train accuaracy', 3: 'Test accuracy', 4: 'Significance Z 1', 5: 'Significance Z 2'}
 fractions = [0.2, 0.4, 0.6, 0.8, 1, 2, 3, 4, 5, 6]
 
-canvas1 = ROOT.TCanvas("canvas1", "Data Plot")
-#canvas2 = ROOT.TCanvas("canvas2", "Data Plot")
-
-for i in range(6):
+PATH_SAVE = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/mlp_output/classification_result/'
+for idx in range(6):
     
-    # min_y = min(min(means_all_962[i]), min(means_all_70146[i]))   
-    # max_y = max(max(means_all_962[i]), max(means_all_70146[i])) 
-    min_y = min(min(means_all_0[i]), min(means_all_1[i])) 
-    max_y = max(max(means_all_0[i]), max(means_all_1[i])) 
-    
-    x_min_sim = 0.2
-    x_max_sim = 1
-    x_min_gen = 1
-    x_max_gen = 6
-    # y_min = min(min(means_all_962[i]), min(means_all_70146[i]))
-    # y_max = max(max(means_all_962[i]), max(means_all_70146[i]))
-    y_min = min(min(means_all_0[i]), min(means_all_1[i]))
-    y_max = max(max(means_all_0[i]), max(means_all_1[i]))
+    # Plotting all graphs in one frame
+    fig, ax = plt.subplots()
+    for i in range(20):
+        first_elements_0 = [array[i] for array in trials_0[idx]]
+        first_elements_1 = [array[i] for array in trials_1[idx]]
+        first_elements_962 = [array[i] for array in trials_962[idx]]
+        first_elements_70146 = [array[i] for array in trials_70146[idx]]
+        
+        print(first_elements_0)
+        ax.plot(fractions, first_elements_0, label='Means 0 First Elements', marker='o')
+        # ax.plot(fractions, first_elements_1, label='Means 1 First Elements', color='red', marker='s')
+        # ax.plot(fractions, first_elements_962, label='Means 962 First Elements', color='green', marker='^')
+        # ax.plot(fractions, first_elements_70146, label='Means 70146 First Elements', color='purple', marker='x')
 
+    # Setting labels
+    ax.set_xlabel("Fractions",fontsize=16)
+    ax.set_ylabel(f"{labels[idx]}", fontsize=16)
+    ax.set_title(f"20 splits in One Frame {labels[idx]}", fontsize=16)
 
-    min_y = y_min
-    max_y = y_max
-
-    rectangle_sim = ROOT.TPolyLine(4)
-    rectangle_sim.SetPoint(0, x_min_sim, y_min)
-    rectangle_sim.SetPoint(1, x_max_sim, y_min)
-    rectangle_sim.SetPoint(2, x_max_sim, y_max)
-    rectangle_sim.SetPoint(3, x_min_sim, y_max)
-    #rectangle_sim.SetPoint(4, x_min_sim, y_min)
-    rectangle_gen = ROOT.TPolyLine(4)
-    rectangle_gen.SetPoint(0, x_min_gen, y_min)
-    rectangle_gen.SetPoint(1, x_max_gen, y_min)
-    rectangle_gen.SetPoint(2, x_max_gen, y_max)
-    rectangle_gen.SetPoint(3, x_min_gen, y_max)
-
-    rectangle_sim.SetFillColorAlpha(ROOT.kGreen, 0.1) 
-    rectangle_gen.SetFillColorAlpha(ROOT.kViolet, 0.1)
-    
-    vars_all_0[i] = np.array(vars_all_0[i])
-    vars_all_1[i] = np.array(vars_all_1[i])
-    vars_all_962[i] = np.array(vars_all_962[i])
-    vars_all_70146[i] = np.array(vars_all_70146[i])
-    
-    print(np.mean([np.mean(vars_all_962[i]),np.mean(vars_all_70146[i])]))
-    
-    graph_0 = ROOT.TGraph(len(fractions), array.array('d', fractions), array.array('d', means_all_0[i]))
-    graph_1 = ROOT.TGraph(len(fractions), array.array('d', fractions), array.array('d', means_all_1[i]))
-    graph_962 = ROOT.TGraph(len(fractions), array.array('d', fractions), array.array('d', means_all_962[i]))
-    graph_70146 = ROOT.TGraph(len(fractions), array.array('d', fractions), array.array('d', means_all_70146[i]))
-    
-    
-    # y_axis = graph_0.GetYaxis()
-    # x_axis = graph_0.GetXaxis()
-    y_axis = graph_962.GetYaxis()
-    x_axis = graph_962.GetXaxis()
-
-    y_axis.SetRangeUser(min_y, max_y)
-    x_axis.SetRangeUser(0.2, 6)
-    
-    
-    graph_0.SetLineWidth(2)
-    graph_1.SetLineWidth(2)
-    graph_962.SetLineWidth(3)
-    graph_70146.SetLineWidth(3)
-
-    graph_0.SetMarkerStyle(20)
-    graph_0.SetMarkerSize(1)
-    graph_1.SetMarkerStyle(20)
-    graph_1.SetMarkerSize(1)
-    graph_962.SetMarkerStyle(20)
-    graph_962.SetMarkerSize(1)
-    graph_70146.SetMarkerStyle(20)
-    graph_70146.SetMarkerSize(1)
-
-    graph_0.SetLineColor(ROOT.kBlue)
-    graph_1.SetLineColor(ROOT.kRed)
-    graph_962.SetLineColor(ROOT.kBlue)
-    graph_70146.SetLineColor(ROOT.kRed)
-
-    # graph_0.Draw("APL")
-    # graph_1.Draw("PL SAME")
-
-    graph_962.Draw("APL")
-    graph_70146.Draw("PL SAME")
-    rectangle_sim.Draw("F SAME")
-    rectangle_gen.Draw("F SAME")
-
-    graph_0.GetXaxis().SetTitle("Fractions")
-    graph_0.GetYaxis().SetTitle(f"{labels[i]}")
-    canvas1.SetTitle("")
-    graph_0.SetTitle("")
-    graph_1.SetTitle("")
-    
-    graph_962.GetXaxis().SetTitle("Fractions")
-    graph_962.GetYaxis().SetTitle(f"{labels[i]}")
-    canvas1.SetTitle("")
-    graph_962.SetTitle("")
-    graph_70146.SetTitle("")
-
-    # legend1 = ROOT.TLegend(0.7, 0.2, 0.9, 0.4)
-    # legend1.AddEntry(graph_0, "XGB 0", "lep")
-    # legend1.AddEntry(graph_1, "XGB 1", "lep")
-    # legend1.SetBorderSize(0)
-    # legend1.Draw()
-    
-    legend2 = ROOT.TLegend(0.7, 0.2, 0.9, 0.4)
-    legend2.AddEntry(graph_962, "MLP 962", "lep")
-    legend2.AddEntry(graph_70146, "MLP 70146", "lep")
-    legend2.SetBorderSize(0)
-    legend2.Draw()
-
-    latex = ROOT.TLatex()
-    latex.SetTextSize(0.052) 
-    latex.SetTextFont(52)
-    latex.DrawLatexNDC(0.35, 0.29, "Filter efficiency: 40.3%")
-    latex.DrawLatexNDC(0.35, 0.23, "Cross Section: 0.1 pb")
-
-    canvas1.SetGrid()
-    canvas1.Update()
-    canvas1.Draw()
-    canvas1.Print(f'{PATH_SAVE}{options[i]}_root_ext_mlp_final.pdf')
-    
-    # canvas2.SetGrid()
-    # canvas2.Update()
-    # canvas2.Draw()
-    # canvas2.Print(f'{PATH_SAVE}{options[i]}_root_ext_mlp.png')
+    # Adding a legend
+    #ax.legend(loc='upper left', bbox_to_anchor=(1.05, 1), ncol=2)
+    plt.grid()
+    # Display the plot
+    plt.tight_layout()
+    plt.savefig(f'{PATH_SAVE}all_trials_{options[idx]}.pdf')
+    #plt.show()

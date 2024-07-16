@@ -19,7 +19,7 @@ from sample import data_gen
 
 import matplotlib.pyplot as plt
 def main():
-    APPROACH = 'sym' # 'std', 'sym', 'std_h', 'sym_h' 
+    APPROACH = 'ddgm' # 'std', 'sym', 'std_h', 'sym_h' 
     TRAIN = False
     #'tbh_all' 'tth' 'ttw' 'ttz' 'tt'
     REACTION = 'bkg_all'
@@ -40,10 +40,10 @@ def main():
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
     #df['tau_lep_charge_diff'] = df['total_charge'] * df['taus_charge_0']
     
-
+    
     df.to_csv(f'{PATH_DATA}{DATA_FILE}.csv')
     df = df.drop(columns=['weight', 'row_number'])
-    print(set(df['tau_lep_charge_diff'].values))
+    #print(set(df['tau_lep_charge_diff'].values))
     features = []
     
     with open(f'{PATH_FEATURES}{FEATURES_FILE}.csv', 'r') as file:
@@ -69,6 +69,7 @@ def main():
     gen_params = conf_dict["general"]
     input_size = train_dataset.shape[1]
     
+    # Chose how to scale the data
     scaler = StandardScaler()
     #scaler = MinMaxScaler()
     train_dataset_norm = scaler.fit_transform(train_dataset)
@@ -114,7 +115,7 @@ def main():
             print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm)
         
-    if APPROACH == 'sym':
+    elif APPROACH == 'sym':
         from architecture_sym import VAE
         
         elbo_history1 = []
@@ -169,7 +170,7 @@ def main():
             print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm)
     
-    if APPROACH == 'std_h':
+    elif APPROACH == 'std_h':
         from architecture_std_h import VAE
 
         input_size = train_dataset.shape[1]
@@ -211,7 +212,7 @@ def main():
             model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm)
-    if APPROACH == 'sym_h':
+    elif APPROACH == 'sym_h':
         from architecture_sym_h import VAE
         
         input_size = train_dataset.shape[1]
@@ -276,7 +277,45 @@ def main():
             model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm)
-    
+    elif APPROACH == 'ddgm':
+        from architecture_ddgm_simple import DDGM
+        
+        elbo_history = []
+        elbo_min = np.inf
+
+        model = DDGM(gen_params["latent_size"], device, input_size, conf_dict)
+        optimizer = optim.Adam(model.parameters(), lr=gen_params["lr"])
+
+        directory = f'{APPROACH}_{gen_params["num_epochs"]}_epochs_model/'
+
+        if not os.path.exists(f'{PATH_MODEL}{directory}'):
+            os.makedirs(f'{PATH_MODEL}{directory}')
+
+        if TRAIN:
+            model.train()
+            for epoch in range(gen_params["num_epochs"]):
+                progress_bar = tqdm(total=len(train_dataloader))
+                for _, x in enumerate(train_dataloader):
+                    x = x.view(-1, input_size)
+                    optimizer.zero_grad()
+                    loss = model(x.float())
+                    loss.backward()
+                    optimizer.step()
+                    progress_bar.set_description(f'EPOCH: {epoch+1}/{gen_params["num_epochs"]} | LOSS: {loss:.7f}')
+                    progress_bar.update(1)
+                progress_bar.close()     
+                elbo_history.append(loss.item())
+                if elbo_min > loss.item():
+                    print("SAVING NEW BEST MODEL")
+                    torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
+                    elbo_min = loss.item()
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm)
+        else:
+            model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
+            print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm)
+        
+            
 
 def plot_loss(elbo_history_1, elbo_history_2, TYPE):
     plt.clf()

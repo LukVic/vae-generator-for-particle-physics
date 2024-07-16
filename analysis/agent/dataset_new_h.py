@@ -42,7 +42,6 @@ def dataset_regen_h(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, EPOCHS, TYPE, s
         #x_hats_denorm = tan_to_angle(conf_dict['angle_convert']['indices'], torch.tensor(x_hats_denorm)).numpy()
         data_array = np.vstack((data_array, x_hats_denorm))
 
-    # Create a DataFrame from the NumPy array
     df_regen = pd.DataFrame(data_array,columns=df_real.columns)
 
     print("Processing completed.")

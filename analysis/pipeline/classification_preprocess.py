@@ -1,7 +1,11 @@
 import pandas as pd
 import numpy as np
 
-
+# Iterate through the all reactions
+# Add idx = class index as a new column
+# The sig_mass column distinguished between signal masses => 0 for background
+# The y columns distinguished only between signal and background => [0,1]
+# The data is finally concatenated together
 def classification_preprocess():
     classes = {'tbh_all': 0, 'tth' : 1, 'ttw': 1, 'ttz' : 1, 'tt' : 1}
     #classes = {'tth' : 0, 'ttw': 1, 'ttz' : 1, 'tt' : 1}

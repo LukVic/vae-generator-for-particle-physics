@@ -1,25 +1,42 @@
 {
     "general" :{
         "batch_size": 2048,
-        "latent_size": 30,
+        "latent_size": 10,
         "r_size": 512,
-        "lr": 0.0001,
-        "num_epochs": 1000
+        "lr": 1e-04,
+        "num_epochs": 20000,
+        "beta": 0.02,
+        "dif_depth":50
     },
     "encoder":{
         "layer_num": 3,
-        "architecture": [[512], [512, 2048], [2048]],
-        "batchNorm": [512, 2048, 0],
+        "architecture": [[128], [128, 128], [128]],
+        "batchNorm": [128, 128, 0],
         "relu":[1, 1, 0],
         "dropout": [0.0, 0.0, 0.0]
     },
     "decoder":{
         "layer_num": 3,
-        "architecture": [[2048], [2048, 512], [512]],
-        "batchNorm": [2048, 512, 0],
+        "architecture": [[128], [128, 128], [128]],
+        "batchNorm": [128, 128, 0],
         "relu":[1, 1, 0],
         "dropout": [0.0, 0.0, 0.0]
     },
+    "encoder_linear":{
+        "layer_num": 3,
+        "architecture": [[512], [512, 1024], [1024]],
+        "batchNorm": [512, 1024, 0],
+        "relu":[1, 1, 0],
+        "dropout": [0.0, 0.0, 0.0]
+    },
+    "encoder_deterministic":{
+        "layer_num": 3,
+        "architecture": [[1024], [1024, 512], [512]],
+        "batchNorm": [1024, 512, 0],
+        "relu":[1, 1, 0],
+        "dropout": [0.0, 0.0, 0.0]
+    },
+
     "angle_convert":{
         "indices":[4, 5, 9, 14, 18, 22, 26]
     }
