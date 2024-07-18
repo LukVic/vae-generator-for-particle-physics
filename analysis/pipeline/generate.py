@@ -19,45 +19,41 @@ from sample import data_gen
 
 import matplotlib.pyplot as plt
 def main():
-    APPROACH = 'ddgm' # 'std', 'sym', 'std_h', 'sym_h' 
-    TRAIN = False
+    
+    # which model to train
+    APPROACH = 'std' # 'std', 'sym', 'std_h', 'sym_h', 'ddgm' 
+    TRAIN = True # train if True, load existing model if False
     #'tbh_all' 'tth' 'ttw' 'ttz' 'tt'
-    REACTION = 'bkg_all'
-    #REACTION = 'tbh_800_new'
-    PATH_JSON = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/config/'
-    PATH_DATA = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/{REACTION}_input/'
-    PATH_MODEL = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/models/production/{REACTION}_input/'
-    PATH_FEATURES = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/features/'
-    #classes = {'tbh_800': 0, 'tth' : 1, 'ttw': 1, 'ttz' : 1, 'tt' : 1}
-    classes = {'tbh_800_new': 0, 'bkg_all': 1}
-    #DATA_FILE = 'df_phi'
-    #DATA_FILE = 'df_no_zeros'
-    #DATA_FILE = 'df_8'
-    #DATA_FILE = 'df_pt'
-    DATA_FILE = f'df_{REACTION}_pres_strict'
-    FEATURES_FILE = f'features_top_10'
+    REACTION = 'bkg_all' # 'tbh_800_new' # signal or background
     
-    df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
-    #df['tau_lep_charge_diff'] = df['total_charge'] * df['taus_charge_0']
+    #classes = {'tbh_800': 0, 'tth' : 1, 'ttw': 1, 'ttz' : 1, 'tt' : 1} # multinomimal classification dict
+    classes = {'tbh_800_new': 0, 'bkg_all': 1} # binary classification dict
     
+    PATH_JSON = f'../config/' # config path
+    PATH_DATA = f'../data/{REACTION}_input/' # training data path
+    PATH_MODEL = f'../models/production/{REACTION}_input/' # model path
+    PATH_FEATURES = f'../features/' # feature directory path
+
+    DATA_FILE = f'df_{REACTION}_pres_strict' # data file based on demanded preselection
+    FEATURES_FILE = f'features_top_10' # 'df_phi', 'df_no_zeros', 'df_8', 'df_pt'  feature file
     
-    df.to_csv(f'{PATH_DATA}{DATA_FILE}.csv')
-    df = df.drop(columns=['weight', 'row_number'])
-    #print(set(df['tau_lep_charge_diff'].values))
+    # load the general parameters
+    with open(f"{PATH_JSON}hyperparams.json", 'r') as json_file:
+        conf_dict = json.load(json_file)
+    gen_params = conf_dict["general"]
+
+    df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv') # load training data
+    #df['tau_lep_charge_diff'] = df['total_charge'] * df['taus_charge_0'] # substitute total_charge by tau_lep_charge_diff
+    
+    df = df.drop(columns=['weight', 'row_number']) # remove auxiliary columns
+    
     features = []
-    
+    # read features from the csv file
     with open(f'{PATH_FEATURES}{FEATURES_FILE}.csv', 'r') as file:
         csv_reader = csv.reader(file)
         for row in csv_reader:
             features.append(row[0])
     df = df[features]
-    
-    train_dataset = torch.tensor(df.values, dtype=torch.float32)
-    # features = pd.read_csv(f'{PATH_FEATURES}{FEATURES_FILE}.csv')
-
-
-    with open(f"{PATH_JSON}hyperparams.json", 'r') as json_file:
-        conf_dict = json.load(json_file)
     
     if torch.cuda.is_available():
         print("CUDA (GPU) is available.")
@@ -65,13 +61,12 @@ def main():
     else:
         print("CUDA (GPU) is not available.")
         device = 'cpu'
-        
-    gen_params = conf_dict["general"]
-    input_size = train_dataset.shape[1]
     
+    train_dataset = torch.tensor(df.values, dtype=torch.float32)
+    input_size = train_dataset.shape[1]
+
     # Chose how to scale the data
-    scaler = StandardScaler()
-    #scaler = MinMaxScaler()
+    scaler = StandardScaler() # MinMaxScaler() 
     train_dataset_norm = scaler.fit_transform(train_dataset)
     train_dataloader = DataLoader(train_dataset_norm, batch_size=gen_params["batch_size"], shuffle=True)
 
