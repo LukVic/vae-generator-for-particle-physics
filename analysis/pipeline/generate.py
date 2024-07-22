@@ -24,7 +24,7 @@ def main():
     
     PATH_JSON = f'../config/' # config path
     # load the general parameters
-    with open(f"{PATH_JSON}hyperparams.json", 'r') as json_file:
+    with open(f"{PATH_JSON}hyperparams_gen.json", 'r') as json_file:
         conf_dict = json.load(json_file)
     gen_params = conf_dict["general"]
     
@@ -118,11 +118,11 @@ def main():
                 if epoch % 50 == 0: # refresh the loss plot after certain amount of epochs
                     plot_loss(elbo_history, None, APPROACH)
             plot_loss(elbo_history, None, APPROACH)
-            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm)
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams_gen.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm, features_list=features)
         else:
             model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
-            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm)
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams_gen.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm, features_list=features)
             
     elif APPROACH == 'sym' or APPROACH == 'sym_h':
         # model = VAE(gen_params["latent_size"], device, input_size, conf_dict)
@@ -173,12 +173,12 @@ def main():
                     plot_loss(elbo_history1, elbo_history2,APPROACH)
                 if epoch % 10 == 0:
                     plot_loss(elbo_history1, elbo_history2,APPROACH)
-            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm)
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams_gen.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm, features_list=features)
             plot_loss(elbo_history1, elbo_history2, APPROACH)
         else:
             model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
-            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm)
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}hyperparams_gen.json', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm, features_list=features)
 
             
 

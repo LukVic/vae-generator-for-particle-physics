@@ -12,11 +12,7 @@ def classification_preprocess():
     df_all = pd.DataFrame()
     
     for idx, cl in enumerate(classes):
-        PATH_DATA = f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/{cl}_input/'
-        DATA_FILE = f'df_{cl}_pres_strict'
-        
-        df_class = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv')
-        print(df_class.shape)
+        df_class = pd.read_csv(f'../data/{cl}_input/df_{cl}_pres_strict.csv')
         print(len(set(df_class['row_number'])))
         print(df_class['weight'].sum())
         df_class['class'] = idx
@@ -30,10 +26,7 @@ def classification_preprocess():
             #print((df_class[df_all['sig_mass'] == 0, 'weight'].sum()))
         
         df_all = pd.concat([df_all, df_class])
-    print(df_all)
-    PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
-    FILE_DATA = 'df_all_pres_strict'
-    df_all.to_pickle(f'{PATH_DATA}{FILE_DATA}.pkl')
+    df_all.to_pickle('../data/common/df_all_pres_strict.pkl')
 
 def main():
     classification_preprocess()

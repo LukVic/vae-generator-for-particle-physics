@@ -1,4 +1,4 @@
-import os
+import json
 import numpy as np
 import pandas as pd
 import random
@@ -24,53 +24,50 @@ from mlp_classifier import *
 from correlation import *
 from optimize import optimize
 
-from ucimlrepo import fetch_ucirepo 
 
 def classify():
-    OPTIMIZE = True
-    TYPE = 'std'
-    DEEP = False
-    AUGMENT = True
-    LOOSE = False
-    ONE_MASS = True
-    MASS = 2
-    #SPLIT_SEED = [56, 17, 98, 42, 73, 5, 61, 89, 25, 10]
-    SPLIT_SEED = [32, 56, 17, 98, 42, 73, 5, 61, 89, 25, 10, 3, 12, 93, 45, 7, 68, 27, 94, 71]
-    #SPLIT_SEED = [61, 89, 25, 10, 3, 12, 93, 45, 7, 68, 27, 94, 71]
-    #SPLIT_SEED = [32]
-    #SPLIT_SEED = [32]
-    #SPLIT_SEED = [45, 7, 68, 27, 94, 71]
-    #SPLIT_SEED = [27, 94, 71]
+    PATH_JSON = f'../config/' # config path
+    # load the general parameters
+    with open(f"{PATH_JSON}hyperparams_cls.json", 'r') as json_file:
+        conf_dict = json.load(json_file)
+    gen_params = conf_dict["general"]
     
-    #sim_fractions = [0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0]
-    sim_fractions = [0.99]
-    #sim_fractions = [0.2, 0.4, 0.6, 0.8, 0.99]
-    aug_fractions = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]
-    #aug_fractions = [0.2, 0.4, 0.6, 0.8, 0.99]
+    OPTIMIZE = gen_params['optimize']
+    TYPE = gen_params['type']
+    DEEP = gen_params['deep']
+    AUGMENT = gen_params['augment']
+    LOOSE = gen_params['loose']
+    ONE_MASS = gen_params['one_mass']
+    MASS = gen_params['mass']
+    
+
+    SPLIT_SEED = gen_params['split_seed']
+
+    sim_fractions = gen_params['sim_fractions'] #[0.99] [0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0], [0.2, 0.4, 0.6, 0.8, 0.99]
+    aug_fractions = gen_params['aug_fractions']#[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99], [0.2, 0.4, 0.6, 0.8, 0.99]
+    
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/common/'
     PATH_LOGGING = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/'
     FILE_DATA_LOOSE = 'df_all_pres_loose_jets_only'
     FILE_DATA_STRICT = 'df_all_pres_strict'
     PATH_MODEL =  f'{PATH_DATA}xgboost_model_trained_pres.pkl'
     log_file_path = f'{PATH_LOGGING}results_final.log'
+    PATH_FEATURES = f'../features/' # feature directory path
+    FEATURES_FILE = f'features_top_10' # 'df_phi', 'df_no_zeros', 'df_8', 'df_pt'  feature file
     
-    helper_features = ['sig_mass', 'weight', 'row_number', 'file_number', 'y', 'class']
-    features_used = ['taus_pt_0', 'MtLepMet', 'met_met', 'DRll01', 'MLepMet', 'minDeltaR_LJ_0', 'jets_pt_0', 'HT', 'HT_lep', 'total_charge']
-    # classes = {
-    #     0: 'tbh_all',
-    #     1: 'tth',
-    #     2: 'ttw',
-    #     3: 'ttz',
-    #     4: 'tt',
-    # }
-    classes = {
-        0: 'tbh_800',
-        1: 'bkg_all',
-    }
-    logg = False
+    
+    helper_features = gen_params['helper_features']
+    features_used = []
+    # read features from the csv file
+    with open(f'{PATH_FEATURES}{FEATURES_FILE}.csv', 'r') as file:
+        csv_reader = csv.reader(file)
+        for row in csv_reader:
+            features_used.append(row[0])
+
+    # classes = { 0: 'tbh_all', 1: 'tth', 2: 'ttw', 3: 'ttz', 4: 'tt' }
+    classes = { 0: 'tbh_800', 1: 'bkg_all' }
+    logg = gen_params["logg"]
     model = None
-    #for frac in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99]:
-    #for jdx in range(1):
     for ids, seed in enumerate(SPLIT_SEED):
         if logg:
             with open(log_file_path, 'a') as file:

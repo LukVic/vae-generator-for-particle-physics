@@ -13,7 +13,7 @@ from sklearn.preprocessing import MinMaxScaler
 from feature_transform import tan_to_angle
 
 
-def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset):
+def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset, features_list):
     
     
     # Chose if generate new samples of just regenerate the simulated ones
@@ -29,19 +29,18 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     gen_params = conf_dict["general"]
     
     model = torch.load(PATH_MODEL)
-    features_used = ['taus_pt_0', 'MtLepMet', 'met_met', 'DRll01', 'MLepMet', 'minDeltaR_LJ_0', 'jets_pt_0', 'HT', 'HT_lep', 'total_charge']
-    
     model.eval()
+    
+    
     latent_dimension = gen_params["latent_size"]
     
     data_array = np.empty((0, dataset.shape[1]), dtype=np.float32)
     
     
-    batch_size = dataset.shape[0] # Number of samples by batch
+    batch_size = SAMPLES_NUM # Number of samples by batch
     latent_samples = []
     
     start_time = time.time()
-    
     with torch.no_grad():
         # Generate new samples with standard architectures
         if TYPE == 'std' or TYPE == 'sym':
@@ -51,9 +50,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
                 latent_samples_batch = generate_latents(batch_size, latent_dimension, SAMPLING, model, dataset)
                 latent_samples.append(latent_samples_batch)
             
-            latent_samples = torch.cat(latent_samples, dim=0)
-
-            latent_samples = latent_samples.to('cuda')
+            latent_samples = torch.cat(latent_samples, dim=0).to('cuda')
             
             decoded_samples = []
             for i in range(0, latent_samples.size(0), batch_size):
@@ -120,7 +117,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
             data_array = np.vstack((data_array, x_hats_denorm))
     
-    df_gen = pd.DataFrame(data_array,columns=features_used)
+    df_gen = pd.DataFrame(data_array,columns=features_list)
     # Adjust the values for total_charge variable
     print(set(df_gen['total_charge']))
     print((df_gen['total_charge'] > 0.5).sum())
