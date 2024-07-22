@@ -58,7 +58,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             decoded_samples = []
             for i in range(0, latent_samples.size(0), batch_size):
                 print(i)
-                xhats_mu_gauss, xhats_std_gauss, xhats_bernoulli = model.decoder.decode(latent_samples[i:i+batch_size])
+                xhats_mu_gauss, xhats_std_gauss, xhats_bernoulli = model.decoder(latent_samples[i:i+batch_size])
                 px_gauss = torch.distributions.Normal(xhats_mu_gauss, xhats_std_gauss)
                 xhat_gauss = px_gauss.sample()
                 xhat_bernoulli = torch.bernoulli(xhats_bernoulli)

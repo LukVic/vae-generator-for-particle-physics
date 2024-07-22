@@ -1,12 +1,15 @@
 {
     "general" :{
+        "train": 1,
+        "reaction": "bkg_all",
+        "approach": "std",
         "batch_size": 2048,
         "latent_size": 10,
         "r_size": 512,
         "lr": 1e-04,
-        "num_epochs": 20000,
+        "num_epochs": 500,
         "beta": 0.02,
-        "dif_depth":50
+        "dif_depth": 50
     },
     "encoder":{
         "layer_num": 3,

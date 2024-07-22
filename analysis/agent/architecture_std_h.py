@@ -39,6 +39,18 @@ class Encoder(nn.Module):
         
         self.body = nn.Sequential(*layers)
         
+    def sample(self, mu, std, delta_mu, delta_std):
+        
+        qz_gauss= torch.distributions.Normal(mu + delta_mu, std * delta_std)
+        
+        # ones = torch.ones(delta_std.shape).to(self.device)
+        # sigma_new_2 = (std * delta_std.pow(2))/(ones + delta_std.pow(2))
+        # mu_new_2 = (mu * delta_std.pow(2) + delta_mu.pow(2) * std)/(ones + delta_std.pow(2))
+        
+        # qz_gauss = torch.distributions.Normal(mu_new_2, sigma_new_2)
+        
+        z = qz_gauss.rsample()
+        return z, qz_gauss
 
     def forward(self, x):
         scores = self.body(x)
@@ -163,30 +175,15 @@ class VAE(nn.Module):
         #delta_sigma_2 = F.hardtanh(delta_sigma_2, -7., 2.)
         delta_std_1 = torch.exp(delta_sigma_1)
         delta_std_2 = torch.exp(delta_sigma_2)
-        qz_gauss_2 = torch.distributions.Normal(0 + delta_mu_2, 1 * delta_std_2)
+
         
-        ones = torch.ones(delta_std_2.shape).to(self.device)
-        # print(ones[0])
-        # exit()
-        # sigma_new_2 = (1 * delta_std_2.pow(2))/(ones + delta_std_2.pow(2))
-        # mu_new_2 = (0 * delta_std_2.pow(2) + delta_mu_2.pow(2) * 1)/(ones + delta_std_2.pow(2))
+        z_2, qz_gauss_2 = self.encoder_2.sample(0,1,delta_mu_2,delta_std_2)
         
-        # qz_gauss_2 = torch.distributions.Normal(mu_new_2, sigma_new_2)
-        
-        z_2 = qz_gauss_2.rsample()
         
         mu_1, sigma_1 = self.encoder_3(z_2.view(-1, self.zdim))
         std_1 = torch.exp(sigma_1)
         
-        qz_gauss_1 = torch.distributions.Normal(mu_1 + delta_mu_1, std_1 * delta_std_1)
-        
-        # sigma_new_1 = (delta_std_1.pow(2) * std_1.pow(2))/(delta_std_1.pow(2) + std_1.pow(2))
-        # mu_new_1 = (delta_mu_1 * std_1.pow(2) + mu_1 * delta_std_1.pow(2))/(delta_std_1.pow(2) + std_1.pow(2))
-        
-        
-        # qz_gauss_1 = torch.distributions.Normal(mu_new_1, sigma_new_1)
-        
-        z_1 = qz_gauss_1.rsample()
+        z_1, qz_gauss_1 = self.encoder_1.sample(mu_1,std_1,delta_mu_1,delta_std_1)
         
         pz_2_gauss = torch.distributions.Normal(torch.zeros_like(delta_mu_2), torch.ones_like(delta_std_2))
         pz_1_gauss = torch.distributions.Normal(mu_1, std_1)
@@ -194,30 +191,9 @@ class VAE(nn.Module):
         #! DECODER
         mu_gauss, sigma_gauss, p_bernoulli = self.decoder(z_1)
         xhat_gauss = torch.cat((mu_gauss, sigma_gauss), dim=1)
-        xhat = torch.cat((xhat_gauss, p_bernoulli.view(-1,1)), dim=1)
-        return xhat, pz_2_gauss, pz_1_gauss, qz_gauss_2, qz_gauss_1 # qz_gauss_1, qz_gauss_2 for KL divergence
-
-    def count_params(self):
-        return sum(p.numel() for p in self.encoder_1.parameters() if p.requires_grad)
-
-
-    # Computes reconstruction loss
-    def recon(self, x_hat, x):
-        # print(f"x_hat: {x_hat.shape}")
-        # print(f"x: {x.shape}")
-        xhat_gauss_mu, xhat_gauss_sigma = torch.split(x_hat, x.shape[1], dim=1) 
-        std = torch.exp(xhat_gauss_sigma)
-        pxz = Normal(xhat_gauss_mu,  std)
-        E_log_pxz = -pxz.log_prob(x.to(self.device)).sum(dim=1)
-        return E_log_pxz
-
-
-    def loss_function(self, x, x_hat, pz_1, pz_2, qz_1, qz_2):
-        pz_1_gauss = pz_1
-        pz_2_gauss = pz_2
-        qz_gauss_1 = qz_1
-        qz_gauss_2 = qz_2
+        x_hat = torch.cat((xhat_gauss, p_bernoulli.view(-1,1)), dim=1)
         
+        #! LOSS 
         x_gauss = x[:, :-1]
         x_bernoulli = x[:, -1].to(torch.float32).to(self.device)
         
@@ -235,4 +211,19 @@ class VAE(nn.Module):
 
         return torch.mean(REC_G + beta*(KLD_G_1 + KLD_G_2)) + 0.001*BCE_B 
         #return torch.mean(REC_G + beta*(BCE_B + KLD_G))
-    
+
+
+    def count_params(self):
+        return sum(p.numel() for p in self.encoder_1.parameters() if p.requires_grad)
+
+
+    # Computes reconstruction loss
+    def recon(self, x_hat, x):
+        # print(f"x_hat: {x_hat.shape}")
+        # print(f"x: {x.shape}")
+        xhat_gauss_mu, xhat_gauss_sigma = torch.split(x_hat, x.shape[1], dim=1) 
+        std = torch.exp(xhat_gauss_sigma)
+        pxz = Normal(xhat_gauss_mu,  std)
+        E_log_pxz = -pxz.log_prob(x.to(self.device)).sum(dim=1)
+        return E_log_pxz
+

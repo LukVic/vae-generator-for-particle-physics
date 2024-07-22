@@ -38,24 +38,21 @@ class Encoder(nn.Module):
         
         self.body = nn.Sequential(*layers)
     
-    def encode(self, x):
-        scores = self.body(x)
-        mu, sigma = torch.split(scores, self.zdim, dim=1)
-        std = torch.exp(sigma)
-        return mu, std  
-
     def sample(self, mu, std):
         qz_gauss = torch.distributions.Normal(mu, std)
         z = qz_gauss.sample()
         return z, qz_gauss
     
-    def log_prob(self,z, mu, std):
+    def neg_log_prob(self,z, mu, std):
         qzx = Normal(mu,  std)
         logp_qzx = -qzx.log_prob(z).sum(dim=1)
         return logp_qzx, qzx
     
     def forward(self, x):
-        pass
+        scores = self.body(x)
+        mu, sigma = torch.split(scores, self.zdim, dim=1)
+        std = torch.exp(sigma)
+        return mu, std 
 
 class Decoder(nn.Module):
     def __init__(self, zdim, input_size, config:dict):
@@ -91,7 +88,17 @@ class Decoder(nn.Module):
         self.body = nn.Sequential(*layers)
 
 
-    def decode(self, z):
+    def sample(self, mu, std):
+        px_gauss = torch.distributions.Normal(mu, std)
+        x = px_gauss.sample()
+        return x, px_gauss
+    
+    def neg_log_prob(self,x, mu, std):
+        pxz = Normal(mu,  std)
+        logp_pxz = -pxz.log_prob(x).sum(dim=1)
+        return logp_pxz, pxz
+    
+    def forward(self, z):
         xhat = self.body(z)
         xhat_gauss = xhat[:, :-1]
         xhat_bernoulli = xhat[:,-1]
@@ -100,19 +107,6 @@ class Decoder(nn.Module):
         xhat_bernoulli = torch.sigmoid(xhat_bernoulli)
         return xhat_gauss_mu, xhat_gauss_std, xhat_bernoulli
     
-    def sample(self, mu, std):
-        px_gauss = torch.distributions.Normal(mu, std)
-        x = px_gauss.sample()
-        return x, px_gauss
-    
-    def log_prob(self,x, mu, std):
-        pxz = Normal(mu,  std)
-        logp_pxz = -pxz.log_prob(x).sum(dim=1)
-        return logp_pxz, pxz
-    
-    def forward(self, z):
-        pass
-
 class VAE(nn.Module):
     def __init__(self, zdim, device, input_size, config:dict):
         super(VAE, self).__init__()
@@ -129,14 +123,14 @@ class VAE(nn.Module):
     def forward(self, sample, step):
         sample = sample.to(self.device)
         if step == 1:         
-            mu, std = self.encoder.encode(sample)
+            mu, std = self.encoder(sample)
             z, qzx = self.encoder.sample(mu, std)  
             z = z.detach().clone()      
-            mu, std, p = self.decoder.decode(z)
+            mu, std, p = self.decoder(z)
             
             x_gauss = sample[:, :-1]
             x_bernoulli = sample[:, -1].to(torch.float32)
-            logp_pxz, pxz = self.decoder.log_prob(x_gauss, mu, std)
+            logp_pxz, pxz = self.decoder.neg_log_prob(x_gauss, mu, std)
             x_bernoulli = torch.sigmoid(x_bernoulli)   
             
             LOSS_G = logp_pxz
@@ -145,13 +139,13 @@ class VAE(nn.Module):
             #return torch.mean(LOSS_G) 
             
         elif step == 2:
-            mu_gauss, std_gauss, p_bernoulli = self.decoder.decode(sample)
+            mu_gauss, std_gauss, p_bernoulli = self.decoder(sample)
             x_gauss, pxz = self.decoder.sample(mu_gauss, std_gauss)
             x_bernoulli = torch.bernoulli(p_bernoulli)
             x = torch.cat((x_gauss, x_bernoulli.view(-1,1)), dim=1)
-            mu, std = self.encoder.encode(x.view(-1, self.input_size))
+            mu, std = self.encoder(x.view(-1, self.input_size))
 
-            logp_qzx, qzx = self.encoder.log_prob(sample, mu, std)
+            logp_qzx, qzx = self.encoder.neg_log_prob(sample, mu, std)
             LOSS = logp_qzx 
             
             return torch.mean(LOSS) 
