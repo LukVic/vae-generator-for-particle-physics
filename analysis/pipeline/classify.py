@@ -36,7 +36,6 @@ def classify():
     TYPE = gen_params['type']
     DEEP = gen_params['deep']
     AUGMENT = gen_params['augment']
-    LOOSE = gen_params['loose']
     ONE_MASS = gen_params['one_mass']
     MASS = gen_params['mass']
     
@@ -78,36 +77,21 @@ def classify():
             else: aug_fractions = [0.99]#[0.0, 0.2, 0.4, 0.6, 0.8, 0.99]
             for frac_aug in aug_fractions:
                 for deep in [False]:
-                    df_data_loose = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_LOOSE}.pkl')
                     df_data_strict = pd.read_pickle(f'{PATH_DATA}{FILE_DATA_STRICT}.pkl')
-                    df_data_loose = df_data_loose.sample(frac=1.0, random_state=seed)
-
                     
-                    #df_data_loose = df_data_loose[features_used + helper_features]
                     df_data_strict['tau_lep_charge_diff'] = df_data_strict['total_charge'] * df_data_strict['taus_charge_0']
                     df_data_strict = df_data_strict[features_used + helper_features]
                     
                     
-                    if ONE_MASS:
-                        df_data_loose = df_data_loose[(df_data_loose['sig_mass'] == 0) | (df_data_loose['sig_mass'] == MASS)]
-                        df_data_strict = df_data_strict[(df_data_strict['sig_mass'] == 0) | (df_data_strict['sig_mass'] == MASS)]
+                    if ONE_MASS: df_data_strict = df_data_strict[(df_data_strict['sig_mass'] == 0) | (df_data_strict['sig_mass'] == MASS)]
 
                     df_data_strict.loc[df_data_strict['y'] == 0, 'weight'] *= 0.403
                     print('SUM')
                     print(df_data_strict.loc[df_data_strict['y'] == 0, 'weight'].sum())
                     y_strict = df_data_strict['y']
                     X_strict = df_data_strict.drop(columns=['y'])
-                    # X_strict = X_strict.drop(columns=['total_charge'])
-                    # X_strict = X_strict.drop(columns=['lep_ID_1'])
-                    # X_strict = X_strict.drop(columns=['lep_ID_0'])
-                    # X_strict = X_strict.drop(columns=['taus_fromPV_0'])
-                    
-                    # df_data_loose = df_data_loose[df_data_loose['weight'] >= 0]
-                    # df_data_loose.loc[df_data_loose['y'] == 0, 'weight'] *= 0.005
-                    # y_loose = df_data_loose['y']
-                    # X_loose = df_data_loose.drop(columns=['y'])
+
                     X_train_strict, X_test_strict, y_train_strict, y_test_strict = train_test_split(X_strict, y_strict, test_size=0.01, stratify=X_strict['class'], random_state=seed)
-                    #X_train_loose, X_test_loose, y_train_loose, y_test_loose = train_test_split(X_loose, y_loose, test_size=0.1, random_state=42)
                     
                     # all_weight_sum = X_strict['weight'].sum()
                     # test_weight_sum = X_test_strict['weight'].sum()
@@ -129,37 +113,8 @@ def classify():
                     
                     df_test = pd.concat([X_test_strict, y_test_strict], axis=1)
                     
-                    
-                    smaller_set = set(zip(df_test['class'], df_test['row_number'], df_test['file_number']))
-                    filtered_df_bigger = df_data_loose[~df_data_loose[['class', 'row_number', 'file_number']].apply(tuple, axis=1).isin(smaller_set)]
-                    #print(df_data_loose.shape)
-                    df_data_loose = filtered_df_bigger
-                    #print(df_data_loose.shape)
-                    
-                    num_rows_train = X_train_strict[X_train_strict['class'] == 4].shape[0]
-                    num_rows_test = X_test_strict[X_test_strict['class'] == 4].shape[0]
-                    df_data_loose = df_data_loose[df_data_loose['weight'] >= 0]
-                    #df_data_loose.loc[df_data_loose['y'] == 0, 'weight'] *= 0.1/0.11016105860471725
-                    
-                    filtered_values = df_data_loose.loc[df_data_loose['y'] == 0, 'weight']
-
-                    y_loose = df_data_loose['y']
-                    
-                    X_loose = df_data_loose.drop(columns=['y'])
-                    # # X_loose = X_loose.drop(columns=['total_charge'])
-                    # # X_loose = X_loose.drop(columns=['lep_ID_1'])
-                    # # X_loose = X_loose.drop(columns=['lep_ID_0'])
-                    # # X_loose = X_loose.drop(columns=['taus_fromPV_0'])
-
-                    X_train_loose = X_loose
-                    y_train_loose = y_loose
-                    
-                    if LOOSE:
-                        X_train = X_train_loose
-                        y_train = y_train_loose
-                    else:
-                        X_train = X_train_strict
-                        y_train = y_train_strict
+                    X_train = X_train_strict
+                    y_train = y_train_strict
                     
                     df_train = pd.concat([X_train, y_train], axis=1)
                     
@@ -171,11 +126,9 @@ def classify():
                     y_test = y_test_strict
                     
                     X_train = X_train.drop(columns=['sig_mass', 'row_number', 'weight', 'class', 'file_number'])
-                    #X_train = X_train.drop(columns=['nJets_OR', 'sumPsbtag', 'lep_ID_0', 'lep_ID_1'])
                     
                     weight = X_test['weight']
                     X_test = X_test.drop(columns=['sig_mass', 'row_number', 'weight', 'class', 'file_number'])
-                    #X_test = X_test.drop(columns=['nJets_OR', 'sumPsbtag', 'lep_ID_0', 'lep_ID_1'])
                     
                     # X_test = None
                     # y_test = None
@@ -196,27 +149,6 @@ def classify():
                                 df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_pres_strict_E20000_S{events_bkg}_{TYPE}.csv')   
                             
                             df_generated = df_generated.sample(frac=frac_aug, random_state=seed)
-                            # with open(f'/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/data/test_dataset/MiniBooNE_PID.txt', 'r') as file:
-                            #     lines = file.readlines()
-
-                            # counts = lines[0].strip().split()
-                            # positive_count = int(counts[0])
-                            # negative_count = int(counts[1])
-                            
-                            # data = []
-                            # class_labels = []
-                            # for idx, line in enumerate(lines[1:]):
-                            #     data_floats = [float(x) for x in line.split()]
-                            #     data.append(data_floats)
-                            #     # Assign class labels based on the counts
-                            #     if len(class_labels) < positive_count:
-                            #         class_labels.append(1)
-                            #     else:
-                            #         class_labels.append(0)
-                            # column_names = [f'Column{i}' for i in range(1, len(data[0])+1)]
-                            # df = pd.DataFrame(data, columns=column_names)  
-                            # df['y'] = class_labels
-                            # df_augment_train = df
                             df_augment_train = pd.concat([df_augment_train, df_generated])
                         
                         
