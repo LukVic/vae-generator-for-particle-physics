@@ -214,8 +214,6 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
     return predicted_train.cpu(), F.softmax(outputs_train, dim=1).cpu(), predicted_test.cpu(), F.softmax(outputs_test, dim=1).cpu(), best_accuracy, params
 
 def count_parameters(model):
-    # for p in model.parameters():
-    #     print(p.numel())
     return sum(p.numel() for p in model.parameters() if p.requires_grad) 
 
 def signif_loss(inputs, outputs, labels):

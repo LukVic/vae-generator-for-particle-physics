@@ -13,15 +13,13 @@ from sklearn.preprocessing import MinMaxScaler
 from dataloader import load_config
 
 def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset, features_list):
-    
-    
     # Chose if generate new samples of just regenerate the simulated ones
     SAMPLING = 'generate' #regenerate
     print(dataset.shape)
 
     SAMPLES_NUM = dataset.shape[0] # Size of the generated dataset
     #SAMPLES_NUM = 5000000
-    
+    batch_size = SAMPLES_NUM # Number of samples by batch
     
     gen_params = load_config(PATH_JSON)['generate']['general']
     latent_dimension = gen_params["latent_size"]
@@ -29,11 +27,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     model = torch.load(PATH_MODEL)
     model.eval()
     
-    
     data_array = np.empty((0, dataset.shape[1]), dtype=np.float32)
-    
-    
-    batch_size = SAMPLES_NUM # Number of samples by batch
     latent_samples = []
     
     start_time = time.time()
