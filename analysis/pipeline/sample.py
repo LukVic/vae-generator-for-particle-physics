@@ -10,8 +10,7 @@ import json
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 
-from feature_transform import tan_to_angle
-
+from dataloader import load_config
 
 def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset, features_list):
     
@@ -24,15 +23,12 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     #SAMPLES_NUM = 5000000
     
     
-    with open(f"{PATH_JSON}", 'r') as json_file:
-        conf_dict = json.load(json_file)
-    gen_params = conf_dict["general"]
+    gen_params = load_config(PATH_JSON)['generate']['general']
+    latent_dimension = gen_params["latent_size"]
     
     model = torch.load(PATH_MODEL)
     model.eval()
     
-    
-    latent_dimension = gen_params["latent_size"]
     
     data_array = np.empty((0, dataset.shape[1]), dtype=np.float32)
     

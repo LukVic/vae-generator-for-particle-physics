@@ -10,13 +10,13 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         self.zdim = zdim
         self.input_size = input_size
-        self.config = config
+        self.conf_general_encode = config["generate"]["encoder"]
         
-        layer_num = config["encoder"]["layer_num"]
-        arch = config["encoder"]["architecture"]
-        bNorm = config["encoder"]["batchNorm"]
-        relu = config["encoder"]["relu"]
-        drop = config["encoder"]["dropout"]
+        layer_num = self.conf_general_encode["layer_num"]
+        arch = self.conf_general_encode["architecture"]
+        bNorm = self.conf_general_encode["batchNorm"]
+        relu = self.conf_general_encode["relu"]
+        drop = self.conf_general_encode["dropout"]
         
         layers = []
         for idx in range(layer_num):
@@ -60,13 +60,13 @@ class Encoder_Linear(nn.Module):
         super(Encoder_Linear, self).__init__()
         self.zdim = zdim
         self.input_size = input_size
-        self.config = config
+        self.conf_general_encode = config["generate"]["encoder"]
         
-        layer_num = config["encoder_linear"]["layer_num"]
-        arch = config["encoder_linear"]["architecture"]
-        bNorm = config["encoder_linear"]["batchNorm"]
-        relu = config["encoder_linear"]["relu"]
-        drop = config["encoder_linear"]["dropout"]
+        layer_num = self.conf_general_encode["layer_num"]
+        arch = self.conf_general_encode["architecture"]
+        bNorm = self.conf_general_encode["batchNorm"]
+        relu = self.conf_general_encode["relu"]
+        drop = self.conf_general_encode["dropout"]
         
         
         layers = []
@@ -98,13 +98,13 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.zdim = zdim
         self.input_size = input_size
-        self.config = config
+        self.conf_general_encode = config["generate"]["encoder"]
         
-        layer_num = config["decoder"]["layer_num"]
-        arch = config["decoder"]["architecture"]
-        bNorm = config["decoder"]["batchNorm"]
-        relu = config["decoder"]["relu"]
-        drop = config["decoder"]["dropout"]
+        layer_num = self.conf_general_encode["layer_num"]
+        arch = self.conf_general_encode["architecture"]
+        bNorm = self.conf_general_encode["batchNorm"]
+        relu = self.conf_general_encode["relu"]
+        drop = self.conf_general_encode["dropout"]
         
         layers = []
         for idx in range(layer_num):
@@ -152,13 +152,13 @@ class Deterministic_encoder(nn.Module):
         super(Deterministic_encoder, self).__init__()
         self.r_size = r_size
         self.input_size = input_size
-        self.config = config
+        self.conf_general_encode = config["generate"]["encoder"]
         
-        layer_num = config["encoder_deterministic"]["layer_num"]
-        arch = config["encoder_deterministic"]["architecture"]
-        bNorm = config["encoder_deterministic"]["batchNorm"]
-        relu = config["encoder_deterministic"]["relu"]
-        drop = config["encoder_deterministic"]["dropout"]
+        layer_num = self.conf_general_encode["layer_num"]
+        arch = self.conf_general_encode["architecture"]
+        bNorm = self.conf_general_encode["batchNorm"]
+        relu = self.conf_general_encode["relu"]
+        drop = self.conf_general_encode["dropout"]
         
         layers = []
         for idx in range(layer_num):
