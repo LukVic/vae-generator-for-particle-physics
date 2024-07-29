@@ -12,6 +12,7 @@ The preprocessing part has to be done on the lxplus server since the root ntuple
 ```markdown
 ```python
 python preprocess_rdf.py
+```
 the script runs the script that produces preprocessed data suitable for training of the generator and classifier.
 
 ## On private machine
