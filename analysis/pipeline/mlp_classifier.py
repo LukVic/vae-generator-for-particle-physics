@@ -1,3 +1,5 @@
+import sys
+sys.path.append("/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/agent")
 import csv
 import pandas as pd
 import numpy as np
@@ -8,15 +10,17 @@ import torch.optim as optim
 import torch.nn.init as init
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
-from sklearn.datasets import load_iris
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
-
-
+from dataloader import load_config
+from architecture_mlp import MLP
 
 def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights):
+    
+    PATH_JSON = f'../config/' # config path
+    mlp_params = load_config(PATH_JSON)['classify']['mlp'] # general parameters for the classification part 
+    
     torch.manual_seed(0)
     
     features = X_train.columns.tolist()
@@ -32,11 +36,10 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
 
 
     input_dim = X_train.shape[1]
-    hidden_dim = 2048
     output_dim = len(set(y_train))
-    lr = 1e-04
+    lr = mlp_params['lr']
 
-    model = MLP(input_dim, hidden_dim, output_dim).cuda()
+    model = MLP(input_dim, output_dim).cuda()
 
     #class_weights = torch.tensor([1.0, 1.0]).cuda()
     criterion = nn.BCELoss()#CrossEntropyLoss()
@@ -47,16 +50,17 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
     optimizer = optim.Adam(model.parameters(), lr=lr)
     best_val_loss = np.inf
     epochs_without_improvement = 0
-    patience = 30
-    eps = 1e-3
+    warm_up = mlp_params["warm_up"]
+    patience = mlp_params["patience"]
+    eps = mlp_params["eps"]
     
     best_model_params = None
     
     train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
     val_dataset = TensorDataset(X_test_tensor, y_test_tensor)
 
-    train_loader = DataLoader(train_dataset, batch_size=2048*3, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=2048*3, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=2048, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False)
 
     trn_loss_history = []
     val_loss_history = []
@@ -72,7 +76,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
 
     best_accuracy = 0
 
-    epochs = 1000
+    epochs = mlp_params['epochs']
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
@@ -89,10 +93,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
             outputs = model(inputs)
             outputs = torch.sigmoid(outputs)
             labels_one_hot = F.one_hot(labels, num_classes=2).float().cuda()
-            loss_1 = criterion(outputs, labels_one_hot)
-            loss_2 = signif_loss(inputs, outputs, labels)
-
-            loss = loss_1  # loss_2
+            loss = criterion(outputs, labels_one_hot)
 
             optimizer.zero_grad()
 
@@ -172,7 +173,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
             epochs_without_improvement = 0
         else:
             epochs_without_improvement += 1
-            if epochs_without_improvement >= patience and epoch > 20:
+            if epochs_without_improvement >= patience and epoch > warm_up:
                 print(f'Early stopping at epoch {epoch+1}')
                 break
         
@@ -189,8 +190,6 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
     loss = criterion(outputs, labels_one_hot)
     grads = grad(loss, inputs)[0]
     
-    
-
     feature_vals = torch.abs(grads).mean(dim=0)
 
     print("Feature Importance:")
@@ -215,27 +214,6 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad) 
-
-def signif_loss(inputs, outputs, labels):
-
-    y_pred_probs_normalized = outputs / torch.sum(outputs, dim=1, keepdim=True)
-    y_pred_labels_5 = (y_pred_probs_normalized[:, 1] > 0.5).long()
-    y_pred_labels_3 = (y_pred_probs_normalized[:, 1] > 0.3).long()
-    y_pred_labels_9 = (y_pred_probs_normalized[:, 1] > 0.9).long()
-
-    TP = torch.sum((y_pred_labels_5 == 1) & (labels == 1)).float()
-    FP = torch.sum((y_pred_labels_5 == 1) & (labels == 0)).float()
-    signif_5 = (TP/torch.sqrt(FP + 1e-10)).requires_grad_(True)
-    
-    TP = torch.sum((y_pred_labels_3 == 1) & (labels == 1)).float()
-    FP = torch.sum((y_pred_labels_3 == 1) & (labels == 0)).float()
-    signif_3 = (TP/torch.sqrt(FP + 1e-10)).requires_grad_(True)
-    
-    TP = torch.sum((y_pred_labels_9 == 1) & (labels == 1)).float()
-    FP = torch.sum((y_pred_labels_9 == 1) & (labels == 0)).float()
-    signif_9 = (TP/torch.sqrt(FP + 1e-10)).requires_grad_(True)
-    
-    return -torch.log(signif_3 + signif_5 + signif_9)
 
 
 def plot_loss(loss_vals_trn, loss_vals_val, acc_vals_trn, acc_vals_val, pre_vals_trn, pre_vals_val, sig_vals_trn, sig_vals_val, frac_sim, frac_gen, lr, epochs, params):
@@ -338,75 +316,3 @@ def save_best_features(top_features):
     print(f"The list has been saved to {PATH+FILE}.")
     
 
-class MLP(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim):
-        super(MLP, self).__init__()
-        # self.layers = nn.Sequential(
-        #     nn.Linear(input_dim, 512),
-        #     nn.BatchNorm1d(512),
-        #     nn.ReLU(),
-        #     nn.Linear(512, 1024),
-        #     nn.BatchNorm1d(1024),
-        #     nn.ReLU(),
-        #     nn.Linear(1024, 2048),
-        #     nn.BatchNorm1d(2048),
-        #     nn.ReLU(),
-        #     nn.Linear(2048, 1024),
-        #     nn.BatchNorm1d(1024),
-        #     nn.ReLU(),
-        #     nn.Linear(1024, output_dim)
-        # )
-        self.layers = nn.Sequential(
-            nn.Linear(input_dim, 256),
-            nn.BatchNorm1d(256),
-            nn.ReLU(),
-            #nn.Dropout(0.1),
-            nn.Linear(256, 256),
-            nn.BatchNorm1d(256),
-            nn.ReLU(),
-            #nn.Dropout(0.1),
-            nn.Linear(256, output_dim)
-        )
-        # self.layers = nn.Sequential(
-        #     nn.Linear(input_dim, 64),
-        #     nn.BatchNorm1d(64),
-        #     nn.ReLU(),
-        #     #nn.Dropout(0.1),
-        #     nn.Linear(64, output_dim)
-        # )
-        # self.layers = nn.Sequential(
-        #     nn.Linear(input_dim, 256),
-        #     nn.BatchNorm1d(256),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.3),  # Add dropout layer
-        #     nn.Linear(256, 256),
-        #     nn.BatchNorm1d(256),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.3),  # Add dropout layer
-        #     nn.Linear(256, output_dim)
-        # )
-        # self.layers = nn.Sequential(
-        #     nn.Linear(input_dim, 512),
-        #     nn.BatchNorm1d(512),
-        #     nn.ReLU(),
-        #     # nn.Dropout(0.1),
-        #     nn.Linear(512, 256),
-        #     nn.BatchNorm1d(256),
-        #     nn.ReLU(),
-        #     # nn.Dropout(0.1),
-        #     nn.Linear(256, 128),
-        #     nn.BatchNorm1d(128),
-        #     nn.ReLU(),
-        #     # nn.Dropout(0.1),
-        #     nn.Linear(128, 64),
-        #     nn.BatchNorm1d(64),
-        #     nn.ReLU(),
-        #     # nn.Dropout(0.1),
-        #     nn.Linear(64, output_dim)
-        # )
-        # for layer in self.layers:
-        #     if isinstance(layer, nn.Linear):
-        #         init.xavier_uniform_(layer.weight)
-        
-    def forward(self, x):
-        return self.layers(x)

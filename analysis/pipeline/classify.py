@@ -12,6 +12,7 @@ from correlation import *
 from optimize import optimize
 from dataloader import load_config, load_features
 from train import train_model
+from friends import friend_output
 
 def classify():
     PATH_JSON = f'../config/' # config path
@@ -51,12 +52,15 @@ def classify():
     
     df_data = pd.read_pickle(f'{PATH_DATA}{FILE_DATA}.pkl')
     
+
     #df_data['tau_lep_charge_diff'] = df_data['total_charge'] * df_data['taus_charge_0']
     df_data = df_data[features_used + helper_features]
     
     # keep only events corresponding to the given mass + background
     if ONE_MASS: df_data = df_data[(df_data['sig_mass'] == 0) | (df_data['sig_mass'] == MASS)]
 
+    print(len(set(df_data['file_number'])))
+    
     df_data.loc[df_data['y'] == 0, 'weight'] *= 0.403
     print('WEIGHT SUM:', df_data.loc[df_data['y'] == 0, 'weight'].sum())
 
@@ -92,6 +96,7 @@ def classify():
                     
                     weight = X_test['weight']
                     X_train = X_train.drop(columns=list(set(helper_features)-set(['y'])))
+                    file_number = X_test['file_number']
                     X_test = X_test.drop(columns=list(set(helper_features)-set(['y'])))
                     
                     # Optuna used to optimize hyperparameters
@@ -114,8 +119,7 @@ def classify():
                             df_generated = df_generated.sample(frac=frac_aug, random_state=seed)
                             df_augment_train = pd.concat([df_augment_train, df_generated])
                         
-                        if gen_params['train_aug_only']: df_train_all = df_augment_train
-                        else: df_train_all = pd.concat([df_train, df_augment_train])
+                        df_train_all = df_augment_train if gen_params['train_aug_only'] else pd.concat([df_train, df_augment_train])
                         
                         if METRICES:
                             # #wrap_prdc(X_test_strict, df_train)        
@@ -134,6 +138,7 @@ def classify():
                         
                         y_train = df_train_all['y']
                         X_train = df_train_all.drop(columns=gen_params['helper_features'])
+
                     
                     print(f"SHAPE OF THE TRAINING DATASET: {X_train.shape}")
                     print(f"SHAPE OF THE TESTING DATASET: {X_test.shape}")
@@ -143,14 +148,8 @@ def classify():
                     #     model = joblib.load(f'{PATH_DATA}xgboost_model_trained_pres.pkl')
                     # else:
 
-                
-                    #y_pred_train, y_pred_proba_train , y_pred_test, y_pred_proba_test = None, None, None, None
-                    
                     accuracy_test = 0
                     params = 2
-                    
-                    
-
                     
                     if deep:
                         y_pred_train, y_pred_proba_train, y_pred_test, y_pred_proba_test, accuracy_test, params  = mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_aug, None)
@@ -164,6 +163,12 @@ def classify():
                         y_pred_test = model.predict(X_test)
                         y_pred_proba_test = model.predict_proba(X_test)
                     
+
+                    output_df = pd.DataFrame(file_number)
+                    output_df['probs'] = np.array(y_pred_proba_test[:, 0])
+                    output_df['y'] = y_test
+
+                    friend_output(output_df)
                     
                     accuracy_train = accuracy_score(y_train, y_pred_train)
                     f1_train = f1_score(y_train, y_pred_train, average='macro')
