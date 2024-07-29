@@ -8,11 +8,11 @@ In this project, we augmented Monte-Carlo simulated data for charged Higgs boson
 
 ## Usage
 ### On lxplus
-The preprocessing part has to be done on the lxplus server since the root ntuples are to large too be copied. The command
+The preprocessing part has to be done on the lxplus server since the root ntuples are too large to be copied. The command
 ```python
 python preprocess_rdf.py
 ```
-the script runs the script that produces preprocessed data suitable for training of the generator and classifier.
+runs the script that produces preprocessed data suitable for the training of the generator and classifier.
 
 ## On private machine
 
