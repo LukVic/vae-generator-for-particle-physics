@@ -12,8 +12,11 @@ The preprocessing part has to be done on the lxplus server since the root ntuple
 ```python
 python preprocess_rdf.py
 ```
-runs the script that produces preprocessed data suitable for the training of the generator and classifier.
-
+runs the script that produces preprocessed data suitable for the training of the generator and classifier. To produce a dataset with combined signal masses one can use
+```python
+python dataset_combine.py
+```
+command.
 ## On private machine
 
 
