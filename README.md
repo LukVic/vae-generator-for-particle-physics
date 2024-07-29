@@ -21,7 +21,11 @@ python dataset_combine.py
 command.
 
 ## On private machine
-
+To prepare two datasets for binary classification where all the backgrounds are conflated into one the 
+```python
+python classification_preprocess.py
+```
+can be run.
 
 ### Data augmentation
 One of the approaches listed below can be chosen to generate new artificial samples.
@@ -31,6 +35,7 @@ Implemented generative models:
   -  Standard VAE with Symmetric Equilibrium Learning
   -  Ladder VAE with Symmetric Equilibrium Learning
   -  Deep Diffusion Generative Model (Still in progress) 
+
 The command
 ```python
 python generate.py
