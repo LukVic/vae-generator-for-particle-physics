@@ -45,4 +45,8 @@ can be used to generate an arbitrary number of new samples. Separated sampling c
 Implemented classifiers:
  - MLP
  - XGboost
-
+The command
+```python
+python classify.py
+```
+runs the classification with the chosen parameters. The classification process offers a significant number of options which will be explained in the following updates.
