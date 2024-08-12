@@ -25,7 +25,8 @@ def classify():
     ONE_MASS = gen_params['one_mass'] # if only one mass considered for classification
     MASS = gen_params['mass'] # which mass is used
     METRICES = gen_params['metrices']
-
+    OUTPUT_CONFLATE = gen_params['output_conflate']
+    
     SPLIT_SEED = gen_params['split_seed'] # array of seeds used for cross validation
 
     # simulated data fractions
@@ -165,10 +166,12 @@ def classify():
                     
 
                     output_df = pd.DataFrame(file_number)
+                    
                     output_df['probs'] = np.array(y_pred_proba_test[:, 0])
                     output_df['y'] = y_test
+                    
 
-                    friend_output(output_df)
+                    friend_output(output_df, X_test, OUTPUT_CONFLATE)
                     
                     accuracy_train = accuracy_score(y_train, y_pred_train)
                     f1_train = f1_score(y_train, y_pred_train, average='macro')
