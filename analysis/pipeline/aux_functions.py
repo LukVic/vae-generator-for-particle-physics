@@ -18,6 +18,31 @@ import csv
             
 #         elif label == 0:
 
+def mass_to_num(mass):
+    num = {
+        'tbh_250_new': 1,
+        'tbh_800_new': 2,
+        'tbh_3000_new': 3,
+        'tbh_300': 4,
+        'tbh_800': 5,
+        'tbh_1500': 6,
+        'tbh_2000': 7
+        }[mass]
+    return num
+
+def num_to_mass(num):
+    mass = {
+        1: 'tbh_250_new',
+        2: 'tbh_800_new',
+        3: 'tbh_3000_new',
+        4: 'tbh_300',
+        5: 'tbh_800',
+        6: 'tbh_1500',
+        7: 'tbh_2000'
+    }[num]
+    return mass
+    
+
 def plot_ouput(weight, y_true, y_probs, PATH_RESULTS):
     print(weight)
     plt.clf()

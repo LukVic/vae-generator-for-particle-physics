@@ -4,7 +4,6 @@ import joblib
 import umap
 import confmatrix_prettyprint as cm
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import label_binarize
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix, auc, roc_curve, precision_score
 from aux_functions import *
 from mlp_classifier import *
@@ -13,6 +12,7 @@ from optimize import optimize
 from dataloader import load_config, load_features
 from train import train_model
 from friends import friend_output
+from aux_functions import num_to_mass, mass_to_num
 
 def classify():
     PATH_JSON = f'../config/' # config path
@@ -23,9 +23,7 @@ def classify():
     DEEP = gen_params['deep'] # gbdt or mlp
     AUGMENT = gen_params['augment'] # add artificial data
     ONE_MASS = gen_params['one_mass'] # if only one mass considered for classification
-    MASS = gen_params['mass'] # which mass is used
     METRICES = gen_params['metrices']
-    OUTPUT_CONFLATE = gen_params['output_conflate']
     
     SPLIT_SEED = gen_params['split_seed'] # array of seeds used for cross validation
 
@@ -47,7 +45,7 @@ def classify():
     features_used = load_features(PATH_FEATURES, FEATURES_FILE) # read features from the csv file
 
     # classes = { 0: 'tbh_all', 1: 'tth', 2: 'ttw', 3: 'ttz', 4: 'tt' }
-    classes = { 0: 'tbh_800', 1: 'bkg_all' }
+    classes = { 0: gen_params['sig_mass_label'], 1: 'bkg_all' }
     logg = gen_params["logg"]
     model = None
     
@@ -57,17 +55,15 @@ def classify():
     #df_data['tau_lep_charge_diff'] = df_data['total_charge'] * df_data['taus_charge_0']
     df_data = df_data[features_used + helper_features]
     
+    print(set(df_data['sig_mass']))
     # keep only events corresponding to the given mass + background
-    if ONE_MASS: df_data = df_data[(df_data['sig_mass'] == 0) | (df_data['sig_mass'] == MASS)]
+    if ONE_MASS: df_data = df_data[(df_data['sig_mass'] == 0) | (df_data['sig_mass'] == mass_to_num(gen_params['sig_mass_label']))]
 
-    print(len(set(df_data['file_number'])))
-    
     df_data.loc[df_data['y'] == 0, 'weight'] *= 0.403
     print('WEIGHT SUM:', df_data.loc[df_data['y'] == 0, 'weight'].sum())
 
     y = df_data['y']
     X = df_data.drop(columns=['y'])
-    
     
     for seed in SPLIT_SEED:
         if logg: 
@@ -78,7 +74,7 @@ def classify():
             for frac_aug in aug_fractions:
                 for deep in DEEP:
                     
-                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, stratify=X['class'], random_state=seed)
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=X['class'], random_state=seed)
                     
                     df_test = pd.concat([X_test, y_test], axis=1)
                     df_train = pd.concat([X_train, y_train], axis=1)
@@ -98,6 +94,7 @@ def classify():
                     weight = X_test['weight']
                     X_train = X_train.drop(columns=list(set(helper_features)-set(['y'])))
                     file_number = X_test['file_number']
+                    reaction = X_test['class'] 
                     X_test = X_test.drop(columns=list(set(helper_features)-set(['y'])))
                     
                     # Optuna used to optimize hyperparameters
@@ -109,11 +106,11 @@ def classify():
                     #! DATA AUGMENTATION
                     if AUGMENT:
                         events_dict = { 
-                        'tbh_800_new': X[X['sig_mass'] != 0].shape[0], #10449
+                        gen_params['sig_mass_label']: X[X['sig_mass'] != 0].shape[0], #10449
                         'bkg_all': X[X['sig_mass'] == 0].shape[0] #27611
                         }
                         df_augment_train = pd.DataFrame()
-                        for cl in ['tbh_800_new','bkg_all']:
+                        for cl in [gen_params['sig_mass_label'],'bkg_all']:
                             PATH_GEN_MODEL = f'../data/{cl}_input/'
                             df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_pres_strict_E20000_S{events_dict[cl]}_{TYPE}.csv')
 
@@ -167,11 +164,13 @@ def classify():
 
                     output_df = pd.DataFrame(file_number)
                     
-                    output_df['probs'] = np.array(y_pred_proba_test[:, 0])
-                    output_df['y'] = y_test
+                    output_df['y_proba'] = np.array(y_pred_proba_test[:, 0])
+                    print(set(reaction))
+                    output_df['y'] = reaction
+                    output_df['weight'] = weight
                     
 
-                    friend_output(output_df, X_test, OUTPUT_CONFLATE)
+                    friend_output(output_df, X_test, gen_params)
                     
                     accuracy_train = accuracy_score(y_train, y_pred_train)
                     f1_train = f1_score(y_train, y_pred_train, average='macro')

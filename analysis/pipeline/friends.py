@@ -1,30 +1,47 @@
-import uproot
-import pandas as pd
 import ROOT
+import uproot
+import numpy as np
+import pandas as pd
 
-def friend_output(df_output_trex: pd.DataFrame, df_features: pd.DataFrame, conflate: bool):
+
+def friend_output(df_output_trex: pd.DataFrame, df_features: pd.DataFrame, gen_params):
     file_path = '../data/output_trex/'
 
-    if conflate:
+    if gen_params['output_conflate']:
         df_merged = pd.concat([df_features, df_output_trex], axis=1)
         print(df_merged.columns)
         df_merged = df_merged.drop(columns='file_number')
-        
+
         # Convert DataFrame to a dictionary of NumPy arrays
         data_dict = {col: df_merged[col].values for col in df_merged.columns}
-        
-        # Create RDataFrame from the NumPy dictionary
-        rdf = ROOT.RDF.FromNumpy(data_dict)
-        
-        # Create a ROOT file to save the histograms
-        output_file = ROOT.TFile(f'{file_path}tbh_800_new_limit.root', "RECREATE")
-        
+
+        # Create a ROOT file to save the tree
+        output_file = ROOT.TFile(f'{file_path}{gen_params["sig_mass_label"]}_limit.root', "RECREATE")
+
+        # Create a TTree named "nominal"
+        tree = ROOT.TTree("nominal", "nominal")
+
+        # Create branches in the tree for each column in the DataFrame
+        branches = {}
         for col in df_merged.columns:
-            # Define a histogram for each column (you can adjust the binning)
-            min_val = df_merged[col].min()
-            max_val = df_merged[col].max() + 1/100 * df_merged[col].max()
-            hist = rdf.Histo1D((col, col, 100, min_val, max_val), col)
-            hist.Write()  # Write the histogram to the ROOT file
+            # Determine the type of each column
+            if df_merged[col].dtype == np.float64 or df_merged[col].dtype == np.float32:
+                branches[col] = np.zeros(1, dtype=np.float64)
+                tree.Branch(col, branches[col], f"{col}/D")
+            elif df_merged[col].dtype == np.int32 or df_merged[col].dtype == np.int64:
+                branches[col] = np.zeros(1, dtype=np.int32)
+                tree.Branch(col, branches[col], f"{col}/I")
+            else:
+                raise TypeError(f"Unsupported data type for column {col}")
+
+        # Fill the tree
+        for i in range(len(df_merged)):
+            for col in df_merged.columns:
+                branches[col][0] = data_dict[col][i]
+            tree.Fill()
+
+        # Write the tree to the ROOT file
+        tree.Write()
 
         # Close the ROOT file
         output_file.Close()
