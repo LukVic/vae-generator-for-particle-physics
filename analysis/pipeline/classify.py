@@ -51,7 +51,6 @@ def classify():
     
     df_data = pd.read_pickle(f'{PATH_DATA}{FILE_DATA}.pkl')
     
-
     #df_data['tau_lep_charge_diff'] = df_data['total_charge'] * df_data['taus_charge_0']
     df_data = df_data[features_used + helper_features]
     
