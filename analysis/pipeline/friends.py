@@ -15,8 +15,10 @@ def friend_output(df_output_trex: pd.DataFrame, df_features: pd.DataFrame, gen_p
         # Convert DataFrame to a dictionary of NumPy arrays
         data_dict = {col: df_merged[col].values for col in df_merged.columns}
 
+
         # Create a ROOT file to save the tree
-        output_file = ROOT.TFile(f'{file_path}{gen_params["sig_mass_label"]}_limit.root', "RECREATE")
+        if gen_params['augment']: output_file = ROOT.TFile(f'{file_path}{gen_params["sig_mass_label"]}_aug_limit.root', "RECREATE")    
+        else: output_file = ROOT.TFile(f'{file_path}{gen_params["sig_mass_label"]}_limit.root', "RECREATE")
 
         # Create a TTree named "nominal"
         tree = ROOT.TTree("nominal", "nominal")
@@ -66,7 +68,3 @@ def friend_output(df_output_trex: pd.DataFrame, df_features: pd.DataFrame, gen_p
             with uproot.create(f'{file_path}{name}_friend.root') as file:
                 file["nominal"] = branches
         
-    exit()
-
-
-    

@@ -19,7 +19,7 @@ from dataloader import load_config, load_features
 
 def main():        
     #classes = {'tbh_800': 0, 'tth' : 1, 'ttw': 1, 'ttz' : 1, 'tt' : 1} # multinomimal classification dict
-    classes = {'tbh_800_new': 0, 'bkg_all': 1} # binary classification dict
+    classes = {'tbh_3000_new': 0, 'bkg_all': 1} # binary classification dict
     
     PATH_JSON = f'../config/' # config path
     # load the general parameters
@@ -57,6 +57,7 @@ def main():
 
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv') # load training data
     #df['tau_lep_charge_diff'] = df['total_charge'] * df['taus_charge_0'] # substitute total_charge by tau_lep_charge_diff
+    
     
     df = df.drop(columns=['weight', 'row_number']) # remove auxiliary columns
     features = load_features(PATH_FEATURES, FEATURES_FILE)

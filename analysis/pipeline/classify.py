@@ -58,8 +58,10 @@ def classify():
     # keep only events corresponding to the given mass + background
     if ONE_MASS: df_data = df_data[(df_data['sig_mass'] == 0) | (df_data['sig_mass'] == mass_to_num(gen_params['sig_mass_label']))]
 
+
     df_data.loc[df_data['y'] == 0, 'weight'] *= 0.403
     print('WEIGHT SUM:', df_data.loc[df_data['y'] == 0, 'weight'].sum())
+
 
     y = df_data['y']
     X = df_data.drop(columns=['y'])
@@ -111,7 +113,7 @@ def classify():
                         df_augment_train = pd.DataFrame()
                         for cl in [gen_params['sig_mass_label'],'bkg_all']:
                             PATH_GEN_MODEL = f'../data/{cl}_input/'
-                            df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_pres_strict_E20000_S{events_dict[cl]}_{TYPE}.csv')
+                            df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_pres_strict_E40000_S{events_dict[cl]}_{TYPE}.csv')
 
                             df_generated = df_generated.sample(frac=frac_aug, random_state=seed)
                             df_augment_train = pd.concat([df_augment_train, df_generated])
@@ -229,11 +231,12 @@ def classify():
             
         with open(LOG_FILE_PATH, 'a') as file:
             file.write(f']\n')
-
+        exit()
 
 
 def main():
     classify()
+
 
 if __name__ == "__main__":
     main()
