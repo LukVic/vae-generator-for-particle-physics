@@ -11,7 +11,6 @@ def friend_output(df_output_trex: pd.DataFrame, df_features: pd.DataFrame, gen_p
     
     if gen_params['output_conflate']:
         df_merged = pd.concat([df_features, df_output_trex], axis=1)
-        print(df_merged.columns)
         df_merged = df_merged.drop(columns='file_number')
 
         # Convert DataFrame to a dictionary of NumPy arrays

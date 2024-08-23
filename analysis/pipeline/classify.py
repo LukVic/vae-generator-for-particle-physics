@@ -167,7 +167,6 @@ def classify():
                     output_df = pd.DataFrame(file_number)
                     
                     output_df['y_proba'] = np.array(y_pred_proba_test[:, 0])
-                    print(set(reaction))
                     output_df['y'] = reaction
                     output_df['weight'] = weight
                     
@@ -178,6 +177,8 @@ def classify():
                     f1_train = f1_score(y_train, y_pred_train, average='macro')
                     auc_train = roc_auc_score(y_train, y_pred_proba_train[:,0], average='macro')
                     precision_train = precision_score(y_train, y_pred_train)
+                    
+                    print("CLASSIFICATION PERFORMANCE: ")
                     
                     print("Accuracy train:", accuracy_train)
                     print("f1 train:", f1_train)
@@ -193,7 +194,7 @@ def classify():
                     print("f1 test:", f1_test)
                     print("AUC test:", auc_test)
                     print("Precision test:", precision_test)
-                    
+                    print()
                     joblib.dump(model,PATH_MODEL)
                     
                     plot_roc_multiclass('XGB'+'_%s test (20%% of %s)' % ('', 'tbH 800'), y_test, y_pred_proba_test, classes,
@@ -228,7 +229,7 @@ def classify():
                             # line_to_write = f'\'DEEP: {deep} | FRS: {frac_sim:.1f} | FRG: {frac_aug:.1f} | PREC TR: {precision_train:.5f} | PREC TE: {precision_test:.5f} | ACC TR: {accuracy_train:.5f} | ACC TE: {accuracy_test:.5f} | SIGT: {best_signif_true:.5f} | SIGS: {best_signif_simp:.5f} | BS: {bs:.5f} | BB: {bb:.5f} | W. RAT: {all_weight_sum/test_weight_sum:.5f} | PARAMS: {params}\',\n'
                             line_to_write = f'\'DEEP: {deep} | FRS: {frac_sim:.1f} | FRG: {frac_aug:.1f} | PREC TR: {precision_train:.5f} | PREC TE: {precision_test:.5f} | ACC TR: {accuracy_train:.5f} | ACC TE: {accuracy_test:.5f} | SIGT: {best_signif_true:.5f} | SIGS: {best_signif_simp:.5f} | BS: {bs:.5f} | BB: {bb:.5f} | PARAMS: {params}\',\n'
                             file.write(line_to_write)
-                    print("FINISHED")
+                    print("\nFINISHED")
             
         with open(LOG_FILE_PATH, 'a') as file:
             file.write(f']\n')

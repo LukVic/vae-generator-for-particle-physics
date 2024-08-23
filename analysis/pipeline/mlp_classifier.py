@@ -46,7 +46,8 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
     
     params = count_parameters(model)
 
-    print(f'NUMBER OF PARAMETERS: {params}')
+    print(f'NUMBER OF PARAMETERS: {params}\n')
+    print("TRAINING:")
     optimizer = optim.Adam(model.parameters(), lr=lr)
     best_val_loss = np.inf
     epochs_without_improvement = 0
@@ -174,7 +175,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
         else:
             epochs_without_improvement += 1
             if epochs_without_improvement >= patience and epoch > warm_up:
-                print(f'Early stopping at epoch {epoch+1}')
+                print(f'EARLY STOPPING AT EPOCH: {epoch+1}\n')
                 break
         
         print(f'Epoch [{epoch+1}/{epochs}], Loss TRN: {trn_loss:.4f} | Loss VAL: {val_loss:.4f}')
@@ -192,7 +193,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
     
     feature_vals = torch.abs(grads).mean(dim=0)
 
-    print("Feature Importance:")
+    print("FEATURE IMPORTANCE:")
     feature_importance(feature_vals.cpu(), features, X_train, scaler)
     model.load_state_dict(best_model_params)
 
@@ -203,12 +204,12 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
         outputs_train = model(X_train_tensor)
         _, predicted_train = torch.max(outputs_train, 1)
         accuracy_train = (predicted_train == y_train_tensor).sum().item() / len(y_train_tensor)
-        print(f'Train Accuracy: {accuracy_train:.4f}')
+        #print(f'Train Accuracy: {accuracy_train:.4f}')
         
         outputs_test = model(X_test_tensor)
         _, predicted_test = torch.max(outputs_test, 1)
         accuracy_test = (predicted_test == y_test_tensor).sum().item() / len(y_test_tensor)
-        print(f'Test Accuracy: {accuracy_test:.4f}')
+        #print(f'Test Accuracy: {accuracy_test:.4f}')
     
     return predicted_train.cpu(), F.softmax(outputs_train, dim=1).cpu(), predicted_test.cpu(), F.softmax(outputs_test, dim=1).cpu(), best_accuracy, params
 
@@ -282,11 +283,9 @@ def feature_importance(vals, features, X_train, scaler):
     
     save_best_features(top_feature_names)
     
-    print(df_best.columns)
-    
     for column in df_best.columns:
         print(f'{column}: {len(set(df[column]))}')
-    
+    print('')
 
 def save_best_features(top_features):
     #PATH = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/features/'
@@ -313,6 +312,5 @@ def save_best_features(top_features):
     #     for feature in all_features:
     #         writer.writerow([feature])
 
-    print(f"The list has been saved to {PATH+FILE}.")
     
 

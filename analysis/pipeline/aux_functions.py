@@ -323,7 +323,7 @@ def plot_threshold(x_values, y_values, optimums, title, ylabel, colors, labels, 
     plt.savefig(savepath)
     # plt.show()
     # plt.close()
-    print(best_scores_final)
+    #print(best_scores_final)
     if len(y_values) == 4:
         return best_scores_final
     else:
