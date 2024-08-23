@@ -150,9 +150,6 @@ class DDGM(nn.Module):
         
         pz = torch.distributions.Normal(torch.zeros_like(x_real), torch.ones_like(x_real))
         
-        print(pz)
-        print(qs[-1])
-        exit()
         KLD_LAST =  torch.distributions.kl_divergence(qs[-1], pz).sum(dim=1)
         KLD_FIRST = torch.distributions.kl_divergence(qs[0], ps[0]).sum(dim=1)
         

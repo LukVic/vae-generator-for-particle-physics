@@ -1,4 +1,4 @@
-
+import os
 import numpy as np
 import pandas as pd
 import logging
@@ -43,10 +43,17 @@ def num_to_mass(num):
     return mass
     
 
-def plot_ouput(weight, y_true, y_probs, PATH_RESULTS):
-    print(weight)
-    plt.clf()
-    plt.figure(figsize=(10, 8))
+def plot_ouput(weight, y_true, y_probs, PATH_RESULTS, gen_params):
+    
+    if not os.path.exists(f'{PATH_RESULTS}'):
+        os.makedirs(f'{PATH_RESULTS}')
+    
+    classifier_type = {
+        True: 'mlp',
+        False: 'xgb'
+    }[gen_params['deep'][0]]
+    
+
     df_weight_prob = pd.DataFrame()
     df_weight_prob.insert(0, 'prob', y_probs, True)
     df_weight_prob.insert(1, 'weight', weight.values, True)
@@ -56,51 +63,51 @@ def plot_ouput(weight, y_true, y_probs, PATH_RESULTS):
     
     df_weight_prob_sig =  df_weight_prob[df_weight_prob['y'] == 0]
     df_weight_prob_bkg =  df_weight_prob[df_weight_prob['y'] == 1]
-    # print(df_weight_prob_sig)
-    # print(df_weight_prob_bkg)
+
     ths = []
     for idx in range(0, 20 ,1):
-        print(idx*0.05)
         th = idx*0.05
         bin_sig = df_weight_prob_sig[(df_weight_prob_sig['prob'] < th + 0.05) & (df_weight_prob_sig['prob'] > (th))]['weight'].sum()
         bin_bkg = df_weight_prob_bkg[(df_weight_prob_bkg['prob'] < th + 0.05) & (df_weight_prob_bkg['prob'] > (th))]['weight'].sum()
-        print(bin_sig)
         bins_sig.append(bin_sig)
         bins_bkg.append(bin_bkg)
         ths.append(th)
     
-    print(bins_sig)
-    print(bins_bkg)
-
     y_probs_sig = y_probs[df_weight_prob['y'] == 0]
     y_probs_bkg = y_probs[df_weight_prob['y'] == 1]
-    
-    print((df_weight_prob_bkg).sum())
-    print((df_weight_prob_bkg['prob'] <= 0.05).sum())
-    
-    print(ths)
 
     # plt.bar(ths, bins_sig, color='dodgerblue',edgecolor='black', width=0.05, align='edge', alpha=0.7, label='Signal')
     # plt.bar(ths, bins_bkg, color='mediumvioletred',edgecolor='black', width=0.05, align='edge', alpha=0.7, label='Background')
     
+    plt.clf()
+    plt.figure(figsize=(10, 8))
     plt.hist(y_probs_sig, bins=20, color='royalblue', edgecolor='black', alpha=0.7, label='Signal')  
-
     plt.hist(y_probs_bkg, bins=20, color='crimson', edgecolor='black', alpha=0.7, label='Background') 
-
     plt.grid()
-    
     plt.legend(fontsize=20)
     plt.xticks(fontsize=20)
-
     plt.yticks(fontsize=20)
-
     plt.xlabel('Classifier threshold', fontsize=20)
     plt.ylabel('Number of events', fontsize=20)
     #plt.title('Outputs of the classifier for Signal and Background', fontsize=18)
     plt.grid(True)
     
-    plt.savefig(f'{PATH_RESULTS}classifier_ouput_hist_normal.pdf')
+    plt.savefig(f'{PATH_RESULTS}{classifier_type}_ouput_hist_normal.pdf')
     
+    plt.clf()
+    plt.figure(figsize=(10, 8))
+    plt.bar(ths, bins_sig, color='dodgerblue',edgecolor='black', width=0.05, align='edge', alpha=0.7, label='Signal')
+    plt.bar(ths, bins_bkg, color='mediumvioletred',edgecolor='black', width=0.05, align='edge', alpha=0.7, label='Background')
+    plt.grid()
+    plt.legend(fontsize=20)
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
+    plt.xlabel('Classifier threshold', fontsize=20)
+    plt.ylabel('Number of events', fontsize=20)
+    #plt.title('Outputs of the classifier for Signal and Background', fontsize=18)
+    plt.grid(True)
+
+    plt.savefig(f'{PATH_RESULTS}{classifier_type}_ouput_hist_weighted.pdf')
 
 def plot_roc_multiclass(title, y, y_probas, classes, scores, folder):
     """ Plots ROC curve for multi-class classification.
@@ -300,7 +307,6 @@ def plot_threshold(x_values, y_values, optimums, title, ylabel, colors, labels, 
             if idx == 0 or idx == 1:
                 best_scores_final.append(best_score)
         else:
-            print('Here')
             if best_score > best_score_final:
                 best_scores_final.append(best_score)
     

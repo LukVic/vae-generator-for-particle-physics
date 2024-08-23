@@ -18,13 +18,15 @@ from sample import data_gen
 from dataloader import load_config, load_features
 
 def main():        
-    #classes = {'tbh_800': 0, 'tth' : 1, 'ttw': 1, 'ttz' : 1, 'tt' : 1} # multinomimal classification dict
-    classes = {'tbh_3000_new': 0, 'bkg_all': 1} # binary classification dict
+
     
     PATH_JSON = f'../config/' # config path
     # load the general parameters
     conf_dict = load_config(PATH_JSON)
     gen_params = conf_dict['generate']['general']
+    
+    #classes = {'tbh_800': 0, 'tth' : 1, 'ttw': 1, 'ttz' : 1, 'tt' : 1} # multinomimal classification dict
+    classes = {gen_params['sig_mass_label']: 0, 'bkg_all': 1} # binary classification dict
     
     TRAIN = gen_params["train"] # train if True, load existing model if False
     #'tbh_all' 'tth' 'ttw' 'ttz' 'tt'

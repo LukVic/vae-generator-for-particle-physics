@@ -32,6 +32,7 @@ def classify():
     # augmented data fractions
     aug_fractions = gen_params['aug_fractions'] #[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99], [0.2, 0.4, 0.6, 0.8, 0.99]
     
+    PATH_RESULT = f'../results/{gen_params["sig_mass_label"]}/'
     PATH_DATA = '../data/common/'
     PATH_LOGGING = '../logging/'
     FILE_DATA = 'df_all_pres_strict'
@@ -85,7 +86,7 @@ def classify():
                     
                     # just one mass needs to be taken for testing
                     if not ONE_MASS:
-                        df_test = df_test[(df_test['sig_mass'] == 0) | (df_test['sig_mass'] == MASS)]
+                        df_test = df_test[(df_test['sig_mass'] == 0) | (df_test['sig_mass'] == mass_to_num(gen_params['sig_mass_label']))]
                         y_test = df_test['y']
                         X_test = df_test.drop(columns=['y'])
                     
@@ -171,7 +172,7 @@ def classify():
                     output_df['weight'] = weight
                     
 
-                    friend_output(output_df, X_test, gen_params)
+                    friend_output(output_df, X_test, gen_params, PATH_RESULTS=PATH_RESULT)
                     
                     accuracy_train = accuracy_score(y_train, y_pred_train)
                     f1_train = f1_score(y_train, y_pred_train, average='macro')
@@ -205,7 +206,7 @@ def classify():
                     # Signal to threshold
                     bs, bb = plot_threshold(x_values, [y_S, y_B], ['max', 'min'], '',
                                     'Expected events',
-                                    ['green', 'sienna'], ['S - tbH classifed as tbH', 'B - background classified as tbH'], savepath=f"{PATH_DATA}sb_to_thresh.pdf",
+                                    ['green', 'sienna'], ['S - tbH classifed as tbH', 'B - background classified as tbH'], savepath=f"{PATH_RESULT}sb_to_thresh.pdf",
                                     force_threshold_value=best_significance_threshold)
                     
                     # Significance
@@ -213,13 +214,13 @@ def classify():
                                     '',
                                     'Significance Approximation', ['darkblue','r','darkred', 'purple'],
                                     [r'Z1',r'Z2',r'Z3',r'Z4',],
-                                    savepath=f"{PATH_DATA}significance.pdf")
+                                    savepath=f"{PATH_RESULT}significance.pdf")
                     
                     print(f"ADVANCED SIGNIFICANCE FORMULA RESULT: {best_signif_true}")
                     
                     cm.plot_confusion_matrix_from_data(y_test, calculate_class_predictions_basedon_decision_threshold(y_pred_proba_test, best_significance_threshold), weight*5,PATH_DATA, pred_val_axis='col')
 
-                    plot_ouput(weight = weight, y_true=y_test, y_probs=y_pred_proba_test[:,0], PATH_RESULTS=PATH_DATA)
+                    plot_ouput(weight = weight, y_true=y_test, y_probs=y_pred_proba_test[:,0], PATH_RESULTS=PATH_RESULT, gen_params=gen_params)
                     logging.basicConfig(filename=f'{PATH_LOGGING}results_final.log', level=logging.INFO, format='%(message)s')
 
                     if logg:
