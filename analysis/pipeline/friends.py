@@ -6,8 +6,6 @@ import pandas as pd
 
 
 def friend_output(df_output_trex: pd.DataFrame, df_features: pd.DataFrame, gen_params, PATH_RESULTS: str):
-    if not os.path.exists(f'{PATH_RESULTS}trex/'):
-        os.makedirs(f'{PATH_RESULTS}trex/')
     
     if gen_params['output_conflate']:
         df_merged = pd.concat([df_features, df_output_trex], axis=1)
@@ -18,8 +16,8 @@ def friend_output(df_output_trex: pd.DataFrame, df_features: pd.DataFrame, gen_p
 
 
         # Create a ROOT file to save the tree
-        if gen_params['augment']: output_file = ROOT.TFile(f'{PATH_RESULTS}trex/aug_limit.root', "RECREATE")    
-        else: output_file = ROOT.TFile(f'{PATH_RESULTS}trex/limit.root', "RECREATE")
+        if gen_params['augment']: output_file = ROOT.TFile(f'{PATH_RESULTS}trex/{gen_params["sig_mass_label"]}_aug_limit.root', "RECREATE")    
+        else: output_file = ROOT.TFile(f'{PATH_RESULTS}trex/{gen_params["sig_mass_label"]}_limit.root', "RECREATE")
 
         # Create a TTree named "nominal"
         tree = ROOT.TTree("nominal", "nominal")

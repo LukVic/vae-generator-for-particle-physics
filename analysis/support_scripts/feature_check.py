@@ -11,11 +11,11 @@ def feature_check(path):
     
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    EPOCHS_STD = 500
+    EPOCHS_STD = 1000
     EPOCHS_SYM = 500
     
-    #reaction = 'tbh_800_new'
-    reaction = 'bkg_all'
+    reaction = 'tbh_250_new'
+    #reaction = 'bkg_all'
     
     # DATASET = 'df_no_zeros'
     # FEATURES = 'low_features'
@@ -36,7 +36,8 @@ def feature_check(path):
     ch_test_2 = []
     
     #EVENTS = 10449
-    EVENTS = 27611
+    EVENTS_1 = 12522
+    EVENTS_2 = 27611
     # df_original = pd.read_csv(f'{path}data/tt/{DATASET}.csv')
     # df_generated = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_STD}_std_h.csv')
     # df_generated_sym = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_SYM}_{EPOCHS_SYM}_sym_h.csv')
@@ -45,10 +46,10 @@ def feature_check(path):
     TYPE_2 = 'sym'
     
     df_original = pd.read_csv(f'{path}data/{reaction}_input/{DATASET}.csv')
-    df_generated = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_STD}_S{EVENTS}_{TYPE_1}.csv')
-    df_generated_sym = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_SYM}_S{EVENTS}_{TYPE_2}.csv')
+    df_generated = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_STD}_S{EVENTS_1}_{TYPE_1}.csv')
+    df_generated_sym = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_STD}_S{EVENTS_1}_{TYPE_1}.csv')
 
-    print(df_generated['total_charge'])
+    # print(df_generated['total_charge'])
 
     #! adjust df_original
     features_used = ['taus_pt_0', 'MtLepMet', 'met_met', 'DRll01', 'MLepMet', 'minDeltaR_LJ_0', 'jets_pt_0', 'HT', 'HT_lep', 'total_charge']
@@ -57,9 +58,9 @@ def feature_check(path):
     df_generated = df_generated[features_used]
     df_generated_sym = df_generated_sym[features_used]
 
-    print(df_original.shape)
-    print(df_generated.shape)
-    print(df_generated_sym.shape)
+    # print(df_original.shape)
+    # print(df_generated.shape)
+    # print(df_generated_sym.shape)
     
     feature_list = pd.read_csv(f'{path}features/{FEATURES}.csv', header=None).to_numpy()
     
@@ -104,7 +105,7 @@ def feature_check(path):
                 h_feature_generated_std.Fill(event_g)
                 h_feature_generated_sym.Fill(event_g_s)
             else:
-                print(event_g)
+                #print(event_g)
                 if event_g < 0.1: event_g = -2
                 else: event_g = 2
                 if event_g_s < 0.1: event_g_s = -2
@@ -137,9 +138,9 @@ def feature_check(path):
         max_bin_generated_sym = h_feature_generated_sym.GetMaximumBin()
 
 
-        print(f"Max Bin Entries (Original): {h_feature_original.GetBinContent(max_bin_original)}")
-        print(f"Max Bin Entries (Generated): {h_feature_generated_std.GetBinContent(max_bin_generated)}")
-        print(f"Max Bin Entries (Generated Sym): {h_feature_generated_sym.GetBinContent(max_bin_generated_sym)}")
+        #print(f"Max Bin Entries (Original): {h_feature_original.GetBinContent(max_bin_original)}")
+        #print(f"Max Bin Entries (Generated): {h_feature_generated_std.GetBinContent(max_bin_generated)}")
+        #print(f"Max Bin Entries (Generated Sym): {h_feature_generated_sym.GetBinContent(max_bin_generated_sym)}")
         
         num_original = h_feature_original.GetBinContent(max_bin_original)
         num_generated = h_feature_generated_std.GetBinContent(max_bin_original)

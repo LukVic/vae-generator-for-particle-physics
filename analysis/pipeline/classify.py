@@ -47,6 +47,7 @@ def classify():
 
     # classes = { 0: 'tbh_all', 1: 'tth', 2: 'ttw', 3: 'ttz', 4: 'tt' }
     classes = { 0: gen_params['sig_mass_label'], 1: 'bkg_all' }
+    classifier_type = { True: 'mlp', False: 'xgb'}
     logg = gen_params["logg"]
     model = None
     
@@ -55,7 +56,6 @@ def classify():
     #df_data['tau_lep_charge_diff'] = df_data['total_charge'] * df_data['taus_charge_0']
     df_data = df_data[features_used + helper_features]
     
-    print(set(df_data['sig_mass']))
     # keep only events corresponding to the given mass + background
     if ONE_MASS: df_data = df_data[(df_data['sig_mass'] == 0) | (df_data['sig_mass'] == mass_to_num(gen_params['sig_mass_label']))]
 
@@ -170,6 +170,11 @@ def classify():
                     output_df['y'] = reaction
                     output_df['weight'] = weight
                     
+                    if not os.path.exists(f'{PATH_RESULT}trex/'):
+                        os.makedirs(f'{PATH_RESULT}trex/')
+                    
+                    if not os.path.exists(f'{PATH_RESULT}{classifier_type[deep]}/'):
+                        os.makedirs(f'{PATH_RESULT}{classifier_type[deep]}/')
 
                     friend_output(output_df, X_test, gen_params, PATH_RESULTS=PATH_RESULT)
                     
@@ -207,7 +212,7 @@ def classify():
                     # Signal to threshold
                     bs, bb = plot_threshold(x_values, [y_S, y_B], ['max', 'min'], '',
                                     'Expected events',
-                                    ['green', 'sienna'], ['S - tbH classifed as tbH', 'B - background classified as tbH'], savepath=f"{PATH_RESULT}sb_to_thresh.pdf",
+                                    ['green', 'sienna'], ['S - tbH classifed as tbH', 'B - background classified as tbH'], savepath=f"{PATH_RESULT}{classifier_type[deep]}/sb_to_thresh.pdf",
                                     force_threshold_value=best_significance_threshold)
                     
                     # Significance
@@ -215,13 +220,13 @@ def classify():
                                     '',
                                     'Significance Approximation', ['darkblue','r','darkred', 'purple'],
                                     [r'Z1',r'Z2',r'Z3',r'Z4',],
-                                    savepath=f"{PATH_RESULT}significance.pdf")
+                                    savepath=f"{PATH_RESULT}{classifier_type[deep]}/significance.pdf")
                     
                     print(f"ADVANCED SIGNIFICANCE FORMULA RESULT: {best_signif_true}")
                     
                     cm.plot_confusion_matrix_from_data(y_test, calculate_class_predictions_basedon_decision_threshold(y_pred_proba_test, best_significance_threshold), weight*5,PATH_DATA, pred_val_axis='col')
 
-                    plot_ouput(weight = weight, y_true=y_test, y_probs=y_pred_proba_test[:,0], PATH_RESULTS=PATH_RESULT, gen_params=gen_params)
+                    plot_ouput(weight = weight, y_true=y_test, y_probs=y_pred_proba_test[:,0],PATH_RESULTS=PATH_RESULT, classifier_type=classifier_type[deep])
                     logging.basicConfig(filename=f'{PATH_LOGGING}results_final.log', level=logging.INFO, format='%(message)s')
 
                     if logg:

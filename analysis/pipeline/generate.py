@@ -6,7 +6,8 @@ import os
 import numpy as np
 import torch
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import StepLR
+from torch.utils.data import Dataset, DataLoader
 
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -26,11 +27,20 @@ def main():
     gen_params = conf_dict['generate']['general']
     
     #classes = {'tbh_800': 0, 'tth' : 1, 'ttw': 1, 'ttz' : 1, 'tt' : 1} # multinomimal classification dict
-    classes = {gen_params['sig_mass_label']: 0, 'bkg_all': 1} # binary classification dict
+    
     
     TRAIN = gen_params["train"] # train if True, load existing model if False
     #'tbh_all' 'tth' 'ttw' 'ttz' 'tt'
     REACTION = gen_params["reaction"] # 'tbh_800_new' # signal or background
+    
+    classes = {'tbh_250_new': 0,
+            'tbh_800_new': 0,
+            'tbh_3000_new': 0,
+            'tbh_300': 0,
+            'tbh_800': 0,
+            'tbh_1500': 0,
+            'tbh_2000': 0,
+            'bkg_all': 1} # binary classification dict
     
     PATH_DATA = f'../data/{REACTION}_input/' # training data path
     PATH_MODEL = f'../models/production/{REACTION}_input/' # model path
@@ -77,14 +87,14 @@ def main():
 
     # Chose how to scale the data
     scaler = StandardScaler() # MinMaxScaler() 
-    train_dataset_norm = scaler.fit_transform(train_dataset)
+    train_dataset_norm = scaler.fit_transform(df.values)
     train_dataloader = DataLoader(train_dataset_norm, batch_size=gen_params["batch_size"], shuffle=True)
 
     if APPROACH != 'ddgm': model = VAE(gen_params["latent_size"], device, input_size, conf_dict)
     else: model = DDGM(gen_params["latent_size"], device, input_size, conf_dict)
     
     optimizer = optim.Adam(model.parameters(), lr=gen_params["lr"])
-
+    #scheduler = StepLR(optimizer, step_size=200, gamma=0.1)
     directory = f'{APPROACH}_{gen_params["num_epochs"]}_epochs_model/'
 
     if not os.path.exists(f'{PATH_MODEL}{directory}'):
@@ -101,6 +111,7 @@ def main():
                     loss = model(x.float())
                     loss.backward()
                     optimizer.step()
+                    #scheduler.step()
                     progress_bar.set_description(f'EPOCH: {epoch+1}/{gen_params["num_epochs"]} | LOSS: {loss:.7f}')
                     progress_bar.update(1)
                 progress_bar.close()     
@@ -175,7 +186,27 @@ def main():
             print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm, features_list=features)
 
-            
+class DataFrameDataset(Dataset):
+    def __init__(self, dataframe, feature_columns, target_column=None):
+        self.dataframe = dataframe
+        self.feature_columns = feature_columns
+        self.target_column = target_column
+
+    def __len__(self):
+        return len(self.dataframe)
+
+    def __getitem__(self, idx):
+        # Get features (input data)
+        features = self.dataframe.iloc[idx][self.feature_columns].values
+        features = torch.tensor(features, dtype=torch.float32)
+        
+        # Get target (label)
+        if self.target_column:
+            target = self.dataframe.iloc[idx][self.target_column]
+            target = torch.tensor(target, dtype=torch.float32)
+            return features, target
+        else:
+            return features          
 
 def plot_loss(elbo_history_1, elbo_history_2, TYPE):
     plt.clf()

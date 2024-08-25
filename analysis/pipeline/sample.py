@@ -15,7 +15,6 @@ from dataloader import load_config
 def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset, features_list):
     # Chose if generate new samples of just regenerate the simulated ones
     SAMPLING = 'generate' #regenerate
-    print(dataset.shape)
 
     SAMPLES_NUM = dataset.shape[0] # Size of the generated dataset
     #SAMPLES_NUM = 5000000
@@ -109,8 +108,8 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     
     df_gen = pd.DataFrame(data_array,columns=features_list)
     # Adjust the values for total_charge variable
-    print(set(df_gen['total_charge']))
-    print((df_gen['total_charge'] > 0.5).sum())
+    #print(set(df_gen['total_charge']))
+    #print((df_gen['total_charge'] > 0.5).sum())
     bound = 0.5
     replacement_lower = -2.0
     replacement_upper = 2.0

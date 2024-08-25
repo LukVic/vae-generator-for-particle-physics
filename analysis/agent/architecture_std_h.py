@@ -19,6 +19,11 @@ class Encoder(nn.Module):
         drop = self.conf_general_encode["dropout"]
         
         layers = []
+        
+        def res_block():
+            ...
+        
+        
         for idx in range(layer_num):
             if idx == 0: 
                 layers.append(nn.Linear(self.input_size, arch[idx][0]))
