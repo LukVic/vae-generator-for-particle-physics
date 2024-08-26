@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 from sample import data_gen
 from dataloader import load_config, load_features
 
+from gm_helpers import infer_feature_type
+
 def main():        
 
     
@@ -73,8 +75,10 @@ def main():
     
     df = df.drop(columns=['weight', 'row_number']) # remove auxiliary columns
     features = load_features(PATH_FEATURES, FEATURES_FILE)
-    df = df[features]
     
+    df = df[features]
+    feature_type_dict = infer_feature_type(df)
+
     if torch.cuda.is_available():
         print("CUDA (GPU) is available.")
         device = 'cuda'
@@ -84,14 +88,16 @@ def main():
     
     train_dataset = torch.tensor(df.values, dtype=torch.float32)
     input_size = train_dataset.shape[1]
+    output_dim = feature_type_dict['max_idx']
 
     # Chose how to scale the data
     scaler = StandardScaler() # MinMaxScaler() 
     train_dataset_norm = scaler.fit_transform(df.values)
     train_dataloader = DataLoader(train_dataset_norm, batch_size=gen_params["batch_size"], shuffle=True)
 
-    if APPROACH != 'ddgm': model = VAE(gen_params["latent_size"], device, input_size, conf_dict)
-    else: model = DDGM(gen_params["latent_size"], device, input_size, conf_dict)
+    #TODO refine model parameters
+    if APPROACH != 'ddgm': model = VAE(gen_params["latent_size"], device, input_size, conf_dict, output_dim)
+    else: model = DDGM(gen_params["latent_size"], device, input_size, conf_dict, output_dim)
     
     optimizer = optim.Adam(model.parameters(), lr=gen_params["lr"])
     #scheduler = StepLR(optimizer, step_size=200, gamma=0.1)
@@ -106,9 +112,9 @@ def main():
             for epoch in range(gen_params["num_epochs"]):
                 progress_bar = tqdm(total=len(train_dataloader))
                 for _, x in enumerate(train_dataloader):
-                    x = x.view(-1, input_size)
+                    x = x.view(-1, train_dataset.shape[1])
                     optimizer.zero_grad()
-                    loss = model(x.float())
+                    loss = model(x.float(), feature_type_dict)
                     loss.backward()
                     optimizer.step()
                     #scheduler.step()
@@ -152,7 +158,7 @@ def main():
                 for _, x in enumerate(train_dataloader):
                     
                     #! THE FIRST STEP
-                    x = x.view(-1, input_size)
+                    x = x.view(-1, train_dataset.shape[1])
                     optimizer.zero_grad()
                     loss1 = model(x.float(), 1)
                     loss1.backward()

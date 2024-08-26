@@ -79,9 +79,10 @@ class Encoder(nn.Module):
         return mu, std
 
 class Decoder(nn.Module):
-    def __init__(self, zdim, input_size, config:dict):
+    def __init__(self, zdim, input_size, config:dict, output_dim):
         super(Decoder, self).__init__()
         self.zdim = zdim
+        self.output_dim = output_dim
         self.input_size = input_size
         self.conf_general_encode = config["generate"]["encoder"]
         
@@ -106,7 +107,7 @@ class Decoder(nn.Module):
         self.body2 = nn.Sequential(*res_block(arch[1][0],arch[1][1], 1))
         self.body3 = nn.Sequential(*res_block(arch[2][0],arch[2][1], 2))
         self.body4 = nn.Sequential(*res_block(arch[3][0],arch[3][1], 3))
-        self.body5 = nn.Sequential(*res_block(arch[4][0], self.input_size*2-1, 4)) 
+        self.body5 = nn.Sequential(*res_block(arch[4][0], self.output_dim, 4)) 
         
         
         
@@ -136,7 +137,9 @@ class Decoder(nn.Module):
         E_log_pxz = -pxz.log_prob(x).sum(dim=1)
         return E_log_pxz, pxz
 
-    def forward(self, z):
+    def forward(self, z, feature_type_dict):
+        print(feature_type_dict)
+        
         z_new = self.body1(z)
         res = z_new
         #z_new += x_skip
@@ -145,31 +148,37 @@ class Decoder(nn.Module):
         z_new = self.body4(z_new)
         z_new += res
         xhat = self.body5(z_new)
+        
+        # Gaussian
         xhat_gauss = xhat[:, :-1]
-        xhat_bernoulli = xhat[:,-1]
         xhat_gauss_mu, xhat_gauss_sigma = torch.split(xhat_gauss, self.input_size - 1, dim=1)
         xhat_gauss_std = torch.exp(xhat_gauss_sigma)
-        xhat_bernoulli = torch.sigmoid(xhat_bernoulli)
+        
+        # Bernoulli
+        xhat_bernoulli = []
+        for val in feature_type_dict['binary']:
+            xhat_bernoulli.append(torch.sigmoid(xhat[:,val[0]]))
         return xhat_gauss_mu, xhat_gauss_std, xhat_bernoulli
 
 
 
 
 class VAE(nn.Module):
-    def __init__(self, zdim, device, input_size, config:dict):
+    def __init__(self, zdim, device, input_size, config:dict, output_dim):
         super(VAE, self).__init__()
         self.device = device
         self.zdim = zdim
         self.input_size = input_size
         self.config = config
+        self.decoder_output_dim = output_dim
         
         self.encoder = Encoder(self.zdim, self.input_size, self.config).to(self.device)
-        self.decoder = Decoder(self.zdim, self.input_size, self.config).to(self.device)
+        self.decoder = Decoder(self.zdim, self.input_size, self.config, self.decoder_output_dim).to(self.device)
         #self.prior = VampPrior(self.zdim, self.input_size, 255, self.encoder,16,None)
         self.prior = MoGPrior(self.zdim, self.zdim)
         #self.prior = StandardPrior(self.zdim)
         
-    def forward(self, x):
+    def forward(self, x, feature_type_dict):
         #! ENCODER
         x = x.to(self.device)
         mu, std = self.encoder(x.view(-1, self.input_size))
@@ -177,7 +186,8 @@ class VAE(nn.Module):
 
         pz_gauss = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(std))
         #! DECODER
-        mu_gauss, std_gauss, p_bernoulli = self.decoder(z)
+        # TODO
+        mu_gauss, std_gauss, p_bernoulli = self.decoder(z, feature_type_dict)
         
         x_gauss = x[:, :-1].to(self.device)
         x_bernoulli = x[:, -1].to(torch.float32).to(self.device)
