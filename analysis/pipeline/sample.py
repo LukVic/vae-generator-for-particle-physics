@@ -11,6 +11,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 
 from dataloader import load_config
+from gm_helpers import infer_feature_type
 
 def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset, features_list):
     # Chose if generate new samples of just regenerate the simulated ones
@@ -36,17 +37,19 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
             
             for i in range(0, SAMPLES_NUM, batch_size):
-                latent_samples_batch = generate_latents(batch_size, latent_dimension, SAMPLING, model, dataset)
+                latent_samples_batch = generate_latents(batch_size, latent_dimension, SAMPLING, model, scaler.fit_transform(dataset.values))
                 latent_samples.append(latent_samples_batch)
             
             latent_samples = torch.cat(latent_samples, dim=0).to('cuda')
             
             decoded_samples = []
             for i in range(0, latent_samples.size(0), batch_size):
-                print(i)
-                xhats_mu_gauss, xhats_std_gauss, xhats_bernoulli = model.decoder(latent_samples[i:i+batch_size])
+                xhats_mu_gauss, xhats_std_gauss, xhats_bernoulli = model.decoder(latent_samples[i:i+batch_size], infer_feature_type(dataset))
                 px_gauss = torch.distributions.Normal(xhats_mu_gauss, xhats_std_gauss)
                 xhat_gauss = px_gauss.sample()
+                #xhat_bernoulli = torch.bernoulli(xhats_bernoulli)
+                #xhats_bernoulli_tensor = torch.stack(xhats_bernoulli)
+
                 xhat_bernoulli = torch.bernoulli(xhats_bernoulli)
                 xhats = torch.cat((xhat_gauss, xhat_bernoulli.view(-1,1)), dim=1)
                 x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
@@ -55,7 +58,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
         # Generate new samples with Ladder ELBO
         # TODO: generation by batches 
         elif TYPE == 'std_h':
-            z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,dataset)
+            z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,scaler.fit_transform(dataset.values))
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
             xhats_mu_gauss_1, xhats_sigma_gauss_1 = model.encoder_3(z_2.to('cuda'))
             pz2z1 = torch.distributions.Normal(xhats_mu_gauss_1, torch.exp(xhats_sigma_gauss_1))
@@ -71,7 +74,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
         # Generate new samples with Ladder SEL
         # TODO: generation by batches
         elif TYPE == 'sym_h':
-            z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,dataset)
+            z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,scaler.fit_transform(dataset.values))
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
             # xhats_mu_gauss_3, xhats_sigma_gauss_3 = model.decoders[0].encode(z_3.to('cuda'))
             # pz3z2 = torch.distributions.Normal(xhats_mu_gauss_3, xhats_sigma_gauss_3)

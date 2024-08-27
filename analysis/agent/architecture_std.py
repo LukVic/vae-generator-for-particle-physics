@@ -149,14 +149,13 @@ class Decoder(nn.Module):
         xhat = self.body5(z_new)
 
         # Gaussian
-        xhat_gauss = xhat[:, :-1]
+        xhat_gauss = torch.cat([xhat[:, val[0]:val[1]] for val in feature_type_dict['real_param']], dim=1)
         xhat_gauss_mu, xhat_gauss_sigma = torch.split(xhat_gauss, self.input_size - 1, dim=1)
         xhat_gauss_std = torch.exp(xhat_gauss_sigma)
         
         # Bernoulli
-        xhat_bernoulli = []
-        for val in feature_type_dict['binary_param']:
-            xhat_bernoulli.append(torch.sigmoid(xhat[:,val[0]]))
+        indices = [val[0] for val in feature_type_dict['binary_param']]
+        xhat_bernoulli = torch.sigmoid(xhat[:, indices])
         return xhat_gauss_mu, xhat_gauss_std, xhat_bernoulli
 
 
@@ -186,19 +185,12 @@ class VAE(nn.Module):
         pz_gauss = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(std))
         #! DECODER
         # TODO
-        mu_gauss, std_gauss, p_bernoulli_arr = self.decoder(z, feature_type_dict)
+        mu_gauss, std_gauss, p_bernoulli = self.decoder(z, feature_type_dict)
         
-        x_gauss = x[:, :-1].to(self.device)
+        x_gauss = x[:,feature_type_dict['real_data']]
+        x_bernoulli = torch.sigmoid(x[:,feature_type_dict['binary_data']])
         
-        BC = 0
-        for idx, val in enumerate(feature_type_dict['binary_data']):
-            x_bernoulli = torch.sigmoid(x[:,val])
-            BC += F.binary_cross_entropy(x_bernoulli, p_bernoulli_arr[idx], reduction='sum')
-
-        #for bin_feature in x.
-        x_bernoulli = x[:, -1].to(torch.float32).to(self.device)
-        x_bernoulli = torch.sigmoid(x_bernoulli)
-        
+        BC = F.binary_cross_entropy(x_bernoulli, p_bernoulli, reduction='sum')
         RE, _ = self.decoder.neg_log_prob(x_gauss,mu_gauss, std_gauss)  
         KL = torch.distributions.kl_divergence(qz, pz_gauss).sum(dim=1)
         #KL = - self.prior.log_prob(z) + self.encoder.log_prob(z, mu, std)[0]
