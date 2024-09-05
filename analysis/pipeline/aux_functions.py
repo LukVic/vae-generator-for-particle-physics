@@ -323,32 +323,7 @@ def plot_threshold(x_values, y_values, optimums, title, ylabel, colors, labels, 
     else:
         return best_scores_final
 
-def plot_feature_importnace(PATH_DATA, model, X_train):
-    plt.clf()
-    FEATURE_NUM = 30
-    importances = model.named_steps['clf'].feature_importances_
 
-    indices = np.argsort(importances)[::-1][:FEATURE_NUM]  
-
-    #plt.figure(figsize=(10, 6))
-    plt.title("Top 20 Feature Importances")
-    plt.bar(range(FEATURE_NUM), importances[indices], align="center")
-    plt.xticks(range(FEATURE_NUM), X_train.columns[indices], rotation=90)
-    plt.xlim([-1, FEATURE_NUM])
-    plt.tight_layout()
-    plt.savefig(f'{PATH_DATA}feature_importance_top20.png')
-    top_features = X_train.columns[indices]
-    PATH = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/'
-    FILE = f'features_top_{len(top_features)}.log'
-    top_features = list(top_features)
-    with open(PATH + FILE, 'a') as file:
-        file.write('[')
-        for idx, top_feature in enumerate(top_features):
-            if idx != len(top_features)-1:
-                file.write(f'"{top_feature}", ')
-            else: file.write(f'"{top_feature}"')
-        file.write(']')
-        file.write('\n')
     
 
 def compute_embed(simulated_list, generated_list, TYPE, sample_size=3000):

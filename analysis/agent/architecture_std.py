@@ -159,8 +159,6 @@ class Decoder(nn.Module):
         return xhat_gauss_mu, xhat_gauss_std, xhat_bernoulli
 
 
-
-
 class VAE(nn.Module):
     def __init__(self, zdim, device, input_size, config:dict, output_dim):
         super(VAE, self).__init__()

@@ -20,6 +20,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
     
     PATH_JSON = f'../config/' # config path
     mlp_params = load_config(PATH_JSON)['classify']['mlp'] # general parameters for the classification part 
+    features_params = load_config(PATH_JSON)['features']
     
     torch.manual_seed(0)
     
@@ -28,7 +29,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
 
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
-    
+
     X_train_tensor = torch.tensor(X_train, dtype=torch.float32).cuda()
     X_test_tensor = torch.tensor(X_test, dtype=torch.float32).cuda()
     y_train_tensor = torch.tensor(y_train.values, dtype=torch.long).cuda()
@@ -183,20 +184,10 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
         if epoch % 10 == 0:
             plot_loss(trn_loss_history,val_loss_history, trn_acc_history,val_acc_history, trn_pre_history, val_pre_history, trn_significance_history, val_significance_history, frac_sim, frac_gen, lr, epochs, params)
             plt.close()
-            
-    inputs = X_train_tensor.requires_grad_(True)
-    outputs = model(inputs)
-    outputs = torch.sigmoid(outputs)
-    labels_one_hot = F.one_hot(y_train_tensor, num_classes=2).float().cuda()
-    loss = criterion(outputs, labels_one_hot)
-    grads = grad(loss, inputs)[0]
     
-    feature_vals = torch.abs(grads).mean(dim=0)
-
-    print("FEATURE IMPORTANCE:")
-    feature_importance(feature_vals.cpu(), features, X_train, scaler)
+    feature_importance_mlp(X_train=X_train,y_train=y_train,model=model,criterion=criterion, columns=features, params=features_params)
+            
     model.load_state_dict(best_model_params)
-
     model.eval()
     with torch.no_grad():
         #print(torch.cuda.memory_summary(device='cuda', abbreviated=False))
@@ -263,14 +254,25 @@ def plot_loss(loss_vals_trn, loss_vals_val, acc_vals_trn, acc_vals_val, pre_vals
     plt.savefig(f'{PATH_SAVE}final_exp_gg_ss_gs_overfit_{frac_sim}_{frac_gen}_{epochs}_{lr}_{params}_gs.pdf')
     
 
-def feature_importance(vals, features, X_train, scaler):
-    n = 30 
-    df = pd.DataFrame(scaler.inverse_transform(X_train), columns=features)
-    top_features = sorted(zip(features, vals), key=lambda x: x[1], reverse=True)[:n]
+def feature_importance_mlp(X_train, y_train, model, criterion, columns, params):
+    
+    X_train_tensor = torch.tensor(X_train, dtype=torch.float32).cuda()
+    y_train_tensor = torch.tensor(y_train.values, dtype=torch.long).cuda()
+    inputs = X_train_tensor.requires_grad_(True)
+    outputs = model(inputs)
+    outputs = torch.sigmoid(outputs)
+    labels_one_hot = F.one_hot(y_train_tensor, num_classes=2).float().cuda()
+    loss = criterion(outputs, labels_one_hot)
+    grads = grad(loss, inputs)[0]
+    
+    feature_vals = torch.abs(grads).mean(dim=0)
+
+    #df = pd.DataFrame(scaler.inverse_transform(X_train), columns=X_train.columns)
+    top_features = sorted(zip(columns, feature_vals.cpu()), key=lambda x: x[1], reverse=True)[:params['features_num']]
     top_feature_names = [feature[0] for feature in top_features]
     top_feature_importance = [feature[1] for feature in top_features]
-    df_top_features = pd.DataFrame({'Feature': top_feature_names, 'Importance': top_feature_importance})
-    df_best = df[top_feature_names]
+    # df_top_features = pd.DataFrame({'Feature': top_feature_names, 'Importance': top_feature_importance})
+    # df_best = df[top_feature_names]
     
     plt.figure(figsize=(8, 6))
     plt.bar(top_feature_names, top_feature_importance, color='skyblue')
@@ -279,13 +281,9 @@ def feature_importance(vals, features, X_train, scaler):
     plt.title('Feature Importance')
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
-    #plt.show()
-    
-    save_best_features(top_feature_names)
-    
-    for column in df_best.columns:
-        print(f'{column}: {len(set(df[column]))}')
-    print('')
+
+    print(top_feature_names)
+    exit()
 
 def save_best_features(top_features):
     #PATH = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/features/'

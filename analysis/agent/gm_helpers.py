@@ -28,3 +28,7 @@ def infer_feature_type(df_data):
     
     feature_type_dict['max_idx'] = idx
     return feature_type_dict
+
+def categorical_one_hot_encode(df_cat_col):
+    df_one_hot = df_cat_col.get_dummies(df_cat_col, columns=['Category'])
+    print(df_one_hot)

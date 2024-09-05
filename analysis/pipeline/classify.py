@@ -39,7 +39,7 @@ def classify():
     PATH_MODEL =  f'{PATH_DATA}xgboost_model_trained_pres.pkl'
     LOG_FILE_PATH = f'{PATH_LOGGING}results_final.log'
     PATH_FEATURES = f'../features/' # feature directory path
-    FEATURES_FILE = f'features_top_10' # 'df_phi', 'df_no_zeros', 'df_8', 'df_pt'  feature file
+    FEATURES_FILE = 'all_new_vars' #f'features_top_10' # 'df_phi', 'df_no_zeros', 'df_8', 'df_pt'  feature file
     
     
     helper_features = gen_params['helper_features'] # features helping to analyse the data
