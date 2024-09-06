@@ -20,7 +20,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
     
     PATH_JSON = f'../config/' # config path
     mlp_params = load_config(PATH_JSON)['classify']['mlp'] # general parameters for the classification part 
-    features_params = load_config(PATH_JSON)['features']
+    gen_params = load_config(PATH_JSON)
     
     torch.manual_seed(0)
     
@@ -185,7 +185,7 @@ def mlp_classifier(X_train, X_test, y_train, y_test, frac_sim, frac_gen, weights
             plot_loss(trn_loss_history,val_loss_history, trn_acc_history,val_acc_history, trn_pre_history, val_pre_history, trn_significance_history, val_significance_history, frac_sim, frac_gen, lr, epochs, params)
             plt.close()
     
-    feature_importance_mlp(X_train=X_train,y_train=y_train,model=model,criterion=criterion, columns=features, params=features_params)
+    feature_importance_mlp(X_train=X_train,y_train=y_train,model=model,criterion=criterion, columns=features, params=gen_params)
             
     model.load_state_dict(best_model_params)
     model.eval()
@@ -255,6 +255,7 @@ def plot_loss(loss_vals_trn, loss_vals_val, acc_vals_trn, acc_vals_val, pre_vals
     
 
 def feature_importance_mlp(X_train, y_train, model, criterion, columns, params):
+    PATH_FEATURES = f'../features/most_important_mlp_{params["features"]["features_num"]}_{params["generate"]["general"]["reaction"]}' # feature directory path
     
     X_train_tensor = torch.tensor(X_train, dtype=torch.float32).cuda()
     y_train_tensor = torch.tensor(y_train.values, dtype=torch.long).cuda()
@@ -268,7 +269,7 @@ def feature_importance_mlp(X_train, y_train, model, criterion, columns, params):
     feature_vals = torch.abs(grads).mean(dim=0)
 
     #df = pd.DataFrame(scaler.inverse_transform(X_train), columns=X_train.columns)
-    top_features = sorted(zip(columns, feature_vals.cpu()), key=lambda x: x[1], reverse=True)[:params['features_num']]
+    top_features = sorted(zip(columns, feature_vals.cpu()), key=lambda x: x[1], reverse=True)[:params["features"]["features_num"]]
     top_feature_names = [feature[0] for feature in top_features]
     top_feature_importance = [feature[1] for feature in top_features]
     # df_top_features = pd.DataFrame({'Feature': top_feature_names, 'Importance': top_feature_importance})
@@ -278,37 +279,14 @@ def feature_importance_mlp(X_train, y_train, model, criterion, columns, params):
     plt.bar(top_feature_names, top_feature_importance, color='skyblue')
     plt.xlabel('Feature')
     plt.ylabel('Importance')
-    plt.title('Feature Importance')
+    plt.title(f'MLP feature Importance {params["features"]["features_num"]}')
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
 
     print(top_feature_names)
-    exit()
-
-def save_best_features(top_features):
-    #PATH = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/features/'
-    #FILE = f'features_top_{len(top_features)}.csv'
-    
-    PATH = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/'
-    FILE = f'features_top_{len(top_features)}.log'
-    
-    helper_features = ['sig_mass', 'weight', 'row_number', 'file_number']
-    all_features = top_features + helper_features
-
-    top_features = list(top_features)
-    with open(PATH + FILE, 'a') as file:
-        file.write('[')
-        for idx, top_feature in enumerate(top_features):
-            if idx != len(top_features)-1:
-                file.write(f'"{top_feature}", ')
-            else: file.write(f'"{top_feature}"')
-        file.write(']')
-        file.write('\n')
-    
-    # with open(PATH + FILE, 'w', newline='') as file:
-    #     writer = csv.writer(file)
-    #     for feature in all_features:
-    #         writer.writerow([feature])
-
-    
+    # Open a file in write mode
+    with open(f"{PATH_FEATURES}.csv", "w") as file:
+        # Write each string to a new line
+        for string in top_feature_names:
+            file.write(string + "\n")
 
