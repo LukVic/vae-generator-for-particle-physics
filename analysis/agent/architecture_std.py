@@ -138,7 +138,6 @@ class Decoder(nn.Module):
         return E_log_pxz, pxz
 
     def forward(self, z, feature_type_dict):
-        
         z_new = self.body1(z)
         res = z_new
         #z_new += x_skip
@@ -148,15 +147,23 @@ class Decoder(nn.Module):
         z_new += res
         xhat = self.body5(z_new)
 
+        
         # Gaussian
         xhat_gauss = torch.cat([xhat[:, val[0]:val[1]] for val in feature_type_dict['real_param']], dim=1)
-        xhat_gauss_mu, xhat_gauss_sigma = torch.split(xhat_gauss, self.input_size - 1, dim=1)
+        xhat_gauss_mu, xhat_gauss_sigma = torch.split(xhat_gauss, len(feature_type_dict['real_data']), dim=1)
+        print(xhat_gauss_mu.shape)
         xhat_gauss_std = torch.exp(xhat_gauss_sigma)
-        
         # Bernoulli
-        indices = [val[0] for val in feature_type_dict['binary_param']]
-        xhat_bernoulli = torch.sigmoid(xhat[:, indices])
-        return xhat_gauss_mu, xhat_gauss_std, xhat_bernoulli
+        xhat_bernoulli = torch.cat([torch.sigmoid(xhat[:, val[0]]).unsqueeze(1) for val in feature_type_dict['binary_param']], dim=1)
+        print(xhat_bernoulli)
+        print(xhat_bernoulli.shape)
+        # Softmax
+        xhat_categorical = torch.cat([F.softmax(xhat[:, val[0]:val[1]], dim=1) for val in feature_type_dict['categorical_param']],dim=1)
+        print(xhat_categorical)
+        print(xhat_categorical.shape)
+        
+        return xhat_gauss_mu, xhat_gauss_std, xhat_bernoulli, xhat_categorical
+
 
 
 class VAE(nn.Module):
@@ -183,22 +190,29 @@ class VAE(nn.Module):
         pz_gauss = torch.distributions.Normal(torch.zeros_like(mu), torch.ones_like(std))
         #! DECODER
         # TODO
-        mu_gauss, std_gauss, p_bernoulli = self.decoder(z, feature_type_dict)
+        mu_gauss, std_gauss, p_bernoulli, p_categorical = self.decoder(z, feature_type_dict)
         
         x_gauss = x[:,feature_type_dict['real_data']]
         x_bernoulli = torch.sigmoid(x[:,feature_type_dict['binary_data']])
+        x_categorical = x[:,feature_type_dict['categorical_data']]
         
-        BC = F.binary_cross_entropy(x_bernoulli, p_bernoulli, reduction='sum')
+        print(x_categorical)
+        print(p_categorical)
+        exit()
+        BC = F.binary_cross_entropy(p_bernoulli, x_bernoulli, reduction='sum')
         RE, _ = self.decoder.neg_log_prob(x_gauss,mu_gauss, std_gauss)  
         KL = torch.distributions.kl_divergence(qz, pz_gauss).sum(dim=1)
+        MC = F.cross_entropy(p_categorical, x_categorical, reduction='sum')
         #KL = - self.prior.log_prob(z) + self.encoder.log_prob(z, mu, std)[0]
         
         
         #BC = F.binary_cross_entropy_with_logits(x_bernoulli,p_bernoulli, reduction="sum")
         beta = 0.01
+        gamma = 0.01
 
-        #return torch.mean(RE + beta*KL) 
-        return torch.mean(RE + beta*BC + KL)
+        #return torch.mean(RE + beta*KL)
+        exit() 
+        return torch.mean(RE + beta*BC + gamma*MC + KL)
 
     def count_params(self):
         return sum(p.numel() for p in self.encoder.parameters() if p.requires_grad)

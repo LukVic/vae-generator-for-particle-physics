@@ -20,9 +20,8 @@ from dataloader import load_config, load_features
 
 from gm_helpers import infer_feature_type
 
-def main():        
 
-    
+def generate():
     PATH_JSON = f'../config/' # config path
     # load the general parameters
     conf_dict = load_config(PATH_JSON)
@@ -49,7 +48,7 @@ def main():
     PATH_FEATURES = f'../features/' # feature directory path
 
     DATA_FILE = f'df_{REACTION}_pres_strict' # data file based on demanded preselection
-    FEATURES_FILE = f'features_top_10' # 'df_phi', 'df_no_zeros', 'df_8', 'df_pt'  feature file
+    FEATURES_FILE = 'most_important_gbdt_10_tbh_800_new' ##f'features_top_10' # 'df_phi', 'df_no_zeros', 'df_8', 'df_pt'  feature file
     
         # which model to train
     APPROACH = gen_params["approach"] # 'std', 'sym', 'std_h', 'sym_h', 'ddgm'
@@ -75,9 +74,8 @@ def main():
     
     df = df.drop(columns=['weight', 'row_number']) # remove auxiliary columns
     features = load_features(PATH_FEATURES, FEATURES_FILE)
-    
-    df = df[features]
-    feature_type_dict = infer_feature_type(df)
+
+    feature_type_dict, df = infer_feature_type(df[features])
 
     if torch.cuda.is_available():
         print("CUDA (GPU) is available.")
@@ -192,6 +190,7 @@ def main():
             print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm, features_list=features)
 
+
 class DataFrameDataset(Dataset):
     def __init__(self, dataframe, feature_columns, target_column=None):
         self.dataframe = dataframe
@@ -226,6 +225,10 @@ def plot_loss(elbo_history_1, elbo_history_2, TYPE):
     plt.title('Comparison of SYM Losses')
     plt.legend()
     plt.savefig(f'{TYPE}_losses.png')
+
+
+def main():        
+    generate()
 
 if __name__ == "__main__":
     main()

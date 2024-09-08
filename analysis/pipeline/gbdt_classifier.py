@@ -89,7 +89,6 @@ def train_model(X, y, name=None, parameters={}, svd_components=0):
 
         pipe.fit(X, y)
         feature_importnace_gbdt(pipe, X, gen_params)
-        exit()
         
     if name == 'TAB':
         # Parameters for TabNet
