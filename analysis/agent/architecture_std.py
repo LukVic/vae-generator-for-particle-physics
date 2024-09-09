@@ -151,17 +151,14 @@ class Decoder(nn.Module):
         # Gaussian
         xhat_gauss = torch.cat([xhat[:, val[0]:val[1]] for val in feature_type_dict['real_param']], dim=1)
         xhat_gauss_mu, xhat_gauss_sigma = torch.split(xhat_gauss, len(feature_type_dict['real_data']), dim=1)
-        print(xhat_gauss_mu.shape)
         xhat_gauss_std = torch.exp(xhat_gauss_sigma)
         # Bernoulli
         xhat_bernoulli = torch.cat([torch.sigmoid(xhat[:, val[0]]).unsqueeze(1) for val in feature_type_dict['binary_param']], dim=1)
-        print(xhat_bernoulli)
-        print(xhat_bernoulli.shape)
         # Softmax
-        xhat_categorical = torch.cat([F.softmax(xhat[:, val[0]:val[1]], dim=1) for val in feature_type_dict['categorical_param']],dim=1)
-        print(xhat_categorical)
-        print(xhat_categorical.shape)
+        #print(F.softmax(xhat[:, feature_type_dict['categorical_one_hot'][0][0]:feature_type_dict['categorical_one_hot'][0][1]], dim=1))
+        #print([F.softmax(xhat[:, val[0]:val[1]], dim=1) for val in feature_type_dict['categorical_param']])
         
+        xhat_categorical = torch.cat([F.softmax(xhat[:, val[0]:val[1]], dim=1) for val in feature_type_dict['categorical_param']],dim=1)
         return xhat_gauss_mu, xhat_gauss_std, xhat_bernoulli, xhat_categorical
 
 
@@ -191,18 +188,21 @@ class VAE(nn.Module):
         #! DECODER
         # TODO
         mu_gauss, std_gauss, p_bernoulli, p_categorical = self.decoder(z, feature_type_dict)
-        
+        #print(torch.sum(p_categorical[:,0:4],dim=1))
         x_gauss = x[:,feature_type_dict['real_data']]
         x_bernoulli = torch.sigmoid(x[:,feature_type_dict['binary_data']])
-        x_categorical = x[:,feature_type_dict['categorical_data']]
-        
-        print(x_categorical)
-        print(p_categorical)
-        exit()
+
+
         BC = F.binary_cross_entropy(p_bernoulli, x_bernoulli, reduction='sum')
         RE, _ = self.decoder.neg_log_prob(x_gauss,mu_gauss, std_gauss)  
         KL = torch.distributions.kl_divergence(qz, pz_gauss).sum(dim=1)
-        MC = F.cross_entropy(p_categorical, x_categorical, reduction='sum')
+        MC = 0
+        for (start_x, end_x), (start_p, end_p) in zip(feature_type_dict['categorical_one_hot'], feature_type_dict['categorical_only']):
+            x_categorical_tmp = x[:,start_x:end_x]
+            p_categorical_tmp = p_categorical[:,start_p:end_p]
+            # print(p_categorical_tmp)
+            # print(x_categorical_tmp)
+            MC += F.cross_entropy(p_categorical_tmp, x_categorical_tmp, reduction='sum')            
         #KL = - self.prior.log_prob(z) + self.encoder.log_prob(z, mu, std)[0]
         
         
@@ -210,8 +210,7 @@ class VAE(nn.Module):
         beta = 0.01
         gamma = 0.01
 
-        #return torch.mean(RE + beta*KL)
-        exit() 
+        #return torch.mean(RE + beta*KL) 
         return torch.mean(RE + beta*BC + gamma*MC + KL)
 
     def count_params(self):

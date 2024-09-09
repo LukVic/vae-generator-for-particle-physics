@@ -13,7 +13,7 @@ from sklearn.preprocessing import MinMaxScaler
 from dataloader import load_config
 from gm_helpers import infer_feature_type
 
-def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset, features_list):
+def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset, feature_type_dict, features_list):
     # Chose if generate new samples of just regenerate the simulated ones
     SAMPLING = 'generate' #regenerate
 
@@ -37,24 +37,28 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
             
             for i in range(0, SAMPLES_NUM, batch_size):
-                latent_samples_batch = generate_latents(batch_size, latent_dimension, SAMPLING, model, scaler.fit_transform(dataset.values))
+                latent_samples_batch = generate_latents(batch_size, latent_dimension, SAMPLING, model, dataset.values)
                 latent_samples.append(latent_samples_batch)
             
             latent_samples = torch.cat(latent_samples, dim=0).to('cuda')
             
             decoded_samples = []
             for i in range(0, latent_samples.size(0), batch_size):
-                xhats_mu_gauss, xhats_std_gauss, xhats_bernoulli = model.decoder(latent_samples[i:i+batch_size], infer_feature_type(dataset))
+                xhats_mu_gauss, xhats_std_gauss, xhats_bernoulli, xhats_categorical = model.decoder(latent_samples[i:i+batch_size], feature_type_dict)
                 px_gauss = torch.distributions.Normal(xhats_mu_gauss, xhats_std_gauss)
-                xhat_gauss = px_gauss.sample()
-                #xhat_bernoulli = torch.bernoulli(xhats_bernoulli)
-                #xhats_bernoulli_tensor = torch.stack(xhats_bernoulli)
-
-                xhat_bernoulli = torch.bernoulli(xhats_bernoulli)
-                xhats = torch.cat((xhat_gauss, xhat_bernoulli.view(-1,1)), dim=1)
-                x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
-                decoded_samples.append(torch.tensor(x_hats_denorm))
-            data_array =  torch.cat(decoded_samples, dim=0)
+                xhats_gauss = px_gauss.sample()
+                
+                xhats_gauss_denorm = torch.tensor(scaler.inverse_transform(xhats_gauss.to('cpu')))
+                xhats_bernoulli = torch.bernoulli(xhats_bernoulli)
+                xhats = torch.cat((xhats_gauss_denorm, xhats_bernoulli.view(-1,len(feature_type_dict['binary_param'])).to('cpu')), dim=1)
+                
+                
+                for idx, (start, end) in enumerate(feature_type_dict['categorical_only']):
+                    categorical_distribution = torch.distributions.Categorical(logits=xhats_categorical[:, start:end])
+                    xhat_categorical = categorical_distribution.sample()
+                    xhats = torch.cat((xhats, xhat_categorical.view(-1,1).to('cpu')), dim=1)
+                
+            data_array = xhats
         # Generate new samples with Ladder ELBO
         # TODO: generation by batches 
         elif TYPE == 'std_h':

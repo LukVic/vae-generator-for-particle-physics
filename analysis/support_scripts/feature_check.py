@@ -1,4 +1,7 @@
 import os
+import sys
+sys.path.append("/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/pipeline")
+sys.path.append("/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/agent")
 import ROOT
 import pandas as pd
 import numpy as np
@@ -6,6 +9,7 @@ import logging
 import ctypes
 import csv
 from scipy.stats import chisquare
+from dataloader import load_config, load_features
 
 def feature_check(path):
     
@@ -14,7 +18,7 @@ def feature_check(path):
     EPOCHS_STD = 1000
     EPOCHS_SYM = 500
     
-    reaction = 'tbh_250_new'
+    reaction = 'tbh_800_new'
     #reaction = 'bkg_all'
     
     # DATASET = 'df_no_zeros'
@@ -26,7 +30,8 @@ def feature_check(path):
     # DATASET = 'df_pt'
     # FEATURES = 'pt_features'
     DATASET = f'df_{reaction}_pres_strict'
-    FEATURES = 'features_top_10'
+    PATH_FEATURES = f'{path}features/'
+    FEATURES_FILE = 'most_important_gbdt_10_tbh_800_new'  #'features_top_10'
     
     data_original = np.array([])
     data_ganerated = np.array([])
@@ -36,8 +41,9 @@ def feature_check(path):
     ch_test_2 = []
     
     #EVENTS = 10449
-    EVENTS_1 = 12522
-    EVENTS_2 = 27611
+    #EVENTS_1 = 12522
+    #EVENTS_2 = 27611
+    EVENTS_1 = 31434
     # df_original = pd.read_csv(f'{path}data/tt/{DATASET}.csv')
     # df_generated = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_STD}_std_h.csv')
     # df_generated_sym = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_SYM}_{EPOCHS_SYM}_sym_h.csv')
@@ -52,7 +58,8 @@ def feature_check(path):
     # print(df_generated['total_charge'])
 
     #! adjust df_original
-    features_used = ['taus_pt_0', 'MtLepMet', 'met_met', 'DRll01', 'MLepMet', 'minDeltaR_LJ_0', 'jets_pt_0', 'HT', 'HT_lep', 'total_charge']
+    #features_used = ['taus_pt_0', 'MtLepMet', 'met_met', 'DRll01', 'MLepMet', 'minDeltaR_LJ_0', 'jets_pt_0', 'HT', 'HT_lep', 'total_charge']
+    features_used = load_features(PATH_FEATURES, FEATURES_FILE)
     #features_used = ['HT', 'minDeltaR_LJ_0', 'MtLepMet', 'DRll01', 'jets_pt_0', 'met_met', 'taus_pt_0', 'MLepMet', 'HT_lep', 'total_charge']
     df_original = df_original[features_used]
     df_generated = df_generated[features_used]
@@ -62,7 +69,7 @@ def feature_check(path):
     # print(df_generated.shape)
     # print(df_generated_sym.shape)
     
-    feature_list = pd.read_csv(f'{path}features/{FEATURES}.csv', header=None).to_numpy()
+    feature_list = pd.read_csv(f'{path}features/{FEATURES_FILE}.csv', header=None).to_numpy()
     
     
     chi2_sum_std = 0
