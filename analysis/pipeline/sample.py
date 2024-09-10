@@ -13,11 +13,11 @@ from sklearn.preprocessing import MinMaxScaler
 from dataloader import load_config
 from gm_helpers import infer_feature_type
 
-def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset, feature_type_dict, features_list):
+def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset_original, dataset_one_hot, feature_type_dict, features_list):
     # Chose if generate new samples of just regenerate the simulated ones
     SAMPLING = 'generate' #regenerate
 
-    SAMPLES_NUM = dataset.shape[0] # Size of the generated dataset
+    SAMPLES_NUM = dataset_one_hot.shape[0] # Size of the generated dataset
     #SAMPLES_NUM = 5000000
     batch_size = SAMPLES_NUM # Number of samples by batch
     
@@ -27,7 +27,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     model = torch.load(PATH_MODEL)
     model.eval()
     
-    data_array = np.empty((0, dataset.shape[1]), dtype=np.float32)
+    data_array = np.empty((0, dataset_one_hot.shape[1]), dtype=np.float32)
     latent_samples = []
     
     start_time = time.time()
@@ -37,7 +37,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
             
             for i in range(0, SAMPLES_NUM, batch_size):
-                latent_samples_batch = generate_latents(batch_size, latent_dimension, SAMPLING, model, dataset.values)
+                latent_samples_batch = generate_latents(batch_size, latent_dimension, SAMPLING, model, dataset_one_hot.values)
                 latent_samples.append(latent_samples_batch)
             
             latent_samples = torch.cat(latent_samples, dim=0).to('cuda')
@@ -62,7 +62,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
         # Generate new samples with Ladder ELBO
         # TODO: generation by batches 
         elif TYPE == 'std_h':
-            z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,scaler.fit_transform(dataset.values))
+            z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,scaler.fit_transform(dataset_one_hot.values))
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
             xhats_mu_gauss_1, xhats_sigma_gauss_1 = model.encoder_3(z_2.to('cuda'))
             pz2z1 = torch.distributions.Normal(xhats_mu_gauss_1, torch.exp(xhats_sigma_gauss_1))
@@ -78,7 +78,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
         # Generate new samples with Ladder SEL
         # TODO: generation by batches
         elif TYPE == 'sym_h':
-            z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,scaler.fit_transform(dataset.values))
+            z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,scaler.fit_transform(dataset_one_hot.values))
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
             # xhats_mu_gauss_3, xhats_sigma_gauss_3 = model.decoders[0].encode(z_3.to('cuda'))
             # pz3z2 = torch.distributions.Normal(xhats_mu_gauss_3, xhats_sigma_gauss_3)
@@ -96,7 +96,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             data_array = np.vstack((data_array, x_hats_denorm))
         # Generate new samples with Deep diffusion generative model
         elif TYPE == 'ddgm':
-            prior_sample = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,dataset)
+            prior_sample = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,dataset_one_hot)
             
             z_current = prior_sample
             
@@ -117,12 +117,15 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     # Adjust the values for total_charge variable
     #print(set(df_gen['total_charge']))
     #print((df_gen['total_charge'] > 0.5).sum())
-    bound = 0.5
-    replacement_lower = -2.0
-    replacement_upper = 2.0
-    mask = (df_gen['total_charge'] < bound)
-    df_gen.loc[mask, 'total_charge'] = replacement_lower
-    df_gen.loc[~mask, 'total_charge'] = replacement_upper
+    
+    df_gen = map_hist_vals(dataset_original,df_gen,feature_type_dict)
+    
+    # bound = 0.5
+    # replacement_lower = -2.0
+    # replacement_upper = 2.0
+    # mask = (df_gen['total_charge'] < bound)
+    # df_gen.loc[mask, 'total_charge'] = replacement_lower
+    # df_gen.loc[~mask, 'total_charge'] = replacement_upper
     
     df_gen['y'] = reaction
 
@@ -140,3 +143,12 @@ def generate_latents(samples_num, latent_dimension, sampling, model, dataset):
         mu, std = model.encoder.encode(torch.tensor(dataset,dtype=torch.float32).to('cuda'))
         posterior = torch.distributions.Normal(mu, std)
         return posterior.sample()
+
+def map_hist_vals(df_simulated, df_generated, feature_type_dict):
+    for idx in feature_type_dict['categorical_data']:
+        hist_dict = dict(zip(sorted(df_generated.iloc[:,idx].unique()), sorted(df_simulated.iloc[:,idx].unique())))
+        df_generated.iloc[:,idx] = df_generated.iloc[:,idx].map(hist_dict)
+    for idx in feature_type_dict['binary_data']:
+        hist_dict = dict(zip(sorted(df_generated.iloc[:,idx].unique()), sorted(df_simulated.iloc[:,idx].unique())))
+        df_generated.iloc[:,idx] = df_generated.iloc[:,idx].map(hist_dict)
+    return df_generated

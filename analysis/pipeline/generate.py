@@ -75,7 +75,7 @@ def generate():
     df = df.drop(columns=['weight', 'row_number']) # remove auxiliary columns
     features = load_features(PATH_FEATURES, FEATURES_FILE)
 
-    feature_type_dict, df = infer_feature_type(df[features],PATH_FEATURES+FEATURES_FILE)
+    feature_type_dict, df, df_one_hot = infer_feature_type(df[features],PATH_FEATURES+FEATURES_FILE)
 
     if torch.cuda.is_available():
         print("CUDA (GPU) is available.")
@@ -88,10 +88,10 @@ def generate():
 
     # Chose how to scale the data
     scaler = StandardScaler() # MinMaxScaler()
-    train_dataset_real_norm = scaler.fit_transform(df.iloc[:,feature_type_dict['real_data']].values)
-    df.iloc[:,feature_type_dict['real_data']] = train_dataset_real_norm
+    train_dataset_real_norm = scaler.fit_transform(df_one_hot.iloc[:,feature_type_dict['real_data']].values)
+    df_one_hot.iloc[:,feature_type_dict['real_data']] = train_dataset_real_norm
 
-    train_dataset_norm = torch.tensor(df.values, dtype=torch.float32)
+    train_dataset_norm = torch.tensor(df_one_hot.values, dtype=torch.float32)
     input_size = train_dataset_norm.shape[1]
     output_dim = feature_type_dict['max_idx']
 
@@ -132,11 +132,11 @@ def generate():
                 if epoch % 50 == 0: # refresh the loss plot after certain amount of epochs
                     plot_loss(elbo_history, None, APPROACH)
             plot_loss(elbo_history, None, APPROACH)
-            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=df, feature_type_dict=feature_type_dict, features_list=features)
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df , dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features)
         else:
             model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
-            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=df, feature_type_dict=feature_type_dict, features_list=features)
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df, dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features)
             
     elif APPROACH == 'sym' or APPROACH == 'sym_h':
         # model = VAE(gen_params["latent_size"], device, input_size, conf_dict)
@@ -187,12 +187,12 @@ def generate():
                     plot_loss(elbo_history1, elbo_history2,APPROACH)
                 if epoch % 10 == 0:
                     plot_loss(elbo_history1, elbo_history2,APPROACH)
-            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm, feature_type_dict=feature_type_dict, features_list=features)
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df, dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features)
             plot_loss(elbo_history1, elbo_history2, APPROACH)
         else:
             model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
-            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION], dataset=train_dataset_norm, feature_type_dict=feature_type_dict, features_list=features)
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df, dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features)
 
 
 class DataFrameDataset(Dataset):

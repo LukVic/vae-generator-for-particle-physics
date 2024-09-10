@@ -29,6 +29,7 @@ def infer_feature_type(df_data, PATH_FEATURES):
             separate_features['real_features'].append(feature)
     ordered_features = separate_features['real_features'] + separate_features['binary_features'] + separate_features['categorical_features']
     df_data = df_data[ordered_features]
+    df_data_one_hot = df_data.copy()
     
     # Open a file in write mode
     with open(f"{PATH_FEATURES}.csv", "w") as file:
@@ -37,34 +38,34 @@ def infer_feature_type(df_data, PATH_FEATURES):
             file.write(string + "\n")
     
     category_counts = []
-    for i, col in enumerate(df_data.columns):
+    for i, col in enumerate(df_data_one_hot.columns):
 
-        unique_num = df_data[col].nunique()  
+        unique_num = df_data_one_hot[col].nunique()  
         if unique_num == 2:
             feature_type_dict['binary_param'].append([idx,idx+1])
             feature_type_dict['binary_data'].append(i)
             idx += 1
             jdx += 1
-        elif df_data[col].nunique() < 50:
-            feature_type_dict['categorical_param'].append([idx,idx+df_data[col].nunique()])
-            feature_type_dict['categorical_one_hot'].append([jdx,jdx+df_data[col].nunique()])
-            feature_type_dict['categorical_only'].append([kdx,kdx+df_data[col].nunique()])
+        elif df_data_one_hot[col].nunique() < 50:
+            feature_type_dict['categorical_param'].append([idx,idx+df_data_one_hot[col].nunique()])
+            feature_type_dict['categorical_one_hot'].append([jdx,jdx+df_data_one_hot[col].nunique()])
+            feature_type_dict['categorical_only'].append([kdx,kdx+df_data_one_hot[col].nunique()])
             feature_type_dict['categorical_data'].append(i)
             category_counts.append(unique_num)
-            idx += df_data[col].nunique()
-            jdx += df_data[col].nunique()
-            kdx += df_data[col].nunique()
+            idx += df_data_one_hot[col].nunique()
+            jdx += df_data_one_hot[col].nunique()
+            kdx += df_data_one_hot[col].nunique()
         else: 
             feature_type_dict['real_param'].append([idx,idx+2])
             feature_type_dict['real_data'].append(i)
             idx += 2
             jdx += 1
-    df_cotegorical = df_data.iloc[:, feature_type_dict['categorical_data']]
-    df_rest = df_data.iloc[:, feature_type_dict['real_data'] + feature_type_dict['binary_data']]
+    df_cotegorical = df_data_one_hot.iloc[:, feature_type_dict['categorical_data']]
+    df_rest = df_data_one_hot.iloc[:, feature_type_dict['real_data'] + feature_type_dict['binary_data']]
     df_cotegorical = categorical_one_hot_encode(df_cotegorical, category_counts)
-    df_data = pd.concat([df_rest, df_cotegorical.astype(int)], axis=1) 
+    df_data_one_hot = pd.concat([df_rest, df_cotegorical.astype(int)], axis=1) 
     feature_type_dict['max_idx'] = idx
-    return feature_type_dict, df_data
+    return feature_type_dict, df_data, df_data_one_hot
 
 def categorical_one_hot_encode(df_cat_col, category_counts):
     columns = []

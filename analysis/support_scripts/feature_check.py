@@ -239,7 +239,8 @@ def feature_check(path):
         igood = ctypes.c_int(0)
         
         h_feature_original.Chi2TestX(h_feature_generated_std, chi2_statistic, ndf, igood, "P WW")
-        result_std = chi2_statistic.value / ndf.value
+        if ndf.value == 0: result_std = np.inf
+        else: result_std = chi2_statistic.value / ndf.value
         chi2_sum_std += result_std
         
         # if result_std < 1:
@@ -250,7 +251,8 @@ def feature_check(path):
         
         
         h_feature_original.Chi2TestX(h_feature_generated_sym, chi2_statistic, ndf, igood, "P WW")
-        result_sym = chi2_statistic.value / ndf.value
+        if ndf.value == 0: result_sym = np.inf
+        else: result_sym = chi2_statistic.value / ndf.value
         chi2_sum_sym += result_sym
         
         print(f"Chi2 test 1: {feature}: {result_std}")
