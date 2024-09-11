@@ -87,6 +87,9 @@ def feature_check(path):
         min_all = np.min([data_original,data_ganerated,data_ganerated_sym])
         max_all = np.max([data_original,data_ganerated,data_ganerated_sym])
         
+        min_all += 1/min_all
+        max_all += 1/max_all
+        
         if feature == 'total_charge':
             min_all = -2.5
             max_all = 2.5

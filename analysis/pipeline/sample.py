@@ -45,6 +45,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             decoded_samples = []
             for i in range(0, latent_samples.size(0), batch_size):
                 xhats_mu_gauss, xhats_std_gauss, xhats_bernoulli, xhats_categorical = model.decoder(latent_samples[i:i+batch_size], feature_type_dict)
+
                 px_gauss = torch.distributions.Normal(xhats_mu_gauss, xhats_std_gauss)
                 xhats_gauss = px_gauss.sample()
                 
@@ -53,10 +54,13 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
                 xhats = torch.cat((xhats_gauss_denorm, xhats_bernoulli.view(-1,len(feature_type_dict['binary_param'])).to('cpu')), dim=1)
                 
                 
-                for idx, (start, end) in enumerate(feature_type_dict['categorical_only']):
+                categorical_samples = []
+                for start, end in feature_type_dict['categorical_only']:
                     categorical_distribution = torch.distributions.Categorical(logits=xhats_categorical[:, start:end])
-                    xhat_categorical = categorical_distribution.sample()
-                    xhats = torch.cat((xhats, xhat_categorical.view(-1,1).to('cpu')), dim=1)
+                    xhat_categorical = categorical_distribution.sample().unsqueeze(1)
+                    categorical_samples.append(xhat_categorical)
+
+                xhats = torch.cat((xhats, torch.cat(categorical_samples, dim=1).to('cpu')), dim=1)
                 
             data_array = xhats
         # Generate new samples with Ladder ELBO
