@@ -10,7 +10,7 @@ from mlp_classifier import *
 from correlation import *
 from optimize import optimize
 from dataloader import load_config, load_features
-from train import train_model
+from gbdt_classifier import train_model
 from friends import friend_output
 from aux_functions import num_to_mass, mass_to_num
 
@@ -39,7 +39,7 @@ def classify():
     PATH_MODEL =  f'{PATH_DATA}xgboost_model_trained_pres.pkl'
     LOG_FILE_PATH = f'{PATH_LOGGING}results_final.log'
     PATH_FEATURES = f'../features/' # feature directory path
-    FEATURES_FILE = 'all_new_vars' #f'features_top_10' # 'df_phi', 'df_no_zeros', 'df_8', 'df_pt'  feature file
+    FEATURES_FILE = 'most_important_gbdt_10_tbh_800_new'#all_new_vars' #f'features_top_10' # 'df_phi', 'df_no_zeros', 'df_8', 'df_pt'  feature file
     
     
     helper_features = gen_params['helper_features'] # features helping to analyse the data
@@ -114,7 +114,7 @@ def classify():
                         df_augment_train = pd.DataFrame()
                         for cl in [gen_params['sig_mass_label'],'bkg_all']:
                             PATH_GEN_MODEL = f'../data/{cl}_input/'
-                            df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_pres_strict_E40000_S{events_dict[cl]}_{TYPE}.csv')
+                            df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_pres_strict_E1000_S{events_dict[cl]}_{TYPE}.csv')
 
                             df_generated = df_generated.sample(frac=frac_aug, random_state=seed)
                             df_augment_train = pd.concat([df_augment_train, df_generated])

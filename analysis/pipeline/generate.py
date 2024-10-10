@@ -10,7 +10,7 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Dataset, DataLoader
 
 import pandas as pd
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, QuantileTransformer, RobustScaler, PowerTransformer
 from tqdm.auto import tqdm
 
 import matplotlib.pyplot as plt
@@ -70,8 +70,7 @@ def generate():
 
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv') # load training data
     #df['tau_lep_charge_diff'] = df['total_charge'] * df['taus_charge_0'] # substitute total_charge by tau_lep_charge_diff
-    
-    
+
     df = df.drop(columns=['weight', 'row_number']) # remove auxiliary columns
     features = load_features(PATH_FEATURES, FEATURES_FILE)
 
@@ -87,7 +86,11 @@ def generate():
 
 
     # Chose how to scale the data
-    scaler = StandardScaler() # MinMaxScaler()
+    #scaler = MinMaxScaler() 
+    scaler = StandardScaler()
+    #scaler = QuantileTransformer(n_quantiles=10, random_state=0)
+    #scaler = RobustScaler()
+    #scaler = PowerTransformer()
     train_dataset_real_norm = scaler.fit_transform(df_one_hot.iloc[:,feature_type_dict['real_data']].values)
     df_one_hot.iloc[:,feature_type_dict['real_data']] = train_dataset_real_norm
 

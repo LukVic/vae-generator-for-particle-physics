@@ -69,8 +69,8 @@ class Encoder(nn.Module):
         res = x_new
         x_new = self.body2(x_new)
         # x_new = self.body3(x_new)
-        # x_new = self.body4(x_new)
-        # x_new += res
+        x_new = self.body4(x_new)
+        x_new += res
         scores = self.body5(x_new)
         
         #scores = self.body(x)
@@ -143,8 +143,8 @@ class Decoder(nn.Module):
         #z_new += x_skip
         z_new = self.body2(z_new)
         # z_new = self.body3(z_new)
-        # z_new = self.body4(z_new)
-        # z_new += res
+        z_new = self.body4(z_new)
+        z_new += res
         xhat = self.body5(z_new)
 
         
@@ -194,19 +194,24 @@ class VAE(nn.Module):
         BC = F.binary_cross_entropy(p_bernoulli, x_bernoulli, reduction='sum')
         RE, _ = self.decoder.neg_log_prob(x_gauss,mu_gauss, std_gauss)  
         KL = torch.distributions.kl_divergence(qz, pz_gauss).sum(dim=1)
+        KL = self.kl_div(z,mu,std, self.prior, self.encoder)
         MC = sum(F.cross_entropy(p_categorical[:,start_p:end_p], x[:,start_x:end_x].argmax(dim=1), reduction='sum') for (start_x, end_x), (start_p, end_p) in zip(feature_type_dict['categorical_one_hot'], feature_type_dict['categorical_only']))
 
         beta = 0.01
         gamma = 0.01
+        
+        return torch.mean(RE) - torch.mean(KL) + beta*BC + gamma*MC
 
-        return torch.mean(RE + KL) + beta*BC + gamma*MC
-        return beta * BC #+ gamma * MC
-        #return torch.mean(RE + KL) + beta*BC #+ gamma*MC
 
     def count_params(self):
         return sum(p.numel() for p in self.encoder.parameters() if p.requires_grad)
 
-    
+    def kl_div(self,z,mu,std, prior, posterior):
+        kl_part_1 = prior.log_prob(z).sum(0) 
+        kl_part_2 = posterior.neg_log_prob(z, mu, std)[0] 
+
+        KL = kl_part_1 + kl_part_2
+        return KL
     
     
 class StandardPrior(nn.Module):
@@ -238,18 +243,19 @@ class StandardPrior(nn.Module):
         else:
             return log_p.T
 
+
 class MoGPrior(nn.Module):
     def __init__(self, L, num_components):
         super(MoGPrior, self).__init__()
-
+        multiplier = 1
         self.L = L
         self.num_components = num_components
 
-        multiplier = 1
-
+        # params
         self.means = nn.Parameter(torch.randn(num_components, self.L)*multiplier)
         self.logvars = nn.Parameter(torch.randn(num_components, self.L))
 
+        # mixing weights
         self.w = nn.Parameter(torch.zeros(num_components, 1, 1))
 
     def get_params(self):
@@ -259,11 +265,14 @@ class MoGPrior(nn.Module):
         # mu, lof_var
         means, logvars = self.get_params()
 
+        # mixing probabilities
         w = F.softmax(self.w, dim=0)
         w = w.squeeze()
 
+        # pick components
         indexes = torch.multinomial(w, batch_size, replacement=True)
 
+        # means and logvars
         eps = torch.randn(batch_size, self.L)
         for i in range(batch_size):
             indx = indexes[i]
@@ -274,17 +283,21 @@ class MoGPrior(nn.Module):
         return z
 
     def log_prob(self, z):
+        # mu, lof_var
         means, logvars = self.get_params()
 
+        # mixing probabilities
         w = F.softmax(self.w, dim=0)
 
-        z = z.unsqueeze(0) 
-        means = means.unsqueeze(1) 
-        logvars = logvars.unsqueeze(1) 
+        # log-mixture-of-Gaussians
+        z = z.unsqueeze(0).to('cuda:0') # 1 x B x L
+        means = means.unsqueeze(1).to('cuda:0') # K x 1 x L
+        logvars = logvars.unsqueeze(1).to('cuda:0') # K x 1 x L
 
-        log_p = self.log_normal_diag(z.to('cuda'), means.to('cuda'), logvars.to('cuda')) + torch.log(w).to('cuda') # K x B x L
-        log_prob = torch.logsumexp(log_p, dim=0, keepdim=False) 
-        return -log_prob.T
+        log_p = self.log_normal_diag(z, means, logvars) + torch.log(w) # K x B x L
+        log_prob = torch.logsumexp(log_p, dim=0, keepdim=False) # B x L
+
+        return log_prob
 
     def log_normal_diag(self, x, mu, log_var, reduction=None, dim=None):
         PI = torch.from_numpy(np.asarray(np.pi))

@@ -15,11 +15,11 @@ def feature_check(path):
     
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    EPOCHS_STD = 1000
+    EPOCHS_STD = 500
     EPOCHS_SYM = 500
     
-    reaction = 'tbh_800_new'
-    #reaction = 'bkg_all'
+    #reaction = 'tbh_800_new'
+    reaction = 'bkg_all'
     
     # DATASET = 'df_no_zeros'
     # FEATURES = 'low_features'
@@ -43,7 +43,8 @@ def feature_check(path):
     #EVENTS = 10449
     #EVENTS_1 = 12522
     #EVENTS_2 = 27611
-    EVENTS_1 = 31434
+    #EVENTS_1 = 31434
+    EVENTS_1 = 65373
     # df_original = pd.read_csv(f'{path}data/tt/{DATASET}.csv')
     # df_generated = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_STD}_std_h.csv')
     # df_generated_sym = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_SYM}_{EPOCHS_SYM}_sym_h.csv')
@@ -55,7 +56,7 @@ def feature_check(path):
     df_generated = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_STD}_S{EVENTS_1}_{TYPE_1}.csv')
     df_generated_sym = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_STD}_S{EVENTS_1}_{TYPE_1}.csv')
 
-    # print(df_generated['total_charge'])
+    print(df_generated.shape)
 
     #! adjust df_original
     #features_used = ['taus_pt_0', 'MtLepMet', 'met_met', 'DRll01', 'MLepMet', 'minDeltaR_LJ_0', 'jets_pt_0', 'HT', 'HT_lep', 'total_charge']
@@ -64,6 +65,10 @@ def feature_check(path):
     df_original = df_original[features_used]
     df_generated = df_generated[features_used]
     df_generated_sym = df_generated_sym[features_used]
+    # print(df_original)
+    # print(df_generated)
+    # print(df_generated_sym)
+    # exit()
 
     # print(df_original.shape)
     # print(df_generated.shape)
@@ -80,6 +85,7 @@ def feature_check(path):
     logging.info(f'SYMM EPOCHS NUM: {EPOCHS_SYM}')
     
     for feature in feature_list:
+        print(f"PROCESSING: {feature}")
         data_original = df_original[feature[0]].values
         data_ganerated = df_generated[feature[0]].values
         data_ganerated_sym = df_generated_sym[feature[0]].values
@@ -102,13 +108,13 @@ def feature_check(path):
         h_feature_generated_sym = ROOT.TH1F(f"h_{feature[0]}_generated_sym",f";{feature[0]}; events (normalized)",100, min_all, max_all)
         
 
-        
         # if feature == 'total_charge':
         #     print(set(data_ganerated))
         #     exit()
-        
+        event_sum = 0
         for event_o, event_g, event_g_s in zip(data_original, data_ganerated, data_ganerated_sym):
             #print(event_o)
+            event_sum += event_o
             h_feature_original.Fill(event_o)
             
             if feature != 'total_charge':
@@ -123,12 +129,26 @@ def feature_check(path):
                 
                 h_feature_generated_std.Fill(event_g)
                 h_feature_generated_sym.Fill(event_g_s)
-
-        h_feature_original.Scale(1. / h_feature_original.Integral())
+        # print(event_sum)
+        # print(h_feature_original)
+        # print(h_feature_original.Integral())
+        # print(h_feature_generated_std.Integral())
+        # print(h_feature_generated_sym.Integral())
+        
+        int_original = h_feature_original.Integral()
+        int_generated_std = h_feature_generated_std.Integral()
+        int_generated_sym = h_feature_generated_sym.Integral()
+        
+        if h_feature_original.Integral() < 0.001: int_original = 1
+        if h_feature_generated_std.Integral() < 0.001: int_generated_std = 1
+        if h_feature_generated_sym.Integral() < 0.001: int_generated_sym = 1
+        
+        
+        h_feature_original.Scale(1. / int_original)
         h_feature_original.Write()
-        h_feature_generated_std.Scale(1. / h_feature_generated_std.Integral())
+        h_feature_generated_std.Scale(1. / int_generated_std)
         h_feature_generated_std.Write()
-        h_feature_generated_sym.Scale(1. / h_feature_generated_sym.Integral())
+        h_feature_generated_sym.Scale(1. / int_generated_sym)
         h_feature_generated_sym.Write()
         
         
@@ -274,6 +294,7 @@ def feature_check(path):
         
 
         c1.SaveAs(f"{path}results/feature_plots_comparison/{directory}vae_std_sym_{feature[0]}_comparison_{TYPE_1}_{TYPE_2}.pdf")
+    print(feature_list)
     print(ch_test_1)
     print(ch_test_2)
     logging.info(f'SUMMED CHI2 ELBO: {chi2_sum_std}')

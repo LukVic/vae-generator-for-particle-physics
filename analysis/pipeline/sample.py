@@ -6,9 +6,6 @@ import time
 import torch
 import numpy as np
 import pandas as pd
-import json
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import MinMaxScaler
 
 from dataloader import load_config
 from gm_helpers import infer_feature_type
