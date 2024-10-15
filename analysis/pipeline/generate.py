@@ -6,6 +6,7 @@ import os
 import numpy as np
 import torch
 import torch.optim as optim
+import torch.nn as nn
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Dataset, DataLoader
 
@@ -19,7 +20,7 @@ from sample import data_gen
 from dataloader import load_config, load_features
 
 from gm_helpers import infer_feature_type
-
+from priors import StandardPrior, MoGPrior, FlowPrior
 
 def generate():
     PATH_JSON = f'../config/' # config path
@@ -100,7 +101,24 @@ def generate():
 
     train_dataloader = DataLoader(train_dataset_norm, batch_size=gen_params["batch_size"], shuffle=True)
     #TODO refine model parameters
-    if APPROACH != 'ddgm': model = VAE(gen_params["latent_size"], device, input_size, conf_dict, output_dim)
+    #prior = MoGPrior(gen_params["latent_size"],5,device)
+    #prior = StandardPrior(gen_params["latent_size"])
+    #def __init__(self, nets, nett, num_flows, D=2, device=None):
+    
+    
+        # scale (s) network
+    M = 256
+    nets = lambda: nn.Sequential(nn.Linear(gen_params["latent_size"]// 2, M), nn.GELU(),
+                                nn.Linear(M, M), nn.GELU(),
+                                nn.Linear(M, gen_params["latent_size"]// 2), nn.Tanh())
+
+    # translation (t) network
+    nett = lambda: nn.Sequential(nn.Linear(gen_params["latent_size"]// 2, M), nn.GELU(),
+                                nn.Linear(M, M), nn.GELU(),
+                                nn.Linear(M, gen_params["latent_size"]// 2))
+    
+    prior = FlowPrior(nets,nett,10,D=gen_params["latent_size"],device=device)
+    if APPROACH != 'ddgm': model = VAE(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
     else: model = DDGM(gen_params["latent_size"], device, input_size, conf_dict, output_dim)
     
     optimizer = optim.Adam(model.parameters(), lr=gen_params["lr"])
@@ -135,11 +153,11 @@ def generate():
                 if epoch % 50 == 0: # refresh the loss plot after certain amount of epochs
                     plot_loss(elbo_history, None, APPROACH)
             plot_loss(elbo_history, None, APPROACH)
-            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df , dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features)
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df , dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features, prior=prior)
         else:
             model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
-            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df, dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features)
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df, dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features, prior=prior)
             
     elif APPROACH == 'sym' or APPROACH == 'sym_h':
         # model = VAE(gen_params["latent_size"], device, input_size, conf_dict)

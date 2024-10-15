@@ -324,53 +324,117 @@ def plot_threshold(x_values, y_values, optimums, title, ylabel, colors, labels, 
         return best_scores_final
 
 
-    
+# def compute_embed(first_pointcloud, second_pointcloud, TYPE, OPTION, sample_size=3000):
+#     plt.clf()
+#     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/metrics/'
+#     print("RUNNING t-SNE")
 
-def compute_embed(simulated_list, generated_list, TYPE, sample_size=3000):
+#     random_state = 42
+    
+#     first_pointcloud = first_pointcloud[np.random.choice(first_pointcloud.shape[0], sample_size, replace=False)]
+#     second_pointcloud = second_pointcloud[np.random.choice(second_pointcloud.shape[0], sample_size, replace=False)]
+    
+#     t_sne_instance = TSNE(n_components=2, random_state=random_state)
+    
+#     n_first = len(first_pointcloud)
+#     n_second = len(second_pointcloud)
+    
+#     lists = np.concatenate((first_pointcloud, second_pointcloud))
+#     trans_lists = t_sne_instance.fit_transform(lists)
+    
+#     trans_first = trans_lists[:n_first]
+#     trans_second = trans_lists[n_first:]
+    
+#     np.savetxt(f'{PATH_DATA}points_first_{TYPE}_{OPTION}.csv', trans_first, delimiter=',')
+#     np.savetxt(f'{PATH_DATA}points_second_{TYPE}_{OPTION}.csv', trans_second, delimiter=',')
+        
+# def visualize_embed(TYPE, OPTION):
+#     types = {'std': 'Standard ELBO',
+#             'sym': 'Standard SEL',
+#             'std_h' : 'Ladder ELBO', 
+#             'sym_h' : 'Ladder SEL'}
+#     options = {'latent': 'Latent Space',
+#             'data': 'Data Space'}
+#     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/metrics/'
+
+#     files = [f'points_first_{TYPE}_{OPTION}.csv', f'points_second_{TYPE}_{OPTION}.csv']
+    
+#     points_first = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
+#     points_second = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
+
+#     embed_first_df = pd.DataFrame(data=points_first, columns=["t-SNE Component 1", "t-SNE Component 2"])
+#     embed_first_df["Source"] = "first Data"
+#     embed_second_df = pd.DataFrame(data=points_second, columns=["t-SNE Component 1", "t-SNE Component 2"])
+#     embed_second_df["Source"] = f"second {TYPE}"
+
+#     plt.clf()
+#     plt.figure(figsize=(10, 8))
+#     plt.scatter(embed_first_df["t-SNE Component 1"], embed_first_df["t-SNE Component 2"], c='blue', label='first Data', s=3, alpha=1.0)
+#     plt.scatter(embed_second_df["t-SNE Component 1"], embed_second_df["t-SNE Component 2"], c='red', label='second Data', s=3, alpha=1.0)
+#     plt.title(r"Data space $\mathcal{X}$" + f' - {types[TYPE]} - {options[OPTION]}', fontsize=36)
+#     plt.xlabel("t-SNE Component 1", fontsize=28) 
+#     plt.ylabel("t-SNE Component 2", fontsize=28)
+#     plt.xticks(fontsize=20)
+#     plt.yticks(fontsize=20)
+
+#     legend2 = plt.legend(fontsize=28, scatterpoints=20)  
+#     legend2.get_frame().set_alpha(0.8)
+#     plt.grid(True)
+    
+#     plt.savefig(f'{PATH_DATA}vae_{OPTION}_tsne_results_{TYPE}.pdf')
+#     print(f"t-SNE VISUALIZATION SAVED as: {PATH_DATA}vae_{OPTION}_tsne_results_{TYPE}.pdf")
+    
+def compute_embed(first_pointcloud, second_pointcloud, TYPE, OPTION, sample_size=3000):
     plt.clf()
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/metrics/'
-    print("RUNNING t-SNE")
+    print("RUNNING UMAP")
 
     random_state = 42
     
-    simulated_list = simulated_list[np.random.choice(simulated_list.shape[0], sample_size, replace=False)]
-    generated_list = generated_list[np.random.choice(generated_list.shape[0], sample_size, replace=False)]
+    # Sample the point clouds
+    first_pointcloud = first_pointcloud[np.random.choice(first_pointcloud.shape[0], sample_size, replace=False)]
+    second_pointcloud = second_pointcloud[np.random.choice(second_pointcloud.shape[0], sample_size, replace=False)]
     
-    t_sne_instance = TSNE(n_components=2, random_state=random_state)
+    umap_instance = umap.UMAP(n_components=2, random_state=random_state)
     
-    n_simulated = len(simulated_list)
-    n_generated = len(generated_list)
+    n_first = len(first_pointcloud)
+    n_second = len(second_pointcloud)
     
-    lists = np.concatenate((simulated_list, generated_list))
-    trans_lists = t_sne_instance.fit_transform(lists)
+    lists = np.concatenate((first_pointcloud, second_pointcloud))
+    trans_lists = umap_instance.fit_transform(lists)
     
-    trans_simulated = trans_lists[:n_simulated]
-    trans_generated = trans_lists[n_simulated:]
+    trans_first = trans_lists[:n_first]
+    trans_second = trans_lists[n_first:]
     
-    np.savetxt(f'{PATH_DATA}points_simulated_{TYPE}.csv', trans_simulated, delimiter=',')
-    np.savetxt(f'{PATH_DATA}points_generated_{TYPE}.csv', trans_generated, delimiter=',')
-        
-def visualize_embed(TYPE):
-    options = {'std': 'Standard ELBO', 'sym': 'Standard SEL', 'std_h' : 'Ladder ELBO', 'sym_h' : 'Ladder SEL'}
+    np.savetxt(f'{PATH_DATA}points_first_{TYPE}_{OPTION}.csv', trans_first, delimiter=',')
+    np.savetxt(f'{PATH_DATA}points_second_{TYPE}_{OPTION}.csv', trans_second, delimiter=',')
+
+def visualize_embed(TYPE, OPTION):
+    types = {'std': 'Standard ELBO',
+             'sym': 'Standard SEL',
+             'std_h': 'Ladder ELBO', 
+             'sym_h': 'Ladder SEL'}
+    options = {'latent': 'Latent Space',
+               'data': 'Data Space'}
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/metrics/'
 
-    files = [f'points_simulated_{TYPE}.csv', f'points_generated_{TYPE}.csv']
+    files = [f'points_first_{TYPE}_{OPTION}.csv', f'points_second_{TYPE}_{OPTION}.csv']
     
-    points_simulated = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
-    points_generated = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
+    points_first = np.genfromtxt(f'{PATH_DATA}{files[0]}', delimiter=',')
+    points_second = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
 
-    embed_simulated_df = pd.DataFrame(data=points_simulated, columns=["t-SNE Component 1", "t-SNE Component 2"])
-    embed_simulated_df["Source"] = "Simulated Data"
-    embed_generated_df = pd.DataFrame(data=points_generated, columns=["t-SNE Component 1", "t-SNE Component 2"])
-    embed_generated_df["Source"] = f"Generated {TYPE}"
+    embed_first_df = pd.DataFrame(data=points_first, columns=["UMAP Component 1", "UMAP Component 2"])
+    embed_first_df["Source"] = "first Data"
+    embed_second_df = pd.DataFrame(data=points_second, columns=["UMAP Component 1", "UMAP Component 2"])
+    embed_second_df["Source"] = f"second {TYPE}"
 
     plt.clf()
     plt.figure(figsize=(10, 8))
-    plt.scatter(embed_simulated_df["t-SNE Component 1"], embed_simulated_df["t-SNE Component 2"], c='blue', label='Simulated Data', s=3, alpha=1.0)
-    plt.scatter(embed_generated_df["t-SNE Component 1"], embed_generated_df["t-SNE Component 2"], c='red', label='Generated Data', s=3, alpha=1.0)
-    plt.title(r"Data space $\mathcal{X}$" + f' - {options[TYPE]}', fontsize=36)
-    plt.xlabel("t-SNE Component 1", fontsize=28) 
-    plt.ylabel("t-SNE Component 2", fontsize=28)
+    plt.scatter(embed_first_df["UMAP Component 1"], embed_first_df["UMAP Component 2"], c='blue', label='first Data', s=3, alpha=1.0)
+    plt.scatter(embed_second_df["UMAP Component 1"], embed_second_df["UMAP Component 2"], c='red', label='second Data', s=3, alpha=1.0)
+    plt.title(r"Data space $\mathcal{X}$" + f' - {types[TYPE]} - {options[OPTION]}', fontsize=36)
+    plt.xlabel("UMAP Component 1", fontsize=28) 
+    plt.ylabel("UMAP Component 2", fontsize=28)
     plt.xticks(fontsize=20)
     plt.yticks(fontsize=20)
 
@@ -378,5 +442,5 @@ def visualize_embed(TYPE):
     legend2.get_frame().set_alpha(0.8)
     plt.grid(True)
     
-    plt.savefig(f'{PATH_DATA}vae_data_tsne_results_{TYPE}.pdf')
-    print("t-SNE VISUALIZATION SAVED")
+    plt.savefig(f'{PATH_DATA}vae_{OPTION}_umap_results_{TYPE}.pdf')
+    print(f"UMAP VISUALIZATION SAVED as: {PATH_DATA}vae_{OPTION}_umap_results_{TYPE}.pdf")

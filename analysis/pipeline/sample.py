@@ -9,8 +9,9 @@ import pandas as pd
 
 from dataloader import load_config
 from gm_helpers import infer_feature_type
+from aux_functions import compute_embed, visualize_embed
 
-def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset_original, dataset_one_hot, feature_type_dict, features_list):
+def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset_original, dataset_one_hot, feature_type_dict, features_list, prior):
     # Chose if generate new samples of just regenerate the simulated ones
     SAMPLING = 'generate' #regenerate
 
@@ -25,7 +26,8 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     model.eval()
     
     data_array = np.empty((0, dataset_one_hot.shape[1]), dtype=np.float32)
-    latent_samples = []
+    prior_samples = []
+    posterior_samples = []
     
     start_time = time.time()
     with torch.no_grad():
@@ -34,14 +36,16 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
             
             for i in range(0, SAMPLES_NUM, batch_size):
-                latent_samples_batch = generate_latents(batch_size, latent_dimension, SAMPLING, model, dataset_one_hot.values)
-                latent_samples.append(latent_samples_batch)
+                prior_samples_batch, posterior_samples_batch = generate_latents(prior, batch_size, latent_dimension, SAMPLING, model, dataset_one_hot.values)
+                prior_samples.append(prior_samples_batch)
+                posterior_samples.append(posterior_samples_batch)
             
-            latent_samples = torch.cat(latent_samples, dim=0).to('cuda')
+            prior_samples = torch.cat(prior_samples, dim=0).to('cuda')
+            posterior_samples = torch.cat(posterior_samples, dim=0).to('cuda')
             
             decoded_samples = []
-            for i in range(0, latent_samples.size(0), batch_size):
-                xhats_mu_gauss, xhats_std_gauss, xhats_bernoulli, xhats_categorical = model.decoder(latent_samples[i:i+batch_size], feature_type_dict)
+            for i in range(0, prior_samples.size(0), batch_size):
+                xhats_mu_gauss, xhats_std_gauss, xhats_bernoulli, xhats_categorical = model.decoder(prior_samples[i:i+batch_size], feature_type_dict)
 
                 px_gauss = torch.distributions.Normal(xhats_mu_gauss, xhats_std_gauss)
                 xhats_gauss = px_gauss.sample()
@@ -60,6 +64,10 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
                 xhats = torch.cat((xhats, torch.cat(categorical_samples, dim=1).to('cpu')), dim=1)
                 
             data_array = xhats
+            print(prior_samples[:,:len(features_list)].shape)
+            print(data_array.shape)
+            compute_embed(prior_samples[:,:len(features_list)].to('cpu'),posterior_samples[:,:len(features_list)].to('cpu'),TYPE,'latent')
+            visualize_embed(TYPE,'latent')
         # Generate new samples with Ladder ELBO
         # TODO: generation by batches 
         elif TYPE == 'std_h':
@@ -137,13 +145,12 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     df_gen.to_csv(f'{PATH_DATA}generated_{DATA_FILE}_E{gen_params["num_epochs"]}_S{SAMPLES_NUM}_{TYPE}.csv', index=False)
 
 # Either only generates radom samples or encode the simulated dataset and sample from it 
-def generate_latents(samples_num, latent_dimension, sampling, model, dataset):
-    if sampling == 'generate':
-        return torch.randn(samples_num, latent_dimension)
-    else:
-        mu, std = model.encoder.encode(torch.tensor(dataset,dtype=torch.float32).to('cuda'))
-        posterior = torch.distributions.Normal(mu, std)
-        return posterior.sample()
+#! RETURN BOTH TO VISUALIZE
+def generate_latents(prior, samples_num, latent_dimension, sampling, model, dataset):
+    #return torch.randn(samples_num, latent_dimension)
+    mu, std = model.encoder(torch.tensor(dataset,dtype=torch.float32).to('cuda'))
+    posterior = torch.distributions.Normal(mu, std)
+    return prior.sample(samples_num), posterior.sample()
 
 def map_hist_vals(df_simulated, df_generated, feature_type_dict):
     for idx in feature_type_dict['categorical_data']:
