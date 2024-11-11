@@ -76,7 +76,7 @@ def classify():
             for frac_aug in aug_fractions:
                 for deep in DEEP:
                     
-                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=X['class'], random_state=seed)
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.97, stratify=X['class'], random_state=seed)
                     
                     df_test = pd.concat([X_test, y_test], axis=1)
                     df_train = pd.concat([X_train, y_train], axis=1)
@@ -114,7 +114,7 @@ def classify():
                         df_augment_train = pd.DataFrame()
                         for cl in [gen_params['sig_mass_label'],'bkg_all']:
                             PATH_GEN_MODEL = f'../data/{cl}_input/'
-                            df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_pres_strict_E1000_S{events_dict[cl]}_{TYPE}.csv')
+                            df_generated = pd.read_csv(f'{PATH_GEN_MODEL}generated_df_{cl}_pres_strict_E2000_S{events_dict[cl]}_{TYPE}.csv')
 
                             df_generated = df_generated.sample(frac=frac_aug, random_state=seed)
                             df_augment_train = pd.concat([df_augment_train, df_generated])

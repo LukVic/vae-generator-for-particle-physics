@@ -154,13 +154,13 @@ def feature_check(path):
         
         c1 = ROOT.TCanvas("c1", "Canvas", 800, 600)
         
-        h_feature_original.SetLineColor(ROOT.kGreen)
+        h_feature_original.SetLineColor(ROOT.kBlue)
         h_feature_original.SetMarkerStyle(0)
 
-        h_feature_generated_std.SetLineColor(ROOT.kBlue)
+        h_feature_generated_std.SetLineColor(ROOT.kRed)
         h_feature_generated_std.SetMarkerStyle(0)
         
-        h_feature_generated_sym.SetLineColor(ROOT.kRed)
+        h_feature_generated_sym.SetLineColor(ROOT.kGreen)
         h_feature_generated_sym.SetMarkerStyle(0)
         
         max_bin_original = h_feature_original.GetMaximumBin()
@@ -180,76 +180,78 @@ def feature_check(path):
         if num_original > num_generated and num_original > num_generated_sym:
             h_feature_original.Draw("HIST")  
             h_feature_generated_std.Draw("SAME HIST E")  
-            h_feature_generated_sym.Draw("SAME HIST E")  
+            # h_feature_generated_sym.Draw("SAME HIST E")  
         elif num_generated > num_original and num_generated > num_generated_sym:
             h_feature_generated_std.Draw("HIST E")  
             h_feature_original.Draw("SAME HIST")  
-            h_feature_generated_sym.Draw("SAME HIST E")  
+            # h_feature_generated_sym.Draw("SAME HIST E")  
         elif num_generated_sym > num_original and num_generated_sym > num_generated:
             h_feature_generated_sym.Draw("HIST E")  
             h_feature_original.Draw("SAME HIST")  
-            h_feature_generated_std.Draw("SAME HIST E")  
+            # h_feature_generated_std.Draw("SAME HIST E")  
         else:
             h_feature_original.Draw("HIST")  
             h_feature_generated_std.Draw("SAME HIST E")  
-            h_feature_generated_sym.Draw("SAME HIST E")  
+            # h_feature_generated_sym.Draw("SAME HIST E")  
         
         ROOT.gStyle.SetOptStat(0)   
         if feature != 'total_charge':
             
-            legend = ROOT.TLegend(0.48, 0.6, 0.92, 0.9)
+            legend = ROOT.TLegend(0.54, 0.7, 0.98, 0.9)
 
             legend.AddEntry(h_feature_original, "Simulated", "l")
-            legend.AddEntry(h_feature_generated_std, f"Generated {TYPE_1}", "l")
-            legend.AddEntry(h_feature_generated_sym, f"Generated {TYPE_2}", "l")
+            legend.AddEntry(h_feature_generated_std, f"Generated", "l")
+            #legend.AddEntry(h_feature_generated_std, f"Generated {TYPE_1}", "l")
+            #legend.AddEntry(h_feature_generated_sym, f"Generated {TYPE_2}", "l")
             
             h_feature_original.GetXaxis().SetTitleSize(0.048)
             h_feature_original.GetYaxis().SetTitleSize(0.048)
             h_feature_generated_std.GetXaxis().SetTitleSize(0.048)
             h_feature_generated_std.GetYaxis().SetTitleSize(0.048)
-            h_feature_generated_sym.GetXaxis().SetTitleSize(0.048)
-            h_feature_generated_sym.GetYaxis().SetTitleSize(0.048)
+            # h_feature_generated_sym.GetXaxis().SetTitleSize(0.048)
+            # h_feature_generated_sym.GetYaxis().SetTitleSize(0.048)
             
             h_feature_original.GetXaxis().SetTitleOffset(0.9) 
             h_feature_generated_std.GetXaxis().SetTitleOffset(0.9) 
-            h_feature_generated_sym.GetXaxis().SetTitleOffset(0.9) 
+            # h_feature_generated_sym.GetXaxis().SetTitleOffset(0.9) 
             
             h_feature_original.GetYaxis().SetTitleOffset(1.0) 
             h_feature_generated_std.GetYaxis().SetTitleOffset(1.0) 
-            h_feature_generated_sym.GetYaxis().SetTitleOffset(1.0) 
+            # h_feature_generated_sym.GetYaxis().SetTitleOffset(1.0) 
             
-            latex = ROOT.TLatex()
-            latex.SetTextSize(0.052) 
-            latex.SetTextFont(52)
-            latex.DrawLatexNDC(0.49, 0.52, "ATLAS Work in Progress")
+            # latex = ROOT.TLatex()
+            # latex.SetTextSize(0.052) 
+            # latex.SetTextFont(52)
+            # latex.DrawLatexNDC(0.49, 0.52, "ATLAS Work in Progress")
         else:
             
             legend = ROOT.TLegend(0.42, 0.6, 0.86, 0.9) 
 
             
             legend.AddEntry(h_feature_original, "Simulated", "l")
-            legend.AddEntry(h_feature_generated_std, f"Generated {TYPE_1}", "l")
-            legend.AddEntry(h_feature_generated_sym, f"Generated {TYPE_2}", "l")
+            legend.AddEntry(h_feature_generated_std, f"Generated", "l")
+            #legend.AddEntry(h_feature_generated_std, f"Generated {TYPE_1}", "l")
+            #legend.AddEntry(h_feature_generated_sym, f"Generated {TYPE_2}", "l")
             
             h_feature_original.GetXaxis().SetTitleSize(0.048)
             h_feature_original.GetYaxis().SetTitleSize(0.048)
             h_feature_generated_std.GetXaxis().SetTitleSize(0.048)
             h_feature_generated_std.GetYaxis().SetTitleSize(0.048)
-            h_feature_generated_sym.GetXaxis().SetTitleSize(0.048)
-            h_feature_generated_sym.GetYaxis().SetTitleSize(0.048)
+            # h_feature_generated_sym.GetXaxis().SetTitleSize(0.048)
+            # h_feature_generated_sym.GetYaxis().SetTitleSize(0.048)
             
             h_feature_original.GetXaxis().SetTitleOffset(0.9) 
             h_feature_generated_std.GetXaxis().SetTitleOffset(0.9) 
-            h_feature_generated_sym.GetXaxis().SetTitleOffset(0.9) 
+            # h_feature_generated_sym.GetXaxis().SetTitleOffset(0.9) 
             
             h_feature_original.GetYaxis().SetTitleOffset(1.0) 
             h_feature_generated_std.GetYaxis().SetTitleOffset(1.0) 
-            h_feature_generated_sym.GetYaxis().SetTitleOffset(1.0) 
+            # h_feature_generated_sym.GetYaxis().SetTitleOffset(1.0) 
             
-            latex = ROOT.TLatex()
-            latex.SetTextSize(0.052) 
-            latex.SetTextFont(52)
-            latex.DrawLatexNDC(0.43, 0.52, "ATLAS Work in Progress")
+            # latex = ROOT.TLatex()
+            # latex.SetTextSize(0.052) 
+            # latex.SetTextFont(52)
+            # latex.DrawLatexNDC(0.43, 0.52, "ATLAS Work in Progress")
 
         
         legend.SetBorderSize(0)
@@ -293,7 +295,7 @@ def feature_check(path):
             os.makedirs(f'{path}results/feature_plots_comparison/{directory}')
         
 
-        c1.SaveAs(f"{path}results/feature_plots_comparison/{directory}vae_std_sym_{feature[0]}_comparison_{TYPE_1}_{TYPE_2}.pdf")
+        c1.SaveAs(f"{path}results/feature_plots_comparison/{directory}vae_std_sym_{feature[0]}_comparison_sim_{TYPE_1}.pdf")
     print(feature_list)
     print(ch_test_1)
     print(ch_test_2)

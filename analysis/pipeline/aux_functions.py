@@ -424,15 +424,15 @@ def visualize_embed(TYPE, OPTION):
     points_second = np.genfromtxt(f'{PATH_DATA}{files[1]}', delimiter=',')
 
     embed_first_df = pd.DataFrame(data=points_first, columns=["UMAP Component 1", "UMAP Component 2"])
-    embed_first_df["Source"] = "first Data"
+    embed_first_df["Source"] = "Prior distribution"
     embed_second_df = pd.DataFrame(data=points_second, columns=["UMAP Component 1", "UMAP Component 2"])
-    embed_second_df["Source"] = f"second {TYPE}"
+    embed_second_df["Source"] = f"Approximate posterior distribution"
 
     plt.clf()
     plt.figure(figsize=(10, 8))
-    plt.scatter(embed_first_df["UMAP Component 1"], embed_first_df["UMAP Component 2"], c='blue', label='first Data', s=3, alpha=1.0)
-    plt.scatter(embed_second_df["UMAP Component 1"], embed_second_df["UMAP Component 2"], c='red', label='second Data', s=3, alpha=1.0)
-    plt.title(r"Data space $\mathcal{X}$" + f' - {types[TYPE]} - {options[OPTION]}', fontsize=36)
+    plt.scatter(embed_first_df["UMAP Component 1"], embed_first_df["UMAP Component 2"], c='blue', label="Prior", s=3, alpha=1.0)
+    plt.scatter(embed_second_df["UMAP Component 1"], embed_second_df["UMAP Component 2"], c='red', label="Approx. Posterior", s=3, alpha=1.0)
+    plt.title(f'{options[OPTION]} - {types[TYPE]}', fontsize=36)
     plt.xlabel("UMAP Component 1", fontsize=28) 
     plt.ylabel("UMAP Component 2", fontsize=28)
     plt.xticks(fontsize=20)

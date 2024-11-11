@@ -1,6 +1,7 @@
 import sys
 sys.path.append("/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/support_scripts")
 sys.path.append("/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/agent")
+sys.path.append("/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/optimizer")
 import os
 
 import numpy as np
@@ -21,6 +22,8 @@ from dataloader import load_config, load_features
 
 from gm_helpers import infer_feature_type
 from priors import StandardPrior, MoGPrior, FlowPrior
+
+from adopt import ADOPT
 
 def generate():
     PATH_JSON = f'../config/' # config path
@@ -52,7 +55,7 @@ def generate():
     FEATURES_FILE = 'most_important_gbdt_10_tbh_800_new' ##f'features_top_10' # 'df_phi', 'df_no_zeros', 'df_8', 'df_pt'  feature file
     
         # which model to train
-    APPROACH = gen_params["approach"] # 'std', 'sym', 'std_h', 'sym_h', 'ddgm'
+    APPROACH = gen_params["approach"] # 'std', 'sym', 'std_h', 'sym_h', 'ddgm', "gan"
     
     if APPROACH == 'std' or APPROACH == 'std_h' or APPROACH == 'ddgm':
         elbo_history = []
@@ -68,7 +71,13 @@ def generate():
         elbo_min2 = np.inf
         if APPROACH == 'sym': from architecture_sym import VAE
         else: from architecture_sym_h import VAE
-
+    elif APPROACH == 'gan':
+        loss_history1 = []
+        loss_history2 = []
+        loss_min1 = np.inf
+        loss_min2 = np.inf
+        from architecture_gan import GAN
+        
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv') # load training data
     #df['tau_lep_charge_diff'] = df['total_charge'] * df['taus_charge_0'] # substitute total_charge by tau_lep_charge_diff
 
@@ -122,13 +131,28 @@ def generate():
     else: model = DDGM(gen_params["latent_size"], device, input_size, conf_dict, output_dim)
     
     optimizer = optim.Adam(model.parameters(), lr=gen_params["lr"])
-    #scheduler = StepLR(optimizer, step_size=200, gamma=0.1)
+    #optimizer = ADOPT(model.parameters(), lr=gen_params["lr"])
+#     scheduler = optim.lr_scheduler.OneCycleLR(
+#     optimizer,
+#     max_lr=0.0001,  # Can experiment with this
+#     steps_per_epoch=len(train_dataloader),
+#     epochs=2000,
+#     pct_start=0.1,  # Warm-up for the first 10% of training
+#     anneal_strategy='cos',  # Use cosine decay for smooth transitions
+#     div_factor=10,  # Sets starting lr = max_lr / 10 = 0.0001
+#     final_div_factor=1e5  # More aggressive decay at the end
+# )
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10, min_lr=1e-7)
+    # Create the CosineAnnealingWarmRestarts scheduler
+    #scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=50, T_mult=1, eta_min=1e-6)
+    
     directory = f'{APPROACH}_{gen_params["num_epochs"]}_epochs_model/'
 
     if not os.path.exists(f'{PATH_MODEL}{directory}'):
         os.makedirs(f'{PATH_MODEL}{directory}')
 
-
+    if APPROACH == 'gan':...
+    
     if APPROACH == 'std' or APPROACH == 'std_h' or APPROACH == 'ddgm':
         if TRAIN:
             model.train()
@@ -140,14 +164,15 @@ def generate():
                     loss = model(x.float(), feature_type_dict)
                     loss.backward()
                     optimizer.step()
-                    #scheduler.step()
                     progress_bar.set_description(f'EPOCH: {epoch+1}/{gen_params["num_epochs"]} | LOSS: {loss:.7f}')
                     progress_bar.update(1)
+                #scheduler.step(loss)
                 progress_bar.close()     
                 elbo_history.append(loss.item())
                 if elbo_min > loss.item(): # save the model only if loss is the best so far
                     print("SAVING NEW BEST MODEL")
                     torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
+                    torch.save(prior, f'{PATH_MODEL}{directory}{DATA_FILE}_prior.pth')
                     elbo_min = loss.item()
                     plot_loss(elbo_history, None, APPROACH)
                 if epoch % 50 == 0: # refresh the loss plot after certain amount of epochs
@@ -156,7 +181,9 @@ def generate():
             data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df , dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features, prior=prior)
         else:
             model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
+            prior = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}_prior.pth')
             print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
+            print(f'{PATH_MODEL}{directory}{DATA_FILE}_prior.pth')
             data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df, dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features, prior=prior)
             
     elif APPROACH == 'sym' or APPROACH == 'sym_h':
