@@ -132,11 +132,12 @@ class Generator(nn.Module):
 
         
         # Gaussian
-        xhat_gauss = torch.cat([xhat[:, val[0]:val[1]] for val in feature_type_dict['real_param']], dim=1)
-        xhat_gauss_mu, xhat_gauss_sigma = torch.split(xhat_gauss, len(feature_type_dict['real_data']), dim=1)
-        xhat_gauss_std = torch.exp(xhat_gauss_sigma)
+        xhat_real = xhat[:, feature_type_dict['real_data']]
+        print(xhat_real.shape)
         # Bernoulli
-        xhat_bernoulli = torch.cat([torch.sigmoid(xhat[:, val[0]]).unsqueeze(1) for val in feature_type_dict['binary_param']], dim=1)
+        xhat_bernoulli = torch.cat([torch.sigmoid(xhat[:, val]).unsqueeze(1) for val in feature_type_dict['binary_data']], dim=1)
+        print(xhat_bernoulli.shape)
+        exit()
         # Categorical
         #xhat_categorical = torch.cat([F.softmax(xhat[:, val[0]:val[1]], dim=1) for val in feature_type_dict['categorical_param']],dim=1)
         xhat_categorical = torch.cat([xhat[:, val[0]:val[1]] for val in feature_type_dict['categorical_param']],dim=1)
@@ -163,12 +164,12 @@ class GAN(nn.Module):
         x = x.to(self.device)
         x_labels = torch.ones(x.shape[0], 1).to(self.device)
         z_samples = torch.randn(x.shape[0], self.zdim).to(self.device)
-        x_generated = self.generator(z_samples)
+        x_generated = self.generator(z_samples, feature_type_dict)
         z_labels = torch.zeros(x_generated.shape[0], 1).to(self.device)
 
         xz = torch.cat([x, z_samples], dim=1)
         xz_labels = torch.cat([x_labels, z_labels], dim=1)
-        
+        exit()
         # Traing the discriminator
         self.discriminator.zero_grad()
         discriminator_out = self.discriminator(xz)

@@ -86,6 +86,10 @@ def generate():
 
     feature_type_dict, df, df_one_hot = infer_feature_type(df[features],PATH_FEATURES+FEATURES_FILE)
 
+    print(f'real_param: {feature_type_dict["real_data"]}')
+    print(f'binary_param: {feature_type_dict["binary_data"]}')
+    print(f'categorical_param: {feature_type_dict["categorical_data"]}')
+
     if torch.cuda.is_available():
         print("CUDA (GPU) is available.")
         device = 'cuda'
@@ -127,8 +131,10 @@ def generate():
                                 nn.Linear(M, gen_params["latent_size"]// 2))
     
     prior = FlowPrior(nets,nett,10,D=gen_params["latent_size"],device=device)
-    if APPROACH != 'ddgm': model = VAE(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
-    else: model = DDGM(gen_params["latent_size"], device, input_size, conf_dict, output_dim)
+    
+    if APPROACH == 'gan': model = GAN(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
+    elif APPROACH == 'ddgm': model = DDGM(gen_params["latent_size"], device, input_size, conf_dict, output_dim)
+    else: model = VAE(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
     
     optimizer = optim.Adam(model.parameters(), lr=gen_params["lr"])
     #optimizer = ADOPT(model.parameters(), lr=gen_params["lr"])
@@ -151,7 +157,39 @@ def generate():
     if not os.path.exists(f'{PATH_MODEL}{directory}'):
         os.makedirs(f'{PATH_MODEL}{directory}')
 
-    if APPROACH == 'gan':...
+    if APPROACH == 'gan':
+        if TRAIN:
+            model.train()
+            for epoch in range(gen_params["num_epochs"]):
+                progress_bar = tqdm(total=len(train_dataloader))
+                for _, x in enumerate(train_dataloader):
+                    x = x.view(-1, train_dataset_norm.shape[1])
+                    optimizer.zero_grad()
+                    loss_discriminator, loss_generator = model(x.float(), feature_type_dict)
+                    progress_bar.set_description(f'EPOCH: {epoch+1}/{gen_params["num_epochs"]} | LOSS DIS: {loss_discriminator:.7f} | LOSS GEN: {loss_generator:.7f}')
+                    progress_bar.update(1)
+                #scheduler.step(loss)
+                progress_bar.close()     
+                loss_history1.append(loss_discriminator.item())
+                loss_history2.append(loss_generator.item())
+                if loss_min1 > loss_discriminator.item() and loss_min2 > loss_discriminator.item(): # save the model only if loss is the best so far
+                    print("SAVING NEW BEST MODEL")
+                    torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
+                    torch.save(prior, f'{PATH_MODEL}{directory}{DATA_FILE}_prior.pth')
+                    loss_min1 = loss_discriminator.item()
+                    loss_min2 = loss_generator.item()
+                    plot_loss(loss_history1, loss_history2, APPROACH)
+                if epoch % 50 == 0: # refresh the loss plot after certain amount of epochs
+                    plot_loss(loss_history1, loss_history2, APPROACH)
+            plot_loss(loss_history1, loss_history2, APPROACH)
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df , dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features, prior=prior)
+        else:
+            model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
+            prior = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}_prior.pth')
+            print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
+            print(f'{PATH_MODEL}{directory}{DATA_FILE}_prior.pth')
+            data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df, dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features, prior=prior)
+            
     
     if APPROACH == 'std' or APPROACH == 'std_h' or APPROACH == 'ddgm':
         if TRAIN:
