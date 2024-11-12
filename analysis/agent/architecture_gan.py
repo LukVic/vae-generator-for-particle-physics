@@ -137,11 +137,11 @@ class Generator(nn.Module):
         # Bernoulli
         xhat_bernoulli = torch.cat([torch.sigmoid(xhat[:, val]).unsqueeze(1) for val in feature_type_dict['binary_data']], dim=1)
         print(xhat_bernoulli.shape)
-        exit()
         # Categorical
         #xhat_categorical = torch.cat([F.softmax(xhat[:, val[0]:val[1]], dim=1) for val in feature_type_dict['categorical_param']],dim=1)
-        xhat_categorical = torch.cat([xhat[:, val[0]:val[1]] for val in feature_type_dict['categorical_param']],dim=1)
-        return xhat_gauss_mu, xhat_gauss_std, xhat_bernoulli, xhat_categorical
+        xhat_categorical = torch.cat([F.softmax(xhat[:, val[0]:val[1]], dim=1) for val in feature_type_dict['categorical_one_hot']],dim=1)
+        print(xhat_categorical.shape)
+        return xhat_real, xhat_bernoulli, xhat_categorical
 
 
 

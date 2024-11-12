@@ -88,7 +88,7 @@ def generate():
 
     print(f'real_param: {feature_type_dict["real_data"]}')
     print(f'binary_param: {feature_type_dict["binary_data"]}')
-    print(f'categorical_param: {feature_type_dict["categorical_data"]}')
+    print(f'categorical_param: {feature_type_dict["categorical_one_hot"]}')
 
     if torch.cuda.is_available():
         print("CUDA (GPU) is available.")
