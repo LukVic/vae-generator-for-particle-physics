@@ -6,6 +6,8 @@ import torch.nn.init as init
 import optuna
 import numpy as np
 
+import torch.optim as optim
+
 class Discriminator(nn.Module):
     def __init__(self, input_size, config:dict):
         super(Discriminator, self).__init__()
@@ -133,15 +135,12 @@ class Generator(nn.Module):
         
         # Gaussian
         xhat_real = xhat[:, feature_type_dict['real_data']]
-        print(xhat_real.shape)
         # Bernoulli
         xhat_bernoulli = torch.cat([torch.sigmoid(xhat[:, val]).unsqueeze(1) for val in feature_type_dict['binary_data']], dim=1)
-        print(xhat_bernoulli.shape)
         # Categorical
         #xhat_categorical = torch.cat([F.softmax(xhat[:, val[0]:val[1]], dim=1) for val in feature_type_dict['categorical_param']],dim=1)
         xhat_categorical = torch.cat([F.softmax(xhat[:, val[0]:val[1]], dim=1) for val in feature_type_dict['categorical_one_hot']],dim=1)
-        print(xhat_categorical.shape)
-        return xhat_real, xhat_bernoulli, xhat_categorical
+        return torch.cat((xhat_real, xhat_bernoulli, xhat_categorical), dim=1)
 
 
 
@@ -158,6 +157,8 @@ class GAN(nn.Module):
         self.discriminator = Discriminator(self.input_size, self.config).to(self.device)
         self.generator = Generator(self.zdim, self.decoder_output_dim, self.config).to(self.device)
         self.prior = prior
+        self.discriminator_optimizer = optim.Adam(self.discriminator.parameters(), lr=self.config['generate']['general']["lr"])
+        self.generator_optimizer = optim.Adam(self.generator.parameters(), lr=self.config['generate']['general']["lr"])
         
     def forward(self, x, feature_type_dict):
         
@@ -165,34 +166,33 @@ class GAN(nn.Module):
         x_labels = torch.ones(x.shape[0], 1).to(self.device)
         z_samples = torch.randn(x.shape[0], self.zdim).to(self.device)
         x_generated = self.generator(z_samples, feature_type_dict)
-        z_labels = torch.zeros(x_generated.shape[0], 1).to(self.device)
+        xhat_labels = torch.zeros(x_generated.shape[0], 1).to(self.device)
 
-        xz = torch.cat([x, z_samples], dim=1)
-        xz_labels = torch.cat([x_labels, z_labels], dim=1)
-        exit()
+        xxhat = torch.cat([x, x_generated], dim=0)
+        xxhat_labels = torch.cat([x_labels, xhat_labels], dim=0)
+
         # Traing the discriminator
         self.discriminator.zero_grad()
-        discriminator_out = self.discriminator(xz)
-        loss_discriminator = self.loss_fn(discriminator_out, xz_labels)
+        discriminator_out = self.discriminator(xxhat)
+        loss_discriminator = self.loss_fn(discriminator_out, xxhat_labels)
         loss_discriminator.backward()
         self.discriminator_optimizer.step()
         
         z_samples = torch.randn(x.shape[0], self.zdim).to(self.device)
-        
         # Training the generator
         self.generator.zero_grad()
-        generator_out = self.generator(z_samples)
+        generator_out = self.generator(z_samples, feature_type_dict)
         discriminator_generated_out = self.discriminator(generator_out)
         loss_generator = self.loss_fn(discriminator_generated_out, x_labels)
         loss_generator.backward()
         self.generator_optimizer.step()
-        
+    
         return loss_discriminator, loss_generator
 
     def count_params(self):
         return sum(p.numel() for p in self.encoder.parameters() if p.requires_grad)
 
     def loss_fn(self, samples, labels):
-        return nn.BCELoss(samples, labels)
+        return F.binary_cross_entropy(samples, labels)
     
     

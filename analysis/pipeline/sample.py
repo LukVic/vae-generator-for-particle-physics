@@ -121,7 +121,35 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             xhats = torch.cat((xhat_real, xhat_bin.view(-1,1)), dim=1)
             x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
             data_array = np.vstack((data_array, x_hats_denorm))
-    
+        
+        elif TYPE == 'gan':
+            print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
+            prior_samples_batch = torch.randn(SAMPLES_NUM, latent_dimension)
+            for i in range(0, SAMPLES_NUM, batch_size):
+                prior_samples.append(prior_samples_batch)
+
+            
+            prior_samples = torch.cat(prior_samples, dim=0).to('cuda')
+            
+            xhats = 
+            for i in range(0, prior_samples.size(0), batch_size):
+                xhat = model.generator(prior_samples[i:i+batch_size], feature_type_dict)
+                print(xhat.shape)
+                print(feature_type_dict['real_data'][0])
+                print(feature_type_dict['real_data'][-1])
+                print(xhat[:,0:feature_type_dict['real_data'][-1]+1])
+                xhat_denorm = torch.tensor(scaler.inverse_transform(xhat[:,feature_type_dict['real_data'][0]:feature_type_dict['real_data'][-1]+1].to('cpu'))) # invert only real values fetures
+                xhat[:,feature_type_dict['real_data'][0]:feature_type_dict['real_data'][-1]+1] = xhat_denorm
+                print(xhat_denorm.shape)
+                
+                xhats = torch.cat((xhats, xhat.to('cpu')), dim=1)
+                
+            data_array = xhats
+            print(prior_samples[:,:len(features_list)].shape)
+            print(data_array.shape)
+            compute_embed(prior_samples[:,:len(features_list)].to('cpu'),posterior_samples[:,:len(features_list)].to('cpu'),TYPE,'latent')
+            visualize_embed(TYPE,'latent')
+            
     df_gen = pd.DataFrame(data_array,columns=features_list)
     # Adjust the values for total_charge variable
     #print(set(df_gen['total_charge']))
