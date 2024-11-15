@@ -128,28 +128,34 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             for i in range(0, SAMPLES_NUM, batch_size):
                 prior_samples.append(prior_samples_batch)
 
-            
             prior_samples = torch.cat(prior_samples, dim=0).to('cuda')
             
-            xhats = 
+            xhats = []
             for i in range(0, prior_samples.size(0), batch_size):
                 xhat = model.generator(prior_samples[i:i+batch_size], feature_type_dict)
-                print(xhat.shape)
-                print(feature_type_dict['real_data'][0])
-                print(feature_type_dict['real_data'][-1])
-                print(xhat[:,0:feature_type_dict['real_data'][-1]+1])
+                print(feature_type_dict)
+                # pick out the binary ones
+                xhat_binary = xhat[:,feature_type_dict['binary_data'][0]:feature_type_dict['binary_data'][-1]+1]            
+                # one-hot back to categorical
+                xhats_unified = []
+                for feature in feature_type_dict['categorical_one_hot']:
+                    xhat_category = xhat[:, feature[0]:feature[1]]
+                    xhat_unified = xhat_category.argmax(dim=-1).unsqueeze(1)
+                    xhats_unified.append(xhat_unified)
+                xhats_unified = torch.cat(xhats_unified, dim=1)
+                # denormalize real-valued features
                 xhat_denorm = torch.tensor(scaler.inverse_transform(xhat[:,feature_type_dict['real_data'][0]:feature_type_dict['real_data'][-1]+1].to('cpu'))) # invert only real values fetures
-                xhat[:,feature_type_dict['real_data'][0]:feature_type_dict['real_data'][-1]+1] = xhat_denorm
+                # concatenate the real-valued and the rest
                 print(xhat_denorm.shape)
+                print(xhat_binary.shape)
+                print(xhats_unified.shape)
+                xhat = torch.cat((xhat_denorm.to('cpu'), xhat_binary.to('cpu'), xhats_unified.to('cpu')), dim=1)
+                xhats.append(xhat)
                 
-                xhats = torch.cat((xhats, xhat.to('cpu')), dim=1)
-                
-            data_array = xhats
-            print(prior_samples[:,:len(features_list)].shape)
-            print(data_array.shape)
-            compute_embed(prior_samples[:,:len(features_list)].to('cpu'),posterior_samples[:,:len(features_list)].to('cpu'),TYPE,'latent')
-            visualize_embed(TYPE,'latent')
-            
+            data_array = torch.cat(xhats, dim=0)
+            #compute_embed(xhats[:,:len(features_list)].to('cpu'),posterior_samples[:,:len(features_list)].to('cpu'),TYPE,'latent')
+            #visualize_embed(TYPE,'latent')
+    print(features_list)
     df_gen = pd.DataFrame(data_array,columns=features_list)
     # Adjust the values for total_charge variable
     #print(set(df_gen['total_charge']))

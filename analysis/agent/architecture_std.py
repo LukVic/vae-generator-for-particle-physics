@@ -84,13 +84,13 @@ class Decoder(nn.Module):
         self.zdim = zdim
         self.output_dim = output_dim
         self.input_size = input_size
-        self.conf_general_encode = config["generate"]["encoder"]
+        self.conf_general_decode = config["generate"]["decoder"]
         
-        layer_num = self.conf_general_encode["layer_num"]
-        arch = self.conf_general_encode["architecture"]
-        bNorm = self.conf_general_encode["batchNorm"]
-        relu = self.conf_general_encode["relu"]
-        drop = self.conf_general_encode["dropout"]
+        layer_num = self.conf_general_decode["layer_num"]
+        arch = self.conf_general_decode["architecture"]
+        bNorm = self.conf_general_decode["batchNorm"]
+        relu = self.conf_general_decode["relu"]
+        drop = self.conf_general_decode["dropout"]
         
         #layers = []
         

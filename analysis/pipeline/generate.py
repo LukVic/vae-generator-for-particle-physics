@@ -172,13 +172,14 @@ def generate():
                 progress_bar.close()     
                 loss_history1.append(loss_discriminator.item())
                 loss_history2.append(loss_generator.item())
-                if loss_min1 > loss_discriminator.item() and loss_min2 > loss_discriminator.item(): # save the model only if loss is the best so far
-                    print("SAVING NEW BEST MODEL")
-                    torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
-                    torch.save(prior, f'{PATH_MODEL}{directory}{DATA_FILE}_prior.pth')
-                    loss_min1 = loss_discriminator.item()
-                    loss_min2 = loss_generator.item()
-                    plot_loss(loss_history1, loss_history2, APPROACH)
+                #if loss_min1 > loss_discriminator.item() and loss_min2 > loss_generator.item(): # save the model only if loss is the best so far
+                #if loss_min2 > loss_generator.item(): # save the model only if loss is the best so far
+                print("SAVING NEW BEST MODEL")
+                torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
+                torch.save(prior, f'{PATH_MODEL}{directory}{DATA_FILE}_prior.pth')
+                loss_min1 = loss_discriminator.item()
+                loss_min2 = loss_generator.item()
+                plot_loss(loss_history1, loss_history2, APPROACH)
                 if epoch % 50 == 0: # refresh the loss plot after certain amount of epochs
                     plot_loss(loss_history1, loss_history2, APPROACH)
             plot_loss(loss_history1, loss_history2, APPROACH)
