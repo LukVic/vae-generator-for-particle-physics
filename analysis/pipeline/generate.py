@@ -55,37 +55,41 @@ def generate():
     FEATURES_FILE = 'most_important_gbdt_10_tbh_800_new' ##f'features_top_10' # 'df_phi', 'df_no_zeros', 'df_8', 'df_pt'  feature file
     
         # which model to train
-    APPROACH = gen_params["approach"] # 'std', 'sym', 'std_h', 'sym_h', 'ddgm', "gan"
+    APPROACH = gen_params["approach"] # 'vae_std', 'vae_sym', 'lvae_std', 'lvae_sym', 'ddgm', "gan_std", "wgan_gp"
     
-    if APPROACH == 'std' or APPROACH == 'std_h' or APPROACH == 'ddgm':
+    if APPROACH == 'vae_std' or APPROACH == 'lvae_std' or APPROACH == 'ddgm':
         elbo_history = []
         elbo_min = np.inf
-        if APPROACH == 'std': from architecture_std import VAE
-        elif APPROACH == 'std_h': from architecture_std_h import VAE
+        if APPROACH == 'vae_std': from architecture_std import VAE
+        elif APPROACH == 'lvae_std': from architecture_std_h import VAE
         elif APPROACH == 'ddgm': from architecture_ddgm_simple import DDGM
         
-    elif APPROACH == 'sym' or APPROACH == 'sym_h':
+    elif APPROACH == 'vae_sym' or APPROACH == 'lvae_sym':
         elbo_history1 = []
         elbo_history2 = []
         elbo_min1 = np.inf
         elbo_min2 = np.inf
-        if APPROACH == 'sym': from architecture_sym import VAE
+        if APPROACH == 'vae_sym': from architecture_sym import VAE
         else: from architecture_sym_h import VAE
-    elif APPROACH == 'gan':
+    elif APPROACH == 'gan_std' or APPROACH == 'wgan_gp':
         loss_history1 = []
         loss_history2 = []
         loss_min1 = np.inf
         loss_min2 = np.inf
-        from architecture_gan import GAN
+        if APPROACH == 'gan_std': from architecture_gan import GAN
+        else: from architecture_gan import WGAN_GP
         
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv') # load training data
+    
     #df['tau_lep_charge_diff'] = df['total_charge'] * df['taus_charge_0'] # substitute total_charge by tau_lep_charge_diff
 
     df = df.drop(columns=['weight', 'row_number']) # remove auxiliary columns
     features = load_features(PATH_FEATURES, FEATURES_FILE)
-
-    feature_type_dict, df, df_one_hot = infer_feature_type(df[features],PATH_FEATURES+FEATURES_FILE)
-
+    df = df[features]
+    print(df.shape)
+    df = df.drop_duplicates(keep='first')
+    print(df.shape)
+    feature_type_dict, df, df_one_hot = infer_feature_type(df,PATH_FEATURES+FEATURES_FILE)
     print(f'real_param: {feature_type_dict["real_data"]}')
     print(f'binary_param: {feature_type_dict["binary_data"]}')
     print(f'categorical_param: {feature_type_dict["categorical_one_hot"]}')
@@ -132,7 +136,8 @@ def generate():
     
     prior = FlowPrior(nets,nett,10,D=gen_params["latent_size"],device=device)
     
-    if APPROACH == 'gan': model = GAN(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
+    if APPROACH == 'gan_std': model = GAN(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
+    elif APPROACH == 'wgan_gp': model = WGAN_GP(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
     elif APPROACH == 'ddgm': model = DDGM(gen_params["latent_size"], device, input_size, conf_dict, output_dim)
     else: model = VAE(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
     
@@ -157,7 +162,7 @@ def generate():
     if not os.path.exists(f'{PATH_MODEL}{directory}'):
         os.makedirs(f'{PATH_MODEL}{directory}')
 
-    if APPROACH == 'gan':
+    if APPROACH == 'gan_std' or APPROACH == 'wgan_gp':
         if TRAIN:
             model.train()
             for epoch in range(gen_params["num_epochs"]):
@@ -173,15 +178,15 @@ def generate():
                 loss_history1.append(loss_discriminator.item())
                 loss_history2.append(loss_generator.item())
                 #if loss_min1 > loss_discriminator.item() and loss_min2 > loss_generator.item(): # save the model only if loss is the best so far
-                #if loss_min2 > loss_generator.item(): # save the model only if loss is the best so far
-                print("SAVING NEW BEST MODEL")
-                torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
-                torch.save(prior, f'{PATH_MODEL}{directory}{DATA_FILE}_prior.pth')
-                loss_min1 = loss_discriminator.item()
-                loss_min2 = loss_generator.item()
-                plot_loss(loss_history1, loss_history2, APPROACH)
-                if epoch % 50 == 0: # refresh the loss plot after certain amount of epochs
+                if loss_min2 > loss_generator.item() or epoch % 50 == 0: # save the model only if loss is the best so far
+                    print("SAVING NEW BEST MODEL SO FAR")
+                    torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
+                    torch.save(prior, f'{PATH_MODEL}{directory}{DATA_FILE}_prior.pth')
+                    loss_min1 = loss_discriminator.item()
+                    loss_min2 = loss_generator.item()
                     plot_loss(loss_history1, loss_history2, APPROACH)
+                    if epoch % 50 == 0: # refresh the loss plot after certain amount of epochs
+                        plot_loss(loss_history1, loss_history2, APPROACH)
             plot_loss(loss_history1, loss_history2, APPROACH)
             data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df , dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features, prior=prior)
         else:
@@ -192,7 +197,7 @@ def generate():
             data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df, dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features, prior=prior)
             
     
-    if APPROACH == 'std' or APPROACH == 'std_h' or APPROACH == 'ddgm':
+    if APPROACH == 'vae_std' or APPROACH == 'lvae_std' or APPROACH == 'ddgm':
         if TRAIN:
             model.train()
             for epoch in range(gen_params["num_epochs"]):
@@ -225,7 +230,7 @@ def generate():
             print(f'{PATH_MODEL}{directory}{DATA_FILE}_prior.pth')
             data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df, dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features, prior=prior)
             
-    elif APPROACH == 'sym' or APPROACH == 'sym_h':
+    elif APPROACH == 'vae_sym' or APPROACH == 'lvae_sym':
         # model = VAE(gen_params["latent_size"], device, input_size, conf_dict)
         
         # optim_encoder_params = list(model.deterministic_encoders.parameters()) + list(model.encoders.parameters()) 

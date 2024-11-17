@@ -174,7 +174,16 @@ class VAE(nn.Module):
         self.encoder = Encoder(self.zdim, self.input_size, self.config).to(self.device)
         self.decoder = Decoder(self.zdim, self.input_size, self.config, self.decoder_output_dim).to(self.device)
         self.prior = prior
-        
+    
+            # Initialize weights
+        def weights_init(m):
+            if isinstance(m, nn.Linear):
+                init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    m.bias.data.zero_()
+        self.decoder.apply(weights_init)
+        self.encoder.apply(weights_init)
+
     def forward(self, x, feature_type_dict):
         #! ENCODER
         x = x.to(self.device)

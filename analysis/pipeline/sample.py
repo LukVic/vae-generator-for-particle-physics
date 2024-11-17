@@ -32,7 +32,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     start_time = time.time()
     with torch.no_grad():
         # Generate new samples with standard architectures
-        if TYPE == 'std' or TYPE == 'sym':
+        if TYPE == 'vae_std' or TYPE == 'vae_sym':
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
             
             for i in range(0, SAMPLES_NUM, batch_size):
@@ -70,7 +70,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             visualize_embed(TYPE,'latent')
         # Generate new samples with Ladder ELBO
         # TODO: generation by batches 
-        elif TYPE == 'std_h':
+        elif TYPE == 'lvae_std':
             z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,scaler.fit_transform(dataset_one_hot.values))
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
             xhats_mu_gauss_1, xhats_sigma_gauss_1 = model.encoder_3(z_2.to('cuda'))
@@ -86,7 +86,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             data_array = np.vstack((data_array, x_hats_denorm))
         # Generate new samples with Ladder SEL
         # TODO: generation by batches
-        elif TYPE == 'sym_h':
+        elif TYPE == 'lvae_sym':
             z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,scaler.fit_transform(dataset_one_hot.values))
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
             # xhats_mu_gauss_3, xhats_sigma_gauss_3 = model.decoders[0].encode(z_3.to('cuda'))
@@ -122,7 +122,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
             data_array = np.vstack((data_array, x_hats_denorm))
         
-        elif TYPE == 'gan':
+        elif TYPE == 'gan_std' or TYPE == 'wgan_gp':
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
             prior_samples_batch = torch.randn(SAMPLES_NUM, latent_dimension)
             for i in range(0, SAMPLES_NUM, batch_size):
@@ -151,10 +151,12 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
                 print(xhats_unified.shape)
                 xhat = torch.cat((xhat_denorm.to('cpu'), xhat_binary.to('cpu'), xhats_unified.to('cpu')), dim=1)
                 xhats.append(xhat)
-                
+            
             data_array = torch.cat(xhats, dim=0)
-            #compute_embed(xhats[:,:len(features_list)].to('cpu'),posterior_samples[:,:len(features_list)].to('cpu'),TYPE,'latent')
-            #visualize_embed(TYPE,'latent')
+            print(type(dataset_original))
+            print(type(data_array))
+            compute_embed(data_array[:,:len(features_list)].to('cpu'),torch.tensor(dataset_original.values)[:,:len(features_list)].to('cpu'),TYPE,'data')
+            visualize_embed(TYPE,'data')
     print(features_list)
     df_gen = pd.DataFrame(data_array,columns=features_list)
     # Adjust the values for total_charge variable

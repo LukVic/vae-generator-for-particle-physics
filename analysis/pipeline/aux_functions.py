@@ -410,10 +410,11 @@ def compute_embed(first_pointcloud, second_pointcloud, TYPE, OPTION, sample_size
     np.savetxt(f'{PATH_DATA}points_second_{TYPE}_{OPTION}.csv', trans_second, delimiter=',')
 
 def visualize_embed(TYPE, OPTION):
-    types = {'std': 'Standard ELBO',
-             'sym': 'Standard SEL',
-             'std_h': 'Ladder ELBO', 
-             'sym_h': 'Ladder SEL'}
+    types = {'vae_std': 'Standard ELBO',
+             'vae_sym': 'Standard SEL',
+             'lvae_std': 'Ladder ELBO', 
+             'lvae_sym': 'Ladder SEL',
+             'wgan_gp': 'WGAN-GP'}
     options = {'latent': 'Latent Space',
                'data': 'Data Space'}
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/metrics/'

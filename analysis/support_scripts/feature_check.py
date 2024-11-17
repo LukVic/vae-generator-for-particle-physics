@@ -44,19 +44,19 @@ def feature_check(path):
     #EVENTS_1 = 12522
     #EVENTS_2 = 27611
     #EVENTS_1 = 31434
-    EVENTS_1 = 65373
+    #EVENTS_1 = 65373
+    EVENTS_1 = 46338
     # df_original = pd.read_csv(f'{path}data/tt/{DATASET}.csv')
     # df_generated = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_STD}_std_h.csv')
     # df_generated_sym = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_SYM}_{EPOCHS_SYM}_sym_h.csv')
     
-    TYPE_1 = 'gan'
+    TYPE_1 = 'vae_std'
     TYPE_2 = 'sym'
     
     df_original = pd.read_csv(f'{path}data/{reaction}_input/{DATASET}.csv')
     df_generated = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_STD}_S{EVENTS_1}_{TYPE_1}.csv')
     df_generated_sym = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_STD}_S{EVENTS_1}_{TYPE_1}.csv')
 
-    print(df_generated.shape)
 
     #! adjust df_original
     #features_used = ['taus_pt_0', 'MtLepMet', 'met_met', 'DRll01', 'MLepMet', 'minDeltaR_LJ_0', 'jets_pt_0', 'HT', 'HT_lep', 'total_charge']
@@ -65,6 +65,11 @@ def feature_check(path):
     df_original = df_original[features_used]
     df_generated = df_generated[features_used]
     df_generated_sym = df_generated_sym[features_used]
+    df_original = df_original.drop_duplicates(keep='first')
+
+    print(df_generated.shape)
+    print(df_original.shape)
+
     # print(df_original)
     # print(df_generated)
     # print(df_generated_sym)
