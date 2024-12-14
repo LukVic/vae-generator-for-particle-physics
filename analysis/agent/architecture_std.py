@@ -59,9 +59,9 @@ class Encoder(nn.Module):
         z = qz_gauss.rsample()
         return z, qz_gauss
     
-    def neg_log_prob(self,z, mu, std):
+    def log_probas(self,z, mu, std):
         qzx = Normal(mu,  std)
-        E_log_pxz = -qzx.log_prob(z).sum(dim=1)
+        E_log_pxz = qzx.log_prob(z).sum(dim=1)
         return E_log_pxz, qzx
         
     def forward(self, x):
@@ -132,9 +132,9 @@ class Decoder(nn.Module):
         
         #self.body = nn.Sequential(*layers)
     
-    def neg_log_prob(self,x, mu, std):
+    def log_probas(self,x, mu, std):
         pxz = Normal(mu,  std)
-        E_log_pxz = -pxz.log_prob(x).sum(dim=1)
+        E_log_pxz = pxz.log_prob(x).sum(dim=1)
         return E_log_pxz, pxz
 
     def forward(self, z, feature_type_dict):
@@ -199,28 +199,36 @@ class VAE(nn.Module):
         x_bernoulli = (torch.sign(x[:,feature_type_dict['binary_data']])+1)/2
         # print(x_bernoulli)
         # print(p_bernoulli)
+        #! LOSS
         BC = F.binary_cross_entropy(p_bernoulli, x_bernoulli, reduction='sum')
-        RE, _ = self.decoder.neg_log_prob(x_gauss,mu_gauss, std_gauss)  
+        RE, _ = self.decoder.log_probas(x_gauss,mu_gauss, std_gauss)  
         #KL = torch.distributions.kl_divergence(qz, pz_gauss).sum(dim=1)
-        KL = -self.kl_div(z,mu,std, self.prior, self.encoder)
+        KL = -self.kl_div([None,z],[None,mu],[None,std], self.prior, self.encoder, 'prpo')
         MC = sum(F.cross_entropy(p_categorical[:,start_p:end_p], x[:,start_x:end_x].argmax(dim=1), reduction='sum') for (start_x, end_x), (start_p, end_p) in zip(feature_type_dict['categorical_one_hot'], feature_type_dict['categorical_only']))
 
         beta = 0.01
         gamma = 0.01
         
-        return torch.mean(RE) + torch.mean(KL) + beta*BC + gamma*MC
+        return -torch.mean(RE) + torch.mean(KL) + beta*BC + gamma*MC
 
 
     def count_params(self):
         return sum(p.numel() for p in self.encoder.parameters() if p.requires_grad)
 
-    def kl_div(self,z,mu,std, prior, posterior):
-        kl_part_1 = prior.log_prob(z)#.sum(0)
-        #print(kl_part_1) 
-        kl_part_2 = posterior.neg_log_prob(z, mu, std)[0] 
+    def kl_div(self,z,mu,std, dist_1, dist_2, type):
+        kl_part_1 = None
+        kl_part_2 = None
+        # prior and posterior
+        if type == 'prpo':
+            kl_part_1 = dist_1.log_probas(z[1])
+            #print(kl_part_1)
+        # two posteriors
+        elif type == 'popo':
+            kl_part_1 = dist_1.log_probas(z[0], mu[0], std[0])[0]
+        kl_part_2 = dist_2.log_probas(z[1], mu[1], std[1])[0] 
         #print(kl_part_2)
-    
-        KL = kl_part_1 + kl_part_2
+        #exit()
+        KL = kl_part_1 - kl_part_2
         return KL
     
     

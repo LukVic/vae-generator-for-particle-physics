@@ -28,6 +28,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     data_array = np.empty((0, dataset_one_hot.shape[1]), dtype=np.float32)
     prior_samples = []
     posterior_samples = []
+    z_2_samples = []
     
     start_time = time.time()
     with torch.no_grad():
@@ -71,20 +72,60 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
         # Generate new samples with Ladder ELBO
         # TODO: generation by batches 
         elif TYPE == 'lvae_std':
-            z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,scaler.fit_transform(dataset_one_hot.values))
+            
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
-            xhats_mu_gauss_1, xhats_sigma_gauss_1 = model.encoder_3(z_2.to('cuda'))
-            pz2z1 = torch.distributions.Normal(xhats_mu_gauss_1, torch.exp(xhats_sigma_gauss_1))
-            z_1 = pz2z1.rsample()
-            xhats_mu_gauss, xhats_sigma_gauss, xhats_bernoulli = model.decoder(z_1)
-            px_gauss = torch.distributions.Normal(xhats_mu_gauss, torch.exp(xhats_sigma_gauss))
-            xhat_gauss = px_gauss.sample()
-            xhat_bernoulli = torch.bernoulli(xhats_bernoulli)
-            xhats = torch.cat((xhat_gauss, xhat_bernoulli.view(-1,1)), dim=1)
-            x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
-            #x_hats_denorm = tan_to_angle(conf_dict['angle_convert']['indices'], torch.tensor(x_hats_denorm)).numpy()
-            data_array = np.vstack((data_array, x_hats_denorm))
-        # Generate new samples with Ladder SEL
+            
+            for i in range(0, SAMPLES_NUM, batch_size):
+                z_2_samples_batch = torch.randn(batch_size, latent_dimension)
+                z_2_samples.append(z_2_samples_batch)
+            
+            z_2_samples = torch.cat(z_2_samples, dim=0).to('cuda')
+            
+            for i in range(0, z_2_samples.size(0), batch_size):
+                
+                xhats_mu_gauss_1, xhats_sigma_gauss_1 = model.encoder_3(z_2_samples[i:i+batch_size].to('cuda'))
+                pz2z1 = torch.distributions.Normal(xhats_mu_gauss_1, xhats_sigma_gauss_1)
+                z_1_samples = pz2z1.rsample()
+                
+                
+                xhats_mu_gauss, xhats_std_gauss, xhats_bernoulli, xhats_categorical = model.decoder(z_1_samples[i:i+batch_size], feature_type_dict)
+
+                px_gauss = torch.distributions.Normal(xhats_mu_gauss, xhats_std_gauss)
+                xhats_gauss = px_gauss.sample()
+                
+                xhats_gauss_denorm = torch.tensor(scaler.inverse_transform(xhats_gauss.to('cpu')))
+                xhats_bernoulli = torch.bernoulli(xhats_bernoulli)
+                xhats = torch.cat((xhats_gauss_denorm, xhats_bernoulli.view(-1,len(feature_type_dict['binary_param'])).to('cpu')), dim=1)
+                
+                
+                categorical_samples = []
+                for start, end in feature_type_dict['categorical_only']:
+                    categorical_distribution = torch.distributions.Categorical(logits=xhats_categorical[:, start:end])
+                    xhat_categorical = categorical_distribution.sample().unsqueeze(1)
+                    categorical_samples.append(xhat_categorical)
+
+                xhats = torch.cat((xhats, torch.cat(categorical_samples, dim=1).to('cpu')), dim=1)
+                
+            data_array = xhats
+            print(z_2_samples[:,:len(features_list)].shape)
+            print(data_array.shape)
+            compute_embed(z_2_samples[:,:len(features_list)].to('cpu'),z_1_samples[:,:len(features_list)].to('cpu'),TYPE,'ladder_latent')
+            visualize_embed(TYPE,'ladder_latent')
+            
+        #     z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,scaler.fit_transform(dataset_one_hot.values))
+        #     print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
+        #     xhats_mu_gauss_1, xhats_sigma_gauss_1 = model.encoder_3(z_2.to('cuda'))
+        #     pz2z1 = torch.distributions.Normal(xhats_mu_gauss_1, torch.exp(xhats_sigma_gauss_1))
+        #     z_1 = pz2z1.rsample()
+        #     xhats_mu_gauss, xhats_sigma_gauss, xhats_bernoulli = model.decoder(z_1)
+        #     px_gauss = torch.distributions.Normal(xhats_mu_gauss, torch.exp(xhats_sigma_gauss))
+        #     xhat_gauss = px_gauss.sample()
+        #     xhat_bernoulli = torch.bernoulli(xhats_bernoulli)
+        #     xhats = torch.cat((xhat_gauss, xhat_bernoulli.view(-1,1)), dim=1)
+        #     x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
+        #     #x_hats_denorm = tan_to_angle(conf_dict['angle_convert']['indices'], torch.tensor(x_hats_denorm)).numpy()
+        #     data_array = np.vstack((data_array, x_hats_denorm))
+        # # Generate new samples with Ladder SEL
         # TODO: generation by batches
         elif TYPE == 'lvae_sym':
             z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,scaler.fit_transform(dataset_one_hot.values))
@@ -136,27 +177,35 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
                 print(feature_type_dict)
                 # pick out the binary ones
                 xhat_binary = xhat[:,feature_type_dict['binary_data'][0]:feature_type_dict['binary_data'][-1]+1]            
+                xhat_binary = torch.sigmoid(xhat_binary)
+                xhat_binary[xhat_binary>0.5] = 1
+                xhat_binary[xhat_binary<=0.5] = 0
                 # one-hot back to categorical
                 xhats_unified = []
                 for feature in feature_type_dict['categorical_one_hot']:
                     xhat_category = xhat[:, feature[0]:feature[1]]
-                    xhat_unified = xhat_category.argmax(dim=-1).unsqueeze(1)
+                    probabilities = torch.softmax(xhat_category, dim=-1)
+                    xhat_unified = torch.argmax(probabilities, dim=-1).unsqueeze(1)
                     xhats_unified.append(xhat_unified)
                 xhats_unified = torch.cat(xhats_unified, dim=1)
+                
                 # denormalize real-valued features
                 xhat_denorm = torch.tensor(scaler.inverse_transform(xhat[:,feature_type_dict['real_data'][0]:feature_type_dict['real_data'][-1]+1].to('cpu'))) # invert only real values fetures
                 # concatenate the real-valued and the rest
                 print(xhat_denorm.shape)
                 print(xhat_binary.shape)
                 print(xhats_unified.shape)
+                print(xhat_denorm.to(torch.int))
+                print(torch.round(xhat_denorm).int())
+
                 xhat = torch.cat((xhat_denorm.to('cpu'), xhat_binary.to('cpu'), xhats_unified.to('cpu')), dim=1)
                 xhats.append(xhat)
-            
+            # exit()
             data_array = torch.cat(xhats, dim=0)
             print(type(dataset_original))
             print(type(data_array))
-            compute_embed(data_array[:,:len(features_list)].to('cpu'),torch.tensor(dataset_original.values)[:,:len(features_list)].to('cpu'),TYPE,'data')
-            visualize_embed(TYPE,'data')
+            # compute_embed(data_array[:,:len(features_list)].to('cpu'),torch.tensor(dataset_original.values)[:,:len(features_list)].to('cpu'),TYPE,'data')
+            # visualize_embed(TYPE,'data')
     print(features_list)
     df_gen = pd.DataFrame(data_array,columns=features_list)
     # Adjust the values for total_charge variable

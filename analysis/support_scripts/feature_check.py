@@ -15,8 +15,10 @@ def feature_check(path):
     
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    EPOCHS_STD = 1000
-    EPOCHS_SYM = 1000
+    binning = 50
+    
+    EPOCHS_STD = 3000
+    EPOCHS_SYM = 3000
     
     #reaction = 'tbh_800_new'
     reaction = 'bkg_all'
@@ -41,6 +43,7 @@ def feature_check(path):
     ch_test_2 = []
     
     #EVENTS = 10449
+    EVENTS_1 = 10478
     #EVENTS_1 = 12522
     #EVENTS_2 = 27611
     #EVENTS_1 = 31434
@@ -50,7 +53,8 @@ def feature_check(path):
     # df_generated = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_STD}_std_h.csv')
     # df_generated_sym = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_SYM}_{EPOCHS_SYM}_sym_h.csv')
     
-    TYPE_1 = 'vae_std'
+    TYPE_1 = 'wgan_gp'
+    #TYPE_1 = 'lvae_std'
     TYPE_2 = 'sym'
     
     df_original = pd.read_csv(f'{path}data/{reaction}_input/{DATASET}.csv')
@@ -69,7 +73,7 @@ def feature_check(path):
 
     print(df_generated.shape)
     print(df_original.shape)
-
+    print(df_generated['taus_charge_0'][-10:])
     # print(df_original)
     # print(df_generated)
     # print(df_generated_sym)
@@ -101,16 +105,16 @@ def feature_check(path):
         min_all += 1/min_all
         max_all += 1/max_all
         
-        if feature == 'total_charge':
-            min_all = -2.5
-            max_all = 2.5
+        # if feature == 'total_charge':
+        #     min_all = -2.5
+        #     max_all = 2.5
         # if feature == 'MtLepMet':
         #     print(min_all)
         #     print(max_all)
         #     exit()
-        h_feature_original = ROOT.TH1F(f"h_{feature[0]}_original",f";{feature[0]}; events (normalized)",100, min_all, max_all)
-        h_feature_generated_std = ROOT.TH1F(f"h_{feature[0]}_generated",f";{feature[0]}; events (normalized)",100, min_all, max_all)
-        h_feature_generated_sym = ROOT.TH1F(f"h_{feature[0]}_generated_sym",f";{feature[0]}; events (normalized)",100, min_all, max_all)
+        h_feature_original = ROOT.TH1F(f"h_{feature[0]}_original",f";{feature[0]}; events (normalized)",binning, min_all, max_all)
+        h_feature_generated_std = ROOT.TH1F(f"h_{feature[0]}_generated",f";{feature[0]}; events (normalized)",binning, min_all, max_all)
+        h_feature_generated_sym = ROOT.TH1F(f"h_{feature[0]}_generated_sym",f";{feature[0]}; events (normalized)",binning, min_all, max_all)
         
 
         # if feature == 'total_charge':
@@ -118,22 +122,24 @@ def feature_check(path):
         #     exit()
         event_sum = 0
         for event_o, event_g, event_g_s in zip(data_original, data_ganerated, data_ganerated_sym):
-            #print(event_o)
+            # print(event_g_s)
             event_sum += event_o
             h_feature_original.Fill(event_o)
             
-            if feature != 'total_charge':
-                h_feature_generated_std.Fill(event_g)
-                h_feature_generated_sym.Fill(event_g_s)
-            else:
-                #print(event_g)
-                if event_g < 0.1: event_g = -2
-                else: event_g = 2
-                if event_g_s < 0.1: event_g_s = -2
-                else: event_g_s = 2
+            # if feature != 'total_charge':
+            #     h_feature_generated_std.Fill(event_g)
+            #     h_feature_generated_sym.Fill(event_g_s)
+            # else:
+            #     #print(event_g)
+            #     if event_g < 0.1: event_g = -2
+            #     else: event_g = 2
+            #     if event_g_s < 0.1: event_g_s = -2
+            #     else: event_g_s = 2
                 
-                h_feature_generated_std.Fill(event_g)
-                h_feature_generated_sym.Fill(event_g_s)
+            h_feature_generated_std.Fill(event_g)
+            h_feature_generated_sym.Fill(event_g_s)
+        # if feature == 'taus_charge_0':
+        #     exit()
         # print(event_sum)
         # print(h_feature_original)
         # print(h_feature_original.Integral())
@@ -200,63 +206,63 @@ def feature_check(path):
             # h_feature_generated_sym.Draw("SAME HIST E")  
         
         ROOT.gStyle.SetOptStat(0)   
-        if feature != 'total_charge':
+        # if feature != 'total_charge':
             
-            legend = ROOT.TLegend(0.54, 0.7, 0.98, 0.9)
+        #     legend = ROOT.TLegend(0.54, 0.7, 0.98, 0.9)
 
-            legend.AddEntry(h_feature_original, "Simulated", "l")
-            legend.AddEntry(h_feature_generated_std, f"Generated", "l")
-            #legend.AddEntry(h_feature_generated_std, f"Generated {TYPE_1}", "l")
-            #legend.AddEntry(h_feature_generated_sym, f"Generated {TYPE_2}", "l")
+        #     legend.AddEntry(h_feature_original, "Simulated", "l")
+        #     legend.AddEntry(h_feature_generated_std, f"Generated", "l")
+        #     #legend.AddEntry(h_feature_generated_std, f"Generated {TYPE_1}", "l")
+        #     #legend.AddEntry(h_feature_generated_sym, f"Generated {TYPE_2}", "l")
             
-            h_feature_original.GetXaxis().SetTitleSize(0.048)
-            h_feature_original.GetYaxis().SetTitleSize(0.048)
-            h_feature_generated_std.GetXaxis().SetTitleSize(0.048)
-            h_feature_generated_std.GetYaxis().SetTitleSize(0.048)
-            # h_feature_generated_sym.GetXaxis().SetTitleSize(0.048)
-            # h_feature_generated_sym.GetYaxis().SetTitleSize(0.048)
+        #     h_feature_original.GetXaxis().SetTitleSize(0.048)
+        #     h_feature_original.GetYaxis().SetTitleSize(0.048)
+        #     h_feature_generated_std.GetXaxis().SetTitleSize(0.048)
+        #     h_feature_generated_std.GetYaxis().SetTitleSize(0.048)
+        #     # h_feature_generated_sym.GetXaxis().SetTitleSize(0.048)
+        #     # h_feature_generated_sym.GetYaxis().SetTitleSize(0.048)
             
-            h_feature_original.GetXaxis().SetTitleOffset(0.9) 
-            h_feature_generated_std.GetXaxis().SetTitleOffset(0.9) 
-            # h_feature_generated_sym.GetXaxis().SetTitleOffset(0.9) 
+        #     h_feature_original.GetXaxis().SetTitleOffset(0.9) 
+        #     h_feature_generated_std.GetXaxis().SetTitleOffset(0.9) 
+        #     # h_feature_generated_sym.GetXaxis().SetTitleOffset(0.9) 
             
-            h_feature_original.GetYaxis().SetTitleOffset(1.0) 
-            h_feature_generated_std.GetYaxis().SetTitleOffset(1.0) 
-            # h_feature_generated_sym.GetYaxis().SetTitleOffset(1.0) 
+        #     h_feature_original.GetYaxis().SetTitleOffset(1.0) 
+        #     h_feature_generated_std.GetYaxis().SetTitleOffset(1.0) 
+        #     # h_feature_generated_sym.GetYaxis().SetTitleOffset(1.0) 
             
-            # latex = ROOT.TLatex()
-            # latex.SetTextSize(0.052) 
-            # latex.SetTextFont(52)
-            # latex.DrawLatexNDC(0.49, 0.52, "ATLAS Work in Progress")
-        else:
+        #     # latex = ROOT.TLatex()
+        #     # latex.SetTextSize(0.052) 
+        #     # latex.SetTextFont(52)
+        #     # latex.DrawLatexNDC(0.49, 0.52, "ATLAS Work in Progress")
+        # else:
             
-            legend = ROOT.TLegend(0.42, 0.6, 0.86, 0.9) 
+        legend = ROOT.TLegend(0.42, 0.6, 0.86, 0.9) 
 
-            
-            legend.AddEntry(h_feature_original, "Simulated", "l")
-            legend.AddEntry(h_feature_generated_std, f"Generated", "l")
-            #legend.AddEntry(h_feature_generated_std, f"Generated {TYPE_1}", "l")
-            #legend.AddEntry(h_feature_generated_sym, f"Generated {TYPE_2}", "l")
-            
-            h_feature_original.GetXaxis().SetTitleSize(0.048)
-            h_feature_original.GetYaxis().SetTitleSize(0.048)
-            h_feature_generated_std.GetXaxis().SetTitleSize(0.048)
-            h_feature_generated_std.GetYaxis().SetTitleSize(0.048)
-            # h_feature_generated_sym.GetXaxis().SetTitleSize(0.048)
-            # h_feature_generated_sym.GetYaxis().SetTitleSize(0.048)
-            
-            h_feature_original.GetXaxis().SetTitleOffset(0.9) 
-            h_feature_generated_std.GetXaxis().SetTitleOffset(0.9) 
-            # h_feature_generated_sym.GetXaxis().SetTitleOffset(0.9) 
-            
-            h_feature_original.GetYaxis().SetTitleOffset(1.0) 
-            h_feature_generated_std.GetYaxis().SetTitleOffset(1.0) 
-            # h_feature_generated_sym.GetYaxis().SetTitleOffset(1.0) 
-            
-            # latex = ROOT.TLatex()
-            # latex.SetTextSize(0.052) 
-            # latex.SetTextFont(52)
-            # latex.DrawLatexNDC(0.43, 0.52, "ATLAS Work in Progress")
+        
+        legend.AddEntry(h_feature_original, "Simulated", "l")
+        legend.AddEntry(h_feature_generated_std, f"Generated", "l")
+        #legend.AddEntry(h_feature_generated_std, f"Generated {TYPE_1}", "l")
+        #legend.AddEntry(h_feature_generated_sym, f"Generated {TYPE_2}", "l")
+        
+        h_feature_original.GetXaxis().SetTitleSize(0.048)
+        h_feature_original.GetYaxis().SetTitleSize(0.048)
+        h_feature_generated_std.GetXaxis().SetTitleSize(0.048)
+        h_feature_generated_std.GetYaxis().SetTitleSize(0.048)
+        # h_feature_generated_sym.GetXaxis().SetTitleSize(0.048)
+        # h_feature_generated_sym.GetYaxis().SetTitleSize(0.048)
+        
+        h_feature_original.GetXaxis().SetTitleOffset(0.9) 
+        h_feature_generated_std.GetXaxis().SetTitleOffset(0.9) 
+        # h_feature_generated_sym.GetXaxis().SetTitleOffset(0.9) 
+        
+        h_feature_original.GetYaxis().SetTitleOffset(1.0) 
+        h_feature_generated_std.GetYaxis().SetTitleOffset(1.0) 
+        # h_feature_generated_sym.GetYaxis().SetTitleOffset(1.0) 
+        
+        # latex = ROOT.TLatex()
+        # latex.SetTextSize(0.052) 
+        # latex.SetTextFont(52)
+        # latex.DrawLatexNDC(0.43, 0.52, "ATLAS Work in Progress")
 
         
         legend.SetBorderSize(0)

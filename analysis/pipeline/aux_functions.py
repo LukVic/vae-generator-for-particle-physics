@@ -414,8 +414,10 @@ def visualize_embed(TYPE, OPTION):
              'vae_sym': 'Standard SEL',
              'lvae_std': 'Ladder ELBO', 
              'lvae_sym': 'Ladder SEL',
+             'gan_std': 'Standard GAN',
              'wgan_gp': 'WGAN-GP'}
     options = {'latent': 'Latent Space',
+               'ladder_latent': 'Ladder Latent Space',
                'data': 'Data Space'}
     PATH_DATA = '/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/results/metrics/'
 

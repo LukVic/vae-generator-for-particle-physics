@@ -62,7 +62,7 @@ def generate():
         elbo_min = np.inf
         if APPROACH == 'vae_std': from architecture_std import VAE
         elif APPROACH == 'lvae_std': from architecture_std_h import VAE
-        elif APPROACH == 'ddgm': from architecture_ddgm_simple import DDGM
+        elif APPROACH == 'ddgm': from architecture_ddgm import DDGM
         
     elif APPROACH == 'vae_sym' or APPROACH == 'lvae_sym':
         elbo_history1 = []
@@ -89,6 +89,7 @@ def generate():
     print(df.shape)
     df = df.drop_duplicates(keep='first')
     print(df.shape)
+    
     feature_type_dict, df, df_one_hot = infer_feature_type(df,PATH_FEATURES+FEATURES_FILE)
     print(f'real_param: {feature_type_dict["real_data"]}')
     print(f'binary_param: {feature_type_dict["binary_data"]}')
@@ -138,7 +139,7 @@ def generate():
     
     if APPROACH == 'gan_std': model = GAN(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
     elif APPROACH == 'wgan_gp': model = WGAN_GP(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
-    elif APPROACH == 'ddgm': model = DDGM(gen_params["latent_size"], device, input_size, conf_dict, output_dim)
+    elif APPROACH == 'ddgm': model = DDGM(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
     else: model = VAE(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
     
     optimizer = optim.Adam(model.parameters(), lr=gen_params["lr"])

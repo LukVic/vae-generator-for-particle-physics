@@ -187,7 +187,6 @@ class FlowPrior(nn.Module):
             z, s = self.coupling(z, i, forward=True)
             z = self.permute(z)
             log_det_J = log_det_J - s.sum(dim=1)
-
         return z, log_det_J
 
     def f_inv(self, z):
@@ -203,9 +202,9 @@ class FlowPrior(nn.Module):
         x = self.f_inv(z)
         return x.view(-1, self.D)
 
-    def log_prob(self, x):
+    def log_probas(self, x):
         z, log_det_J = self.f(x)
-        log_p = self.log_standard_normal(z) + log_det_J.unsqueeze(1)
+        log_p = self.log_standard_normal(z).view(-1,1) + log_det_J.view(-1,1)
         return log_p
 
     def log_standard_normal(self, x):
