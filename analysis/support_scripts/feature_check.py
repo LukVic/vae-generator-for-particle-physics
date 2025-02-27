@@ -15,10 +15,10 @@ def feature_check(path):
     
     logging.basicConfig(filename='/home/lucas/Documents/KYR/msc_thesis/vae-generator-for-particle-physics/analysis/logging/chi2_test.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    binning = 50
+    binning = 100
     
-    EPOCHS_STD = 3000
-    EPOCHS_SYM = 3000
+    EPOCHS_STD = 5
+    EPOCHS_SYM = 5
     
     #reaction = 'tbh_800_new'
     reaction = 'bkg_all'
@@ -53,9 +53,10 @@ def feature_check(path):
     # df_generated = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_STD}_{EPOCHS_STD}_std_h.csv')
     # df_generated_sym = pd.read_csv(f'{path}data/tt/{DATASET}_disc_{EPOCHS_SYM}_{EPOCHS_SYM}_sym_h.csv')
     
-    TYPE_1 = 'wgan_gp'
+    TYPE_1 = 'ddgm'
+    #TYPE_1 = 'wgan_gp'
     #TYPE_1 = 'lvae_std'
-    TYPE_2 = 'sym'
+    #TYPE_2 = 'sym'
     
     df_original = pd.read_csv(f'{path}data/{reaction}_input/{DATASET}.csv')
     df_generated = pd.read_csv(f'{path}data/{reaction}_input/generated_df_{reaction}_pres_strict_E{EPOCHS_STD}_S{EVENTS_1}_{TYPE_1}.csv')

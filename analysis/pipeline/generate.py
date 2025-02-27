@@ -58,26 +58,21 @@ def generate():
     APPROACH = gen_params["approach"] # 'vae_std', 'vae_sym', 'lvae_std', 'lvae_sym', 'ddgm', "gan_std", "wgan_gp"
     
     if APPROACH == 'vae_std' or APPROACH == 'lvae_std' or APPROACH == 'ddgm':
-        elbo_history = []
-        elbo_min = np.inf
+        loss_history = []
+        loss_min = np.inf
         if APPROACH == 'vae_std': from architecture_std import VAE
         elif APPROACH == 'lvae_std': from architecture_std_h import VAE
         elif APPROACH == 'ddgm': from architecture_ddgm import DDGM
         
-    elif APPROACH == 'vae_sym' or APPROACH == 'lvae_sym':
-        elbo_history1 = []
-        elbo_history2 = []
-        elbo_min1 = np.inf
-        elbo_min2 = np.inf
-        if APPROACH == 'vae_sym': from architecture_sym import VAE
-        else: from architecture_sym_h import VAE
-    elif APPROACH == 'gan_std' or APPROACH == 'wgan_gp':
+    elif APPROACH == 'vae_sym' or APPROACH == 'lvae_sym' or APPROACH == 'gan_std' or APPROACH == 'wgan_gp':
         loss_history1 = []
         loss_history2 = []
         loss_min1 = np.inf
         loss_min2 = np.inf
-        if APPROACH == 'gan_std': from architecture_gan import GAN
-        else: from architecture_gan import WGAN_GP
+        if APPROACH == 'vae_sym': from architecture_sym import VAE
+        elif APPROACH == 'lvae_sym': from architecture_sym_h import VAE
+        elif APPROACH == 'gan_std': from architecture_gan import GAN
+        elif APPROACH == 'wgan_gp': from architecture_gan import WGAN_GP
         
     df = pd.read_csv(f'{PATH_DATA}{DATA_FILE}.csv') # load training data
     
@@ -91,6 +86,7 @@ def generate():
     print(df.shape)
     
     feature_type_dict, df, df_one_hot = infer_feature_type(df,PATH_FEATURES+FEATURES_FILE)
+    
     print(f'real_param: {feature_type_dict["real_data"]}')
     print(f'binary_param: {feature_type_dict["binary_data"]}')
     print(f'categorical_param: {feature_type_dict["categorical_one_hot"]}')
@@ -114,6 +110,7 @@ def generate():
     df_one_hot.iloc[:,feature_type_dict['real_data']] = train_dataset_real_norm
 
     train_dataset_norm = torch.tensor(df_one_hot.values, dtype=torch.float32)
+
     input_size = train_dataset_norm.shape[1]
     output_dim = feature_type_dict['max_idx']
 
@@ -139,7 +136,7 @@ def generate():
     
     if APPROACH == 'gan_std': model = GAN(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
     elif APPROACH == 'wgan_gp': model = WGAN_GP(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
-    elif APPROACH == 'ddgm': model = DDGM(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
+    elif APPROACH == 'ddgm': model = DDGM(prior,gen_params["latent_size"], device, input_size, conf_dict, input_size)
     else: model = VAE(prior,gen_params["latent_size"], device, input_size, conf_dict, output_dim)
     
     optimizer = optim.Adam(model.parameters(), lr=gen_params["lr"])
@@ -213,16 +210,16 @@ def generate():
                     progress_bar.update(1)
                 #scheduler.step(loss)
                 progress_bar.close()     
-                elbo_history.append(loss.item())
-                if elbo_min > loss.item(): # save the model only if loss is the best so far
+                loss_history.append(loss.item())
+                if loss_min > loss.item(): # save the model only if loss is the best so far
                     print("SAVING NEW BEST MODEL")
                     torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
                     torch.save(prior, f'{PATH_MODEL}{directory}{DATA_FILE}_prior.pth')
-                    elbo_min = loss.item()
-                    plot_loss(elbo_history, None, APPROACH)
+                    loss_min = loss.item()
+                    plot_loss(loss_history, None, APPROACH)
                 if epoch % 50 == 0: # refresh the loss plot after certain amount of epochs
-                    plot_loss(elbo_history, None, APPROACH)
-            plot_loss(elbo_history, None, APPROACH)
+                    plot_loss(loss_history, None, APPROACH)
+            plot_loss(loss_history, None, APPROACH)
             data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df , dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features, prior=prior)
         else:
             model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
@@ -270,18 +267,18 @@ def generate():
                     progress_bar.set_description(f'EPOCH: {epoch+1}/{gen_params["num_epochs"]} | LOSS 1: {loss1:.7f} | LOSS 2: {loss2:.7f}')
                     progress_bar.update(1)
                 progress_bar.close()     
-                elbo_history1.append(loss1.item())
-                elbo_history2.append(loss2.item())
-                if(elbo_min1 > loss1.item() and elbo_min2 > loss2.item()):
+                loss_history1.append(loss1.item())
+                loss_history2.append(loss2.item())
+                if(loss_min1 > loss1.item() and loss_min2 > loss2.item()):
                     print("SAVING NEW BEST MODEL")
                     torch.save(model, f'{PATH_MODEL}{directory}{DATA_FILE}.pth') 
-                    elbo_min1 = loss1.item()
-                    elbo_min2 = loss2.item()
-                    plot_loss(elbo_history1, elbo_history2,APPROACH)
+                    loss_min1 = loss1.item()
+                    loss_min2 = loss2.item()
+                    plot_loss(loss_history1, loss_history2,APPROACH)
                 if epoch % 10 == 0:
-                    plot_loss(elbo_history1, elbo_history2,APPROACH)
+                    plot_loss(loss_history1, loss_history2,APPROACH)
             data_gen(PATH_DATA, DATA_FILE, PATH_MODEL = f'{PATH_MODEL}{directory}{DATA_FILE}.pth', PATH_JSON=f'{PATH_JSON}', TYPE=APPROACH, scaler=scaler, reaction=classes[REACTION],dataset_original = df, dataset_one_hot=df_one_hot, feature_type_dict=feature_type_dict, features_list=features)
-            plot_loss(elbo_history1, elbo_history2, APPROACH)
+            plot_loss(loss_history1, loss_history2, APPROACH)
         else:
             model = torch.load(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
             print(f'{PATH_MODEL}{directory}{DATA_FILE}.pth')
@@ -310,12 +307,12 @@ class DataFrameDataset(Dataset):
         else:
             return features          
 
-def plot_loss(elbo_history_1, elbo_history_2, TYPE):
+def plot_loss(loss_history_1, loss_history_2, TYPE):
     plt.clf()
-    epochs = range(1, len(elbo_history_1) + 1)
-    plt.plot(epochs, elbo_history_1, label=f'{TYPE} Loss 1')
-    if elbo_history_2 is not None:
-        plt.plot(epochs, elbo_history_2, label=f'{TYPE} Loss 2')
+    epochs = range(1, len(loss_history_1) + 1)
+    plt.plot(epochs, loss_history_1, label=f'{TYPE} Loss 1')
+    if loss_history_2 is not None:
+        plt.plot(epochs, loss_history_2, label=f'{TYPE} Loss 2')
 
     plt.xlabel('Epoch')
     plt.ylabel(f'{TYPE} -logp Loss')

@@ -6,65 +6,14 @@ import torch.nn.init as init
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-
-class Encoder(nn.Module):
-    def __init__(self, zdim, input_size, config:dict):
-        super(Encoder, self).__init__()
-        self.zdim = zdim
-        self.input_size = input_size
-        self.conf_general_encode = config["generate"]["backward_diffusion_encoder"]
-        
-        layer_num = self.conf_general_encode["layer_num"]
-        arch = self.conf_general_encode["architecture"]
-        bNorm = self.conf_general_encode["batchNorm"]
-        relu = self.conf_general_encode["relu"]
-        drop = self.conf_general_encode["dropout"]
-        
-        def res_block(in_dim, out_dim, idx):
-            layers_per_block = []
-            layers_per_block.append(nn.Linear(in_dim,out_dim))
-            if bNorm[idx] != 0: layers_per_block.append(nn.LayerNorm(normalized_shape=bNorm[idx]))
-            if relu[idx] != 0: layers_per_block.append(nn.GELU())
-            if drop[idx] != 0: layers_per_block.append(nn.Dropout(drop[idx]))
-            
-            return layers_per_block
-        
-        self.body1 = nn.Sequential(*res_block(self.input_size, arch[0][0], 0))
-        self.body2 = nn.Sequential(*res_block(arch[1][0],arch[1][1], 1))
-        self.body3 = nn.Sequential(*res_block(arch[2][0],arch[2][1], 2))
-        self.body4 = nn.Sequential(*res_block(arch[3][0],arch[3][1], 3))
-        self.body5 = nn.Sequential(*res_block(arch[4][0], self.zdim*2, 4))
-
-    def sample(self, mu, std):
-        qz_gauss = torch.distributions.Normal(mu, std)
-        z = qz_gauss.rsample()
-        return z, qz_gauss
-    
-    def log_probas(self,z, mu, std):
-        qzx = Normal(mu,  std)
-        E_log_pxz = qzx.log_prob(z).sum(dim=1)
-        return E_log_pxz, qzx
-        
-    def forward(self, x):
-        x_new = self.body1(x)
-        res = x_new
-        x_new = self.body2(x_new)
-        #x_new = self.body3(x_new)
-        #x_new = self.body4(x_new)
-        #x_new += res
-        scores = self.body5(x_new)
-        
-        #scores = self.body(x)
-        mu, sigma = torch.split(scores, self.zdim, dim=1)
-        std = torch.exp(sigma) 
-        return mu, std
+from gm_helpers import infer_feature_type
+import copy
 
 class Decoder(nn.Module):
-    def __init__(self, zdim, input_size, config:dict, output_dim):
+    def __init__(self, input_size, output_size, config:dict):
         super(Decoder, self).__init__()
-        self.zdim = zdim
-        self.output_dim = output_dim
-        self.input_size = input_size
+        self.input_dim = input_size
+        self.output_dim = output_size
         self.conf_general_decode = config["generate"]["backward_diffusion_decoder"]
         
         layer_num = self.conf_general_decode["layer_num"]
@@ -84,11 +33,11 @@ class Decoder(nn.Module):
             
             return layers_per_block
         
-        self.body1 = nn.Sequential(*res_block(self.input_size, arch[0][0], 0))
+        self.body1 = nn.Sequential(*res_block(self.input_dim+1, arch[0][0], 0)) # add + 1 for each binary feature
         self.body2 = nn.Sequential(*res_block(arch[1][0],arch[1][1], 1))
         self.body3 = nn.Sequential(*res_block(arch[2][0],arch[2][1], 2))
         self.body4 = nn.Sequential(*res_block(arch[3][0],arch[3][1], 3))
-        self.body5 = nn.Sequential(*res_block(arch[4][0], self.output_dim, 4)) 
+        self.body5 = nn.Sequential(*res_block(arch[4][0], self.output_dim+1, 4)) 
         
     
     def log_probas(self,x, mu, std):
@@ -106,18 +55,13 @@ class Decoder(nn.Module):
         #z_new += res
         xhat = self.body5(z_new)
 
-        
-        # Gaussian
-        xhat_gauss = torch.cat([xhat[:, val[0]:val[1]] for val in feature_type_dict['real_param']], dim=1)
-        xhat_gauss_mu, xhat_gauss_sigma = torch.split(xhat_gauss, len(feature_type_dict['real_data']), dim=1)
-        xhat_gauss_std = torch.exp(xhat_gauss_sigma)
-        # Bernoulli
-        xhat_bernoulli = torch.cat([torch.sigmoid(xhat[:, val[0]]).unsqueeze(1) for val in feature_type_dict['binary_param']], dim=1)
-        # Categorical
-        #xhat_categorical = torch.cat([F.softmax(xhat[:, val[0]:val[1]], dim=1) for val in feature_type_dict['categorical_param']],dim=1)
-        xhat_categorical = torch.cat([xhat[:, val[0]:val[1]] for val in feature_type_dict['categorical_param']],dim=1)
-        return xhat_gauss_mu, xhat_gauss_std, xhat_bernoulli, xhat_categorical
+        xhat_gauss_noise = xhat[:, feature_type_dict['real_data'][0]:feature_type_dict['real_data'][-1]+1]
+        xhat_bin_noise = [xhat[:, val[0]:(val[1] + 1)] for val in feature_type_dict['binary_param']]
+        xhat_cat_noise = [xhat[:, val[0]+1:val[1]+1] for val in feature_type_dict['categorical_one_hot']]
 
+        xhat_cat_noise = xhat_bin_noise + xhat_cat_noise  # Concatenate lists
+        
+        return xhat_gauss_noise, xhat_cat_noise
 
 
 class DDGM(nn.Module):
@@ -131,12 +75,15 @@ class DDGM(nn.Module):
         self.decoder_output_dim = output_dim
         
         self.hidden_dim = 512
-        self.timesteps = 10
-        #self.beta = self.linear_beta_scheduler(self.timesteps)
-        self.beta = torch.FloatTensor([0.9]).to(self.device)
-
-        self.encoders = [Encoder(self.zdim, self.input_size, self.config).to(self.device) for _ in range(self.timesteps-1)]
-        self.decoder = Decoder(self.zdim, self.input_size, self.config, self.decoder_output_dim).to(self.device)
+        self.timesteps = 5
+        # print(self.beta)
+        # self.beta = torch.FloatTensor([0.9]).to(self.device)
+        # print(self.beta)
+        # exit()
+        self.decoders = nn.ModuleList([
+            Decoder(self.input_size, self.decoder_output_dim, self.config).to(self.device) 
+            for _ in range(self.timesteps)
+        ])
         self.prior = prior
 
         # Initialize weights
@@ -145,97 +92,251 @@ class DDGM(nn.Module):
                 init.xavier_uniform_(m.weight)
                 if m.bias is not None:
                     m.bias.data.zero_()
-        self.decoder.apply(weights_init)
-        for i in range(len(self.encoders)):
-            self.encoders[i].apply(weights_init)
+        for i in range(len(self.decoders)):
+            self.decoders[i].apply(weights_init)
 
     def forward(self, x, feature_type_dict):
-        #! TIME EMBEDDING
+        #! DECODERS INSTEAD OF ENCODERS
+        #! SEPARATELY FOR EACH FEATURE TYPE
+        qs_gauss = []
+        qs_cat = []
+        ps = []
         x = x.to(self.device)
-        zs  = [self.reparameterization_gaussian_diffusion(x,0)]   
-        #! ENCODER
-        for i in range(1, self.timesteps):
-            zs.append(self.reparameterization_gaussian_diffusion(zs[-1], i))
-
-        for i in range(1, self.timesteps):
-            zs.append(self.reparameterization_gaussian_diffusion(zs[-1], i))
-
-        mus = []
-        stds = []
-        for i in range(len(self.encoders) -1, -1, -1):
-            mu_i, std_i = self.encoders[i](zs[i+1].view(-1, self.input_size))
-            mus.append(mu_i)
-            stds.append(std_i)
-
-        #pz_gauss = torch.distributions.Normal(torch.zeros_like(mus[0]), torch.ones_like(stds[0]))
-        #! DECODER
-        mu_gauss, std_gauss, p_bernoulli, p_categorical = self.decoder(zs[0], feature_type_dict)
-        #print(torch.sum(p_categorical[:,0:4],dim=1))
-        x_gauss = x[:,feature_type_dict['real_data']]
-        x_bernoulli = (torch.sign(x[:,feature_type_dict['binary_data']])+1)/2
-        # print(x_bernoulli)
-        # print(p_bernoulli)
-        #! LOSS
-        BC = F.binary_cross_entropy(p_bernoulli, x_bernoulli, reduction='sum')
-        RE, _ = self.decoder.log_probas(x_gauss,mu_gauss, std_gauss)  
-        #KL = torch.distributions.kl_divergence(qz, pz_gauss).sum(dim=1)
-        #KL = -self.kl_div([None,zs[-1]],[None,mu],[None,std], self.prior, self.encoder, 'prpo')
-        KL = (self.log_normal_diag(zs[-1], torch.sqrt(1. - self.beta) * zs[-1], torch.log(self.beta)) - self.log_standard_normal(zs[-1])).sum(-1)
-
-        for i in range(len(mus)):
-            KL_i = (self.log_normal_diag(zs[i], torch.sqrt(1. - self.beta) * zs[i], torch.log(self.beta)) - self.log_normal_diag(zs[i], mus[i], torch.log(stds[i]))).sum(-1)
-
-            KL = KL + KL_i
-        MC = sum(F.cross_entropy(p_categorical[:,start_p:end_p], x[:,start_x:end_x].argmax(dim=1), reduction='sum') for (start_x, end_x), (start_p, end_p) in zip(feature_type_dict['categorical_one_hot'], feature_type_dict['categorical_only']))
-
-        beta_param = 0.01
-        gamma_param = 0.01
+        #print(feature_type_dict)
         
-        return -torch.mean(RE) + torch.mean(KL) + beta_param*BC + gamma_param*MC
+        x_0_gauss = x[:, feature_type_dict['real_data']]  # Extract Gaussian features
+        # Extract binary features and convert to one-hot
+        x_bernoulli = [x[:, val] for val in feature_type_dict['binary_data']]
+        x_bernoulli_one_hot = [F.one_hot((x_bin == 1).long(), num_classes=2).float() for x_bin in x_bernoulli]
+        x_bernoulli_one_hot = torch.cat(x_bernoulli_one_hot, dim=1)  # Concatenate along feature dimension
+        # Extract categorical features separately
+        x_0s_cat = [x[:, val[0]:val[1]] for val in feature_type_dict['categorical_one_hot']]
 
+        # Add binary one-hot features as the first categorical feature
+        x_0s_cat.insert(0, x_bernoulli_one_hot)  
+
+        cat_features_len = [val.shape[1] for val in x_0s_cat] # stores number of categories for each categorcial feature
+
+        # Forward diffusion for Gaussian and separate categorical variables
+        alpha_bars, alphas, betas = self.cosine_scheduler(self.timesteps)
+        alpha_bars = torch.FloatTensor(alpha_bars).to(self.device)
+        alphas = torch.FloatTensor(alphas).to(self.device)
+        betas = torch.FloatTensor(betas).to(self.device)
+        qs_gauss = []
+        qs_cat = [[] for _ in x_0s_cat]  # Keep separate lists for each categorical variable
+
+        eps = 1e-8  # Small value for numerical stability
+        min_prob = 1e-6  # Ensures no exact zeros
+        
+        categories_num = [
+        (val[1] - val[0]) + 1 if (val[1] - val[0]) == 1 else (val[1] - val[0])  
+        for val in feature_type_dict['binary_param'] + feature_type_dict['categorical_param']
+        ]
+        
+        x_t_gauss = x_0_gauss.clone()
+        x_ts_cat = copy.deepcopy(x_0s_cat)
+        for t in range(1,self.timesteps + 1):
+            beta_t = betas[t]  
+
+            # Gaussian q(x_t|x_t-1)
+            q_t_tm1_gauss = torch.distributions.Normal(
+                loc=torch.sqrt(1 - beta_t) * x_t_gauss,
+                scale=torch.sqrt(beta_t) + eps
+            )
+            x_t_gauss = q_t_tm1_gauss.sample()
+            
+            qs_gauss.append(q_t_tm1_gauss)
+            
+            # Forward diffusion separately for each categorical variable
+            for i, x_t_cat in enumerate(x_ts_cat):
+                q_t_tm1_cat_probs = (1 - beta_t) * x_t_cat + beta_t / x_t_cat.shape[1]
+                q_t_tm1_cat_probs = q_t_tm1_cat_probs / (q_t_tm1_cat_probs.sum(dim=1, keepdim=True) + eps)
+                q_t_tm1_cat = torch.distributions.Categorical(probs=q_t_tm1_cat_probs)
+                x_t_features = q_t_tm1_cat.sample()
+                x_ts_cat[i] = F.one_hot(x_t_features, num_classes=categories_num[i])
+                qs_cat[i].append(q_t_tm1_cat)
+        
+        # Sample from the Gaussian distribution at the last timestep
+        x_noisy_gauss = qs_gauss[-1].sample()
+        # Sample from each categorical distribution and concatenate them
+        x_noisy_categorical = torch.cat([q_cat[-1].sample().unsqueeze(1) for q_cat in qs_cat], dim=1)
+        
+        
+        # prepare one-hot for the backward path
+        x_noisy_one_hot_categorical_list = [
+        F.one_hot(x_feat.long(), num_classes=categories)  # One-hot encode each feature
+            for x_feat, categories in zip(x_noisy_categorical.T, categories_num)
+        ]
+        x_noisy_one_hot_categorical = torch.cat(x_noisy_one_hot_categorical_list, dim=1)
+        x_noisy = torch.cat([x_noisy_gauss, x_noisy_one_hot_categorical], dim=1)
+
+        # Backward path
+        ps_gauss = []
+        ps_cat = [[] for _ in x_0s_cat]
+        # Init the x_t variable
+        x_t_gauss = x_noisy_gauss.clone()
+        x_ts_cat = copy.deepcopy(x_noisy_one_hot_categorical_list)
+        for t, decoder in zip(reversed(range(1, self.timesteps)),reversed(self.decoders)):  # Iterate over timesteps in reverse
+            # Decode the noisy features
+            x_t = torch.cat([x_t_gauss, torch.cat(x_ts_cat, dim=1)], dim=1)
+            x_t_gauss_noise, x_0_cat_hat = decoder(x_t, feature_type_dict)
+
+            # Retrieve precomputed values from the scheduler              
+            alpha_bar_tm1 = alpha_bars[t-1]
+            alpha_bar_t = alpha_bars[t] 
+            alpha_t = alphas[t]
+            beta_t = betas[t]
+            
+            # print(f"Current time step: {t}")
+            # print(f"beta at t step: {beta_t}")
+            # print(f"alpha at t step: {alpha_t}")
+            # print(f"alpha bar at t-1 step: {alpha_bar_tm1}")
+            # print(f"alpha bar at t step: {alpha_bar_t}")
+            
+            # Gaussian Backward Path (for numerical features)
+            mu_theta = (1 / torch.sqrt(alpha_t)) * (x_t_gauss - ((beta_t) / torch.sqrt(1 - alpha_bar_t)) * x_t_gauss_noise)
+            sigma_t = torch.sqrt(beta_t) if t > 0 else 0.0  # No noise at final step
+            q_t_tm1_gauss = torch.distributions.Normal(loc=mu_theta, scale=sigma_t)
+            x_t_gauss = q_t_tm1_gauss.sample()
+
+            ps_gauss.append(q_t_tm1_gauss)
+            
+            # Categorical Backward Path (for categorical features)
+            for i, x_t_cat in enumerate(x_ts_cat):  # Iterate over each categorical feature
+                # Compute the transition probabilities (π) for this categorical feature
+            
+                # print(f"x_cat shape: {x_t_cat.shape}")
+                # print(f"x_0_cat_hat[i] shape: {x_0_cat_hat[i].shape}")
+                # print(f"x_noisy_one_hot_categorical shape: {x_noisy_one_hot_categorical.shape}")
+                
+                pi_cat = ((alpha_t * x_t_cat + (1 - alpha_t) / x_t_cat.shape[1]) *
+                        (alpha_bar_tm1 * x_0_cat_hat[i] + (1 - alpha_bar_tm1) / x_0_cat_hat[i].shape[1]))
+                
+                # Normalize π to get valid probabilities
+                pi_cat = pi_cat / (pi_cat.sum(dim=1, keepdim=True) + eps)
+                pi_cat = torch.clamp(pi_cat, min=min_prob)
+                # Sample from the categorical distribution
+                q_t_tm1_cat = torch.distributions.Categorical(probs=pi_cat)
+                x_t_features = q_t_tm1_cat.sample()
+                x_t_cat = F.one_hot(x_t_features.long(), num_classes=(cat_features_len[i]))
+                x_ts_cat[i] = x_t_cat
+                ps_cat[i].append(q_t_tm1_cat)
+            x_t = torch.cat([x_t_gauss, torch.cat(x_ts_cat, dim=1)], dim=1)
+        
+        # Compute ELBO
+        # Prepare D_KL(q(xT|x0)||p(xT))
+        # --------------------------------------------------------
+        # Gaussian
+        p_xT_gauss = torch.distributions.Normal(torch.zeros_like(x_0_gauss), torch.ones_like(x_0_gauss))
+
+        q_xT_x0_gauss = torch.distributions.Normal(loc=torch.sqrt(alpha_bars[-1]) * x_0_gauss, scale=torch.sqrt(1 - alpha_bars[-1]))
+        # Categorical
+        kl_divs_cat = [[] for _ in x_0s_cat] 
+        for i, x_cat in enumerate(x_0s_cat):
+                # Prepare p(xT) cat
+                p_xT_cat = torch.full_like(x_cat, 1.0 / x_cat.shape[1])
+                p_xT_cat = torch.distributions.Categorical(probs=p_xT_cat)
+                
+                # Prepare q(xT|x0)
+                q_xT_x0_cat_probs = (1 - alpha_bars[-1]) * x_cat + alpha_bars[-1] / x_cat.shape[1]
+                q_xT_x0_cat_probs = torch.clamp(q_xT_x0_cat_probs, min=min_prob)
+                q_xT_x0_cat_probs = q_xT_x0_cat_probs / (q_xT_x0_cat_probs.sum(dim=1, keepdim=True) + eps)
+                q_xT_x0_cat = torch.distributions.Categorical(probs=q_xT_x0_cat_probs)
+                
+                kl_divs_cat[i].append(q_xT_x0_cat)
+        
+        terminal_dkl_gauss = torch.distributions.kl.kl_divergence(q_xT_x0_gauss, p_xT_gauss).sum(dim=1).mean()
+        
+        # --------------------------------------------------------
+        # Prepare -log_q(x1|x0)(p(x0|x1))
+        # Gaussian
+        q_x1_x0_samples_gauss = qs_gauss[0].sample()
+        p_x0_x1_gauss = ps_gauss[-1]
+        nll_gaussian = -p_x0_x1_gauss.log_prob(q_x1_x0_samples_gauss).sum(dim=1).mean()
+        
+        # Categorical
+        nll_cat = 0
+        for i, (q_cat, p_cat) in enumerate(zip(qs_cat, ps_cat)):
+            q_x1_x0_samples_cat = q_cat[0].sample()
+            p_x0_x1_cat = p_cat[-1]
+            nll_cat += -p_x0_x1_cat.log_prob(q_x1_x0_samples_cat)
+        
+        # Prepare E_q(x_t|x_0) D_KL(q(x_t-1|x_t,x_0)||p(x_t-1|x_t))
+        # q(x_t-1|x_t,x_0)
+        qs_true_gauss = []
+        qs_true_cat = [[] for _ in x_0s_cat]
+        for t in range(1,self.timesteps + 1):
+            beta_t = betas[t]
+            alpha_t = alphas[t]
+            alpha_bar_tm1 = alpha_bars[t-1]
+            alpha_bar_t = alpha_bars[t]
+            # Gaussian
+            q_xt_x0_gauss = torch.distributions.Normal(loc=torch.sqrt(alpha_bars[t]) * x_0_gauss, scale=torch.sqrt(1 - alpha_bars[t]))
+            x_t_gauss = q_xt_x0_gauss.sample()
+            mu_t = x_0_gauss*(torch.sqrt(alpha_bar_tm1)*beta_t)/(1 - alpha_bar_t) + x_t_gauss*(torch.sqrt(alpha_t)*(1-alpha_bar_tm1))/(1-alpha_bar_t)
+            std_t = torch.sqrt((1 - alpha_bar_tm1 * beta_t)/ (1 - alpha_bar_t))
+            q_x_tm1_x_t_x_0 = torch.distributions.Normal(loc=mu_t, scale=std_t)
+            qs_true_gauss.append(q_x_tm1_x_t_x_0)
+            # Categorical
+            for i, x_0_cat in enumerate(x_0s_cat):
+                q_x_t_x_0 = torch.distributions.Categorical(probs=alpha_bar_t*x_0_cat + (1-alpha_bar_t)/x_0_cat.shape[1])
+                x_t_features = q_x_t_x_0.sample()
+                x_t_cat = F.one_hot(x_t_features.long(), num_classes=(cat_features_len[i]))
+                pi_cat = ((alpha_t * x_t_cat + (1 - alpha_t) / x_t_cat.shape[1]) *
+                        (alpha_bar_tm1 * x_0_cat + (1 - alpha_bar_tm1) / x_0_cat.shape[1]))
+                                # Normalize π to get valid probabilities
+                pi_cat = pi_cat / (pi_cat.sum(dim=1, keepdim=True) + eps)
+                pi_cat = torch.clamp(pi_cat, min=min_prob)
+                # Sample from the categorical distribution
+                q_t_tm1_cat = torch.distributions.Categorical(probs=pi_cat)
+                qs_true_cat[i].append(q_t_tm1_cat)
+
+        chain_dkl_gauss = torch.stack([
+            torch.distributions.kl.kl_divergence(q, p).sum(dim=1).mean()
+            for q, p in zip(qs_true_gauss, ps_gauss)
+        ]).sum()
+        
+        chain_dkl_cat = 0
+        chain_dkls_cat = [[] for _ in x_0s_cat]
+        for i, (q_true_cat, p_cat) in enumerate(zip(qs_true_cat, ps_cat)):
+            chain_dkl_cat = 0
+            for q_true_cat_t, p_cat_t in zip(q_true_cat, p_cat):
+                chain_dkl_cat += torch.distributions.kl.kl_divergence(q_true_cat_t, p_cat_t)
+            chain_dkls_cat[i].append(chain_dkl_cat)
+
+        
+        LOSS_GAUSS = (terminal_dkl_gauss + chain_dkl_gauss + nll_gaussian)
+        return LOSS_GAUSS
+        # x_noisy_gauss_flat = x_noisy[:,9].cpu().numpy()
+        # plt.figure(figsize=(10, 6))
+        # plt.hist(x_noisy_gauss_flat, bins=50, density=True, alpha=0.7, color='b', edgecolor='black')
+        # plt.title('Histogram of Noisy Gaussian Samples')
+        # plt.xlabel('Value')
+        # plt.ylabel('Density')
+        # plt.show()
+        
 
     def count_params(self):
         return sum(p.numel() for p in self.encoder.parameters() if p.requires_grad)
 
-    def kl_div(self,z,mu,std, dist_1, dist_2, type):
-        kl_part_1 = None
-        kl_part_2 = None
-        # prior and posterior
-        if type == 'prpo':
-            kl_part_1 = dist_1.log_probas(z[1])
-            #print(kl_part_1)
-        # two posteriors
-        elif type == 'popo':
-            kl_part_1 = dist_1.log_probas(z[0], mu[0], std[0])[0]
-        kl_part_2 = dist_2.log_probas(z[1], mu[1], std[1])[0] 
-        #print(kl_part_2)
-        #exit()
-        KL = kl_part_1 - kl_part_2
-        return KL
     def linear_beta_scheduler(self, timesteps):
         beta_start = 1e-4
         beta_end = 0.02
         return torch.linspace(beta_start, beta_end, timesteps, requires_grad=False)
 
-    def reparameterization_gaussian_diffusion(self, x, i):
-        return torch.sqrt(1. - self.beta) * x + torch.sqrt(self.beta) * torch.randn_like(x)
-    
-    def log_normal_diag(self,x, mu, log_var, reduction=None, dim=None):
-        PI = torch.from_numpy(np.asarray(np.pi))
-        log_p = -0.5 * torch.log(2. * PI) - 0.5 * log_var - 0.5 * torch.exp(-log_var) * (x - mu)**2.
-        if reduction == 'avg':
-            return torch.mean(log_p, dim)
-        elif reduction == 'sum':
-            return torch.sum(log_p, dim)
-        else:
-            return log_p
+    def cosine_scheduler(self, T, s = 0.008):
+        timesteps = np.linspace(0, T, T + 1, dtype=np.float64)
+        
+        # Calculate alpha_t based on the cosine schedule
+        f_t = np.cos((timesteps / T + s) / (1 + s) * np.pi / 2) ** 2
+        f_t /= f_t[0]  # Normalize to start from 1
+        alpha_t = f_t
 
-    def log_standard_normal(self, x, reduction=None, dim=None):
-        PI = torch.from_numpy(np.asarray(np.pi))
-        log_p = -0.5 * torch.log(2. * PI) - 0.5 * x**2.
-        if reduction == 'avg':
-            return torch.mean(log_p, dim)
-        elif reduction == 'sum':
-            return torch.sum(log_p, dim)
-        else:
-            return log_p
+        # Calculate alpha_bar (cumulative product of alpha_t)
+        alpha_bar = np.cumprod(alpha_t)
+
+        # Calculate beta_t (noise magnitude at each timestep)
+        beta_t = 1 - alpha_t
+
+        return alpha_bar, alpha_t, beta_t
+    

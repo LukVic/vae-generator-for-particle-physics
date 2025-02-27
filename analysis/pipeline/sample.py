@@ -6,10 +6,13 @@ import time
 import torch
 import numpy as np
 import pandas as pd
+import copy
 
 from dataloader import load_config
 from gm_helpers import infer_feature_type
 from aux_functions import compute_embed, visualize_embed
+import torch.nn.functional as F
+
 
 def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset_original, dataset_one_hot, feature_type_dict, features_list, prior):
     # Chose if generate new samples of just regenerate the simulated ones
@@ -67,6 +70,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             data_array = xhats
             print(prior_samples[:,:len(features_list)].shape)
             print(data_array.shape)
+            exit()
             compute_embed(prior_samples[:,:len(features_list)].to('cpu'),posterior_samples[:,:len(features_list)].to('cpu'),TYPE,'latent')
             visualize_embed(TYPE,'latent')
         # Generate new samples with Ladder ELBO
@@ -112,20 +116,6 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             compute_embed(z_2_samples[:,:len(features_list)].to('cpu'),z_1_samples[:,:len(features_list)].to('cpu'),TYPE,'ladder_latent')
             visualize_embed(TYPE,'ladder_latent')
             
-        #     z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,scaler.fit_transform(dataset_one_hot.values))
-        #     print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
-        #     xhats_mu_gauss_1, xhats_sigma_gauss_1 = model.encoder_3(z_2.to('cuda'))
-        #     pz2z1 = torch.distributions.Normal(xhats_mu_gauss_1, torch.exp(xhats_sigma_gauss_1))
-        #     z_1 = pz2z1.rsample()
-        #     xhats_mu_gauss, xhats_sigma_gauss, xhats_bernoulli = model.decoder(z_1)
-        #     px_gauss = torch.distributions.Normal(xhats_mu_gauss, torch.exp(xhats_sigma_gauss))
-        #     xhat_gauss = px_gauss.sample()
-        #     xhat_bernoulli = torch.bernoulli(xhats_bernoulli)
-        #     xhats = torch.cat((xhat_gauss, xhat_bernoulli.view(-1,1)), dim=1)
-        #     x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
-        #     #x_hats_denorm = tan_to_angle(conf_dict['angle_convert']['indices'], torch.tensor(x_hats_denorm)).numpy()
-        #     data_array = np.vstack((data_array, x_hats_denorm))
-        # # Generate new samples with Ladder SEL
         # TODO: generation by batches
         elif TYPE == 'lvae_sym':
             z_2 = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,scaler.fit_transform(dataset_one_hot.values))
@@ -146,22 +136,68 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             data_array = np.vstack((data_array, x_hats_denorm))
         # Generate new samples with Deep diffusion generative model
         elif TYPE == 'ddgm':
-            prior_sample = generate_latents(SAMPLES_NUM,latent_dimension,SAMPLING,model,dataset_one_hot)
+            alpha_bars, alphas, betas = model.cosine_scheduler(model.timesteps)
+            alpha_bars = torch.FloatTensor(alpha_bars).to(model.device)
+            alphas = torch.FloatTensor(alphas).to(model.device)
+            betas = torch.FloatTensor(betas).to(model.device)
+            eps = 1e-8  # Small value for numerical stability
+            min_prob = 1e-6  # Ensures no exact zeros 
+            print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
+            one_hot_ranges = [val[1]-val[0]+1 for val in feature_type_dict['binary_param']] + [val[1]-val[0] for val in feature_type_dict['categorical_one_hot']]
+
+            prior_gauss = torch.distributions.Normal(torch.zeros(SAMPLES_NUM,len(feature_type_dict['real_data'])), torch.ones(SAMPLES_NUM,len(feature_type_dict['real_data'])))
+            zs_gauss = prior_gauss.sample()
+
+            zs_cat = []
+            for one_hot_feature in one_hot_ranges:
+                prior_cat = torch.distributions.Categorical(probs=torch.full((SAMPLES_NUM, one_hot_feature), 1.0 / one_hot_feature))
+                prior_sample = prior_cat.sample()
+                prior_sample_one_hot = F.one_hot(prior_sample, num_classes=one_hot_feature)
+                zs_cat.append(prior_sample_one_hot)
             
-            z_current = prior_sample
+            print(zs_cat)
+            x_t = None
+            x_t_gauss = zs_gauss.clone().to(model.device)
+            x_ts_cat = copy.deepcopy(zs_cat)
+            for t, decoder in zip(reversed(range(1, model.timesteps)),reversed(model.decoders)):
+                x_t = torch.cat([zs_gauss,torch.cat(zs_cat,dim=1)],dim=1).to(model.device)
+                x_t_gauss_noise, x_0_cat_hat = decoder(x_t,feature_type_dict)
+                
+                # Retrieve precomputed values from the scheduler              
+                alpha_bar_tm1 = alpha_bars[t-1].to(model.device)
+                alpha_bar_t = alpha_bars[t].to(model.device) 
+                alpha_t = alphas[t].to(model.device)
+                beta_t = betas[t].to(model.device)
+                
+                # Gaussian Backward Path (for numerical features)
+                mu_theta = (1 / torch.sqrt(alpha_t)) * (x_t_gauss - ((beta_t) / torch.sqrt(1 - alpha_bar_t)) * x_t_gauss_noise)
+                sigma_t = torch.sqrt(beta_t) if t > 0 else 0.0  # No noise at final step
+                q_t_tm1_gauss = torch.distributions.Normal(loc=mu_theta, scale=sigma_t)
+                x_t_gauss = q_t_tm1_gauss.sample()
+                print(t)
+                for i, x_t_cat in enumerate(x_ts_cat): 
+                    x_t_cat = x_t_cat.to(model.device)
+                    pi_cat = ((alpha_t * x_t_cat + (1 - alpha_t) / x_t_cat.shape[1]) *
+                            (alpha_bar_tm1 * x_0_cat_hat[i] + (1 - alpha_bar_tm1) / x_0_cat_hat[i].shape[1]))
+                    
+                    # Normalize π to get valid probabilities
+                    pi_cat = pi_cat / (pi_cat.sum(dim=1, keepdim=True) + eps)
+                    pi_cat = torch.clamp(pi_cat, min=min_prob)
+                    # Sample from the categorical distribution
+                    q_t_tm1_cat = torch.distributions.Categorical(probs=pi_cat)
+                    x_t_features = q_t_tm1_cat.sample()
+                    x_t_cat = F.one_hot(x_t_features.long(), num_classes=(one_hot_ranges[i]))
+                    if t != 1: x_ts_cat[i] = x_t_cat
+                    else: x_ts_cat[i] = x_t_features
+                if t != 1:
+                    print(f"THIS IS T:{t}")
+                    x_t = torch.cat([x_t_gauss, torch.cat(x_ts_cat, dim=1)], dim=1)
+                else:
+                    x_ts_cat = [x_t_cat.unsqueeze(1) for x_t_cat in x_ts_cat] 
+                    x_t_cat = torch.cat(x_ts_cat, dim=1) 
+                    x_t = torch.cat([x_t_gauss, x_t_cat], dim=1)
             
-            for encoder in reversed(model.encoders):
-                z_mu, z_sigma = encoder(z_current.to('cuda'))
-                distr = torch.distributions.Normal(z_mu, torch.exp(z_sigma))
-                z_current = distr.sample()
-            
-            x_mu, x_sigma, x_p = model.decoder(z_current.to('cuda'))
-            px = torch.distributions.Normal(x_mu, torch.exp(x_sigma))
-            xhat_real = px.sample()
-            xhat_bin = torch.bernoulli(x_p)
-            xhats = torch.cat((xhat_real, xhat_bin.view(-1,1)), dim=1)
-            x_hats_denorm = scaler.inverse_transform(xhats.cpu().numpy())
-            data_array = np.vstack((data_array, x_hats_denorm))
+            data_array = x_t.cpu().numpy()
         
         elif TYPE == 'gan_std' or TYPE == 'wgan_gp':
             print(f'SIZE OF THE DATASET: {SAMPLES_NUM}')
@@ -207,19 +243,10 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             # compute_embed(data_array[:,:len(features_list)].to('cpu'),torch.tensor(dataset_original.values)[:,:len(features_list)].to('cpu'),TYPE,'data')
             # visualize_embed(TYPE,'data')
     print(features_list)
+    print(data_array.shape)
     df_gen = pd.DataFrame(data_array,columns=features_list)
-    # Adjust the values for total_charge variable
-    #print(set(df_gen['total_charge']))
-    #print((df_gen['total_charge'] > 0.5).sum())
     
     df_gen = map_hist_vals(dataset_original,df_gen,feature_type_dict)
-    
-    # bound = 0.5
-    # replacement_lower = -2.0
-    # replacement_upper = 2.0
-    # mask = (df_gen['total_charge'] < bound)
-    # df_gen.loc[mask, 'total_charge'] = replacement_lower
-    # df_gen.loc[~mask, 'total_charge'] = replacement_upper
     
     df_gen['y'] = reaction
 
