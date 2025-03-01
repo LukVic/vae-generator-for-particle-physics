@@ -102,8 +102,8 @@ def generate():
 
     # Chose how to scale the data
     #scaler = MinMaxScaler() 
-    scaler = StandardScaler()
-    #scaler = QuantileTransformer(n_quantiles=10, random_state=0)
+    #scaler = StandardScaler()
+    scaler = QuantileTransformer()
     #scaler = RobustScaler()
     #scaler = PowerTransformer()
     train_dataset_real_norm = scaler.fit_transform(df_one_hot.iloc[:,feature_type_dict['real_data']].values)

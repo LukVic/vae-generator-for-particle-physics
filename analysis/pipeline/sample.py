@@ -12,6 +12,7 @@ from dataloader import load_config
 from gm_helpers import infer_feature_type
 from aux_functions import compute_embed, visualize_embed
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 
 
 def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction, dataset_original, dataset_one_hot, feature_type_dict, features_list, prior):
@@ -34,6 +35,7 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
     z_2_samples = []
     
     start_time = time.time()
+    
     with torch.no_grad():
         # Generate new samples with standard architectures
         if TYPE == 'vae_std' or TYPE == 'vae_sym':
@@ -159,8 +161,9 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
             x_t = None
             x_t_gauss = zs_gauss.clone().to(model.device)
             x_ts_cat = copy.deepcopy(zs_cat)
+            x_ts_cat = [x_t_cat.to(model.device) for x_t_cat in x_ts_cat]
+            x_t = torch.cat([x_t_gauss,torch.cat(x_ts_cat,dim=1)],dim=1)
             for t, decoder in zip(reversed(range(1, model.timesteps)),reversed(model.decoders)):
-                x_t = torch.cat([zs_gauss,torch.cat(zs_cat,dim=1)],dim=1).to(model.device)
                 x_t_gauss_noise, x_0_cat_hat = decoder(x_t,feature_type_dict)
                 
                 # Retrieve precomputed values from the scheduler              
@@ -189,14 +192,20 @@ def data_gen(PATH_DATA, DATA_FILE, PATH_MODEL, PATH_JSON, TYPE, scaler, reaction
                     x_t_cat = F.one_hot(x_t_features.long(), num_classes=(one_hot_ranges[i]))
                     if t != 1: x_ts_cat[i] = x_t_cat
                     else: x_ts_cat[i] = x_t_features
+                # print(x_t_gauss)
+                # plt.figure(figsize=(10, 6))
+                # plt.hist(x_t_gauss[:,0].cpu(), bins=50, density=True, alpha=0.7, color='b', edgecolor='black')
+                # plt.title('Histogram of Noisy Gaussian Samples')
+                # plt.xlabel('Value')
+                # plt.ylabel('Density')
+                # plt.show()
                 if t != 1:
-                    print(f"THIS IS T:{t}")
                     x_t = torch.cat([x_t_gauss, torch.cat(x_ts_cat, dim=1)], dim=1)
                 else:
                     x_ts_cat = [x_t_cat.unsqueeze(1) for x_t_cat in x_ts_cat] 
-                    x_t_cat = torch.cat(x_ts_cat, dim=1) 
-                    x_t = torch.cat([x_t_gauss, x_t_cat], dim=1)
-            
+                    x_t_cat = torch.cat(x_ts_cat, dim=1).cpu()
+                    x_t_gauss_denorm = torch.tensor(scaler.inverse_transform(x_t_gauss.cpu())) 
+                    x_t = torch.cat([x_t_gauss_denorm, x_t_cat], dim=1)
             data_array = x_t.cpu().numpy()
         
         elif TYPE == 'gan_std' or TYPE == 'wgan_gp':

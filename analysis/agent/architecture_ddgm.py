@@ -38,14 +38,26 @@ class Decoder(nn.Module):
         self.body3 = nn.Sequential(*res_block(arch[2][0],arch[2][1], 2))
         self.body4 = nn.Sequential(*res_block(arch[3][0],arch[3][1], 3))
         self.body5 = nn.Sequential(*res_block(arch[4][0], self.output_dim+1, 4)) 
-        
     
-    def log_probas(self,x, mu, std):
-        pxz = Normal(mu,  std)
-        E_log_pxz = pxz.log_prob(x).sum(dim=1)
-        return E_log_pxz, pxz
+    def time_embedding(self, t, batch_size):
+        t = torch.tensor([t], dtype=torch.float32)
+        t = t * 1000  # Scale time step
+        # Sinusoidal time embedding (from Nichol, 2021; Dhariwal & Nichol, 2021)
+        emb = torch.cat([torch.sin(t), torch.cos(t)], dim=-1)
+        emb = nn.Linear(emb.size(-1), batch_size)(emb)  # Project to 128-dimension
+        
+        return emb 
 
-    def forward(self, z, feature_type_dict):
+    def forward(self, z, t, feature_type_dict):
+        
+        # Time embedding
+        t_emb = self.time_embedding(t, z.size(0)).to('cuda')
+        t_emb = t_emb.unsqueeze(1)
+        t_emb = t_emb.repeat(1, z.size(1))
+        #print(t_emb.shape
+        # Concatenate time embedding with input z
+        z_new = torch.cat([z, t_emb], dim=-1)       
+        
         z_new = self.body1(z)
         res = z_new
         #z_new += x_skip
@@ -75,7 +87,7 @@ class DDGM(nn.Module):
         self.decoder_output_dim = output_dim
         
         self.hidden_dim = 512
-        self.timesteps = 5
+        self.timesteps = 10
         # print(self.beta)
         # self.beta = torch.FloatTensor([0.9]).to(self.device)
         # print(self.beta)
@@ -86,7 +98,7 @@ class DDGM(nn.Module):
         ])
         self.prior = prior
 
-        # Initialize weights
+        #Initialize weights
         def weights_init(m):
             if isinstance(m, nn.Linear):
                 init.xavier_uniform_(m.weight)
@@ -128,23 +140,16 @@ class DDGM(nn.Module):
         eps = 1e-8  # Small value for numerical stability
         min_prob = 1e-6  # Ensures no exact zeros
         
-        categories_num = [
-        (val[1] - val[0]) + 1 if (val[1] - val[0]) == 1 else (val[1] - val[0])  
-        for val in feature_type_dict['binary_param'] + feature_type_dict['categorical_param']
-        ]
-        
+        categories_num = [(val[1] - val[0]) + 1 if (val[1] - val[0]) == 1 else (val[1] - val[0])  
+        for val in feature_type_dict['binary_param'] + feature_type_dict['categorical_param']]
         x_t_gauss = x_0_gauss.clone()
         x_ts_cat = copy.deepcopy(x_0s_cat)
         for t in range(1,self.timesteps + 1):
             beta_t = betas[t]  
-
             # Gaussian q(x_t|x_t-1)
-            q_t_tm1_gauss = torch.distributions.Normal(
-                loc=torch.sqrt(1 - beta_t) * x_t_gauss,
-                scale=torch.sqrt(beta_t) + eps
-            )
-            x_t_gauss = q_t_tm1_gauss.sample()
-            
+            q_t_tm1_gauss = torch.distributions.Normal(loc=torch.sqrt(1 - beta_t) * x_t_gauss, scale=(torch.sqrt(beta_t)))
+            x_t_gauss = q_t_tm1_gauss.rsample()
+            #self.print_histo_step(x_t_gauss[:,0])
             qs_gauss.append(q_t_tm1_gauss)
             
             # Forward diffusion separately for each categorical variable
@@ -157,29 +162,26 @@ class DDGM(nn.Module):
                 qs_cat[i].append(q_t_tm1_cat)
         
         # Sample from the Gaussian distribution at the last timestep
-        x_noisy_gauss = qs_gauss[-1].sample()
+        x_T_gauss = qs_gauss[-1].rsample()
         # Sample from each categorical distribution and concatenate them
-        x_noisy_categorical = torch.cat([q_cat[-1].sample().unsqueeze(1) for q_cat in qs_cat], dim=1)
-        
+        x_T_categorical = torch.cat([q_cat[-1].sample().unsqueeze(1) for q_cat in qs_cat], dim=1)
         
         # prepare one-hot for the backward path
-        x_noisy_one_hot_categorical_list = [
+        x_T_one_hot_categorical_list = [
         F.one_hot(x_feat.long(), num_classes=categories)  # One-hot encode each feature
-            for x_feat, categories in zip(x_noisy_categorical.T, categories_num)
+            for x_feat, categories in zip(x_T_categorical.T, categories_num)
         ]
-        x_noisy_one_hot_categorical = torch.cat(x_noisy_one_hot_categorical_list, dim=1)
-        x_noisy = torch.cat([x_noisy_gauss, x_noisy_one_hot_categorical], dim=1)
 
         # Backward path
         ps_gauss = []
         ps_cat = [[] for _ in x_0s_cat]
         # Init the x_t variable
-        x_t_gauss = x_noisy_gauss.clone()
-        x_ts_cat = copy.deepcopy(x_noisy_one_hot_categorical_list)
+        x_t_gauss = x_T_gauss.clone()
+        x_ts_cat = copy.deepcopy(x_T_one_hot_categorical_list)
         for t, decoder in zip(reversed(range(1, self.timesteps)),reversed(self.decoders)):  # Iterate over timesteps in reverse
             # Decode the noisy features
             x_t = torch.cat([x_t_gauss, torch.cat(x_ts_cat, dim=1)], dim=1)
-            x_t_gauss_noise, x_0_cat_hat = decoder(x_t, feature_type_dict)
+            x_t_gauss_noise, x_0_cat_hat = decoder(x_t, t, feature_type_dict)
 
             # Retrieve precomputed values from the scheduler              
             alpha_bar_tm1 = alpha_bars[t-1]
@@ -192,18 +194,20 @@ class DDGM(nn.Module):
             # print(f"alpha at t step: {alpha_t}")
             # print(f"alpha bar at t-1 step: {alpha_bar_tm1}")
             # print(f"alpha bar at t step: {alpha_bar_t}")
-            
+            #print(x_t_gauss_noise)
+            x_t_gauss_noise = torch.clamp(x_t_gauss_noise, min=-5, max=5)
             # Gaussian Backward Path (for numerical features)
             mu_theta = (1 / torch.sqrt(alpha_t)) * (x_t_gauss - ((beta_t) / torch.sqrt(1 - alpha_bar_t)) * x_t_gauss_noise)
-            sigma_t = torch.sqrt(beta_t) if t > 0 else 0.0  # No noise at final step
+            sigma_t = torch.clamp(torch.sqrt(beta_t * (1 - alpha_bar_tm1) / (1 - alpha_bar_t)), min=eps)
+            
+            # No noise at final step
             q_t_tm1_gauss = torch.distributions.Normal(loc=mu_theta, scale=sigma_t)
-            x_t_gauss = q_t_tm1_gauss.sample()
+            x_t_gauss = q_t_tm1_gauss.rsample()
 
             ps_gauss.append(q_t_tm1_gauss)
             
             # Categorical Backward Path (for categorical features)
             for i, x_t_cat in enumerate(x_ts_cat):  # Iterate over each categorical feature
-                # Compute the transition probabilities (π) for this categorical feature
             
                 # print(f"x_cat shape: {x_t_cat.shape}")
                 # print(f"x_0_cat_hat[i] shape: {x_0_cat_hat[i].shape}")
@@ -223,13 +227,24 @@ class DDGM(nn.Module):
                 ps_cat[i].append(q_t_tm1_cat)
             x_t = torch.cat([x_t_gauss, torch.cat(x_ts_cat, dim=1)], dim=1)
         
+        x_reconstructed = torch.cat([x_t_gauss, torch.cat(x_ts_cat, dim=1)], dim=1)
+        original_features = torch.cat([x_0_gauss, torch.cat(x_0s_cat, dim=1)], dim=1)
+        # Calculate MSE between original features and reconstructed features
+        
+
+        mse = F.mse_loss(x_t_gauss[:,2], x_0_gauss[:,2])
+        print(f'Mean Squared Error: {mse.item()}')
+        #if mse < 600:
+        self.print_histo_step(x_t_gauss[:,2])
+        self.print_histo_step(x_0_gauss[:,2])
+        
         # Compute ELBO
         # Prepare D_KL(q(xT|x0)||p(xT))
         # --------------------------------------------------------
         # Gaussian
         p_xT_gauss = torch.distributions.Normal(torch.zeros_like(x_0_gauss), torch.ones_like(x_0_gauss))
 
-        q_xT_x0_gauss = torch.distributions.Normal(loc=torch.sqrt(alpha_bars[-1]) * x_0_gauss, scale=torch.sqrt(1 - alpha_bars[-1]))
+        q_xT_x0_gauss = torch.distributions.Normal(loc=torch.sqrt(alpha_bars[-1]) * x_0_gauss, scale=(torch.sqrt(1 - alpha_bars[-1])))
         # Categorical
         kl_divs_cat = [[] for _ in x_0s_cat] 
         for i, x_cat in enumerate(x_0s_cat):
@@ -250,7 +265,7 @@ class DDGM(nn.Module):
         # --------------------------------------------------------
         # Prepare -log_q(x1|x0)(p(x0|x1))
         # Gaussian
-        q_x1_x0_samples_gauss = qs_gauss[0].sample()
+        q_x1_x0_samples_gauss = qs_gauss[0].rsample()
         p_x0_x1_gauss = ps_gauss[-1]
         nll_gaussian = -p_x0_x1_gauss.log_prob(q_x1_x0_samples_gauss).sum(dim=1).mean()
         
@@ -265,17 +280,17 @@ class DDGM(nn.Module):
         # q(x_t-1|x_t,x_0)
         qs_true_gauss = []
         qs_true_cat = [[] for _ in x_0s_cat]
-        for t in range(1,self.timesteps + 1):
+        for t in reversed(range(1,self.timesteps)):
             beta_t = betas[t]
             alpha_t = alphas[t]
             alpha_bar_tm1 = alpha_bars[t-1]
             alpha_bar_t = alpha_bars[t]
             # Gaussian
-            q_xt_x0_gauss = torch.distributions.Normal(loc=torch.sqrt(alpha_bars[t]) * x_0_gauss, scale=torch.sqrt(1 - alpha_bars[t]))
-            x_t_gauss = q_xt_x0_gauss.sample()
+            q_xt_x0_gauss = torch.distributions.Normal(loc=torch.sqrt(alpha_bars[t]) * x_0_gauss, scale=(torch.sqrt(1 - alpha_bars[t])))
+            x_t_gauss = q_xt_x0_gauss.rsample()
             mu_t = x_0_gauss*(torch.sqrt(alpha_bar_tm1)*beta_t)/(1 - alpha_bar_t) + x_t_gauss*(torch.sqrt(alpha_t)*(1-alpha_bar_tm1))/(1-alpha_bar_t)
-            std_t = torch.sqrt((1 - alpha_bar_tm1 * beta_t)/ (1 - alpha_bar_t))
-            q_x_tm1_x_t_x_0 = torch.distributions.Normal(loc=mu_t, scale=std_t)
+            sigma_t = torch.clamp(torch.sqrt(beta_t * (1 - alpha_bar_tm1) / (1 - alpha_bar_t)), min=eps)
+            q_x_tm1_x_t_x_0 = torch.distributions.Normal(loc=mu_t, scale=sigma_t)
             qs_true_gauss.append(q_x_tm1_x_t_x_0)
             # Categorical
             for i, x_0_cat in enumerate(x_0s_cat):
@@ -292,9 +307,9 @@ class DDGM(nn.Module):
                 qs_true_cat[i].append(q_t_tm1_cat)
 
         chain_dkl_gauss = torch.stack([
-            torch.distributions.kl.kl_divergence(q, p).sum(dim=1).mean()
+            torch.distributions.kl.kl_divergence(q, p).sum(dim=1)
             for q, p in zip(qs_true_gauss, ps_gauss)
-        ]).sum()
+        ]).sum().mean()
         
         chain_dkl_cat = 0
         chain_dkls_cat = [[] for _ in x_0s_cat]
@@ -305,15 +320,8 @@ class DDGM(nn.Module):
             chain_dkls_cat[i].append(chain_dkl_cat)
 
         
-        LOSS_GAUSS = (terminal_dkl_gauss + chain_dkl_gauss + nll_gaussian)
+        LOSS_GAUSS = terminal_dkl_gauss + chain_dkl_gauss + nll_gaussian
         return LOSS_GAUSS
-        # x_noisy_gauss_flat = x_noisy[:,9].cpu().numpy()
-        # plt.figure(figsize=(10, 6))
-        # plt.hist(x_noisy_gauss_flat, bins=50, density=True, alpha=0.7, color='b', edgecolor='black')
-        # plt.title('Histogram of Noisy Gaussian Samples')
-        # plt.xlabel('Value')
-        # plt.ylabel('Density')
-        # plt.show()
         
 
     def count_params(self):
@@ -324,19 +332,30 @@ class DDGM(nn.Module):
         beta_end = 0.02
         return torch.linspace(beta_start, beta_end, timesteps, requires_grad=False)
 
-    def cosine_scheduler(self, T, s = 0.008):
+    def cosine_scheduler(self, T, s=0.008, scale_factor=0.1):
         timesteps = np.linspace(0, T, T + 1, dtype=np.float64)
         
-        # Calculate alpha_t based on the cosine schedule
-        f_t = np.cos((timesteps / T + s) / (1 + s) * np.pi / 2) ** 2
+        # Calculate alpha_t based on the cosine schedule with a scaling factor
+        f_t = np.cos(((timesteps / T + s) / (1 + s)) * np.pi / 2) ** 2
         f_t /= f_t[0]  # Normalize to start from 1
-        alpha_t = f_t
+        
+        # Apply a scale factor to make the schedule less aggressive
+        alpha_t = np.clip(f_t * (1 - scale_factor) + scale_factor, 0, 1)
 
         # Calculate alpha_bar (cumulative product of alpha_t)
         alpha_bar = np.cumprod(alpha_t)
 
         # Calculate beta_t (noise magnitude at each timestep)
         beta_t = 1 - alpha_t
-
+        
         return alpha_bar, alpha_t, beta_t
+    
+    def print_histo_step(self, analysed_data):
+        analysed_data_flat = analysed_data.detach().cpu().numpy()
+        plt.figure(figsize=(10, 6))
+        plt.hist(analysed_data_flat, bins=50, density=True, alpha=0.7, color='b', edgecolor='black')
+        plt.title('Histogram of Noisy Gaussian Samples')
+        plt.xlabel('Value')
+        plt.ylabel('Density')
+        plt.show()
     

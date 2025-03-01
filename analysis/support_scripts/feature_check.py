@@ -17,8 +17,8 @@ def feature_check(path):
 
     binning = 100
     
-    EPOCHS_STD = 5
-    EPOCHS_SYM = 5
+    EPOCHS_STD = 200
+    EPOCHS_SYM = 200
     
     #reaction = 'tbh_800_new'
     reaction = 'bkg_all'
@@ -105,6 +105,9 @@ def feature_check(path):
         
         min_all += 1/min_all
         max_all += 1/max_all
+        
+        # min_all = 0
+        # max_all = 10
         
         # if feature == 'total_charge':
         #     min_all = -2.5
